@@ -2,9 +2,9 @@ import DOMPurify from "dompurify";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildIframeScript,
-  createIframeAdapter,
+  createHighlighter,
   type HighlightComment,
-  type IframeHighlightAdapter,
+  type Highlighter,
 } from "../lib/highlight";
 import type { Comment, SelectionRange } from "../types";
 
@@ -137,7 +137,7 @@ export function IframeContainer({
   onHighlightHover,
 }: IframeContainerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const adapterRef = useRef<IframeHighlightAdapter | null>(null);
+  const adapterRef = useRef<Highlighter | null>(null);
   const [contentHeight, setContentHeight] = useState<number>(0);
 
   // Build the complete HTML document for the iframe
@@ -153,7 +153,8 @@ export function IframeContainer({
 
   // Initialize adapter
   useEffect(() => {
-    const adapter = createIframeAdapter({
+    const adapter = createHighlighter({
+      type: "iframe",
       getIframe: () => iframeRef.current,
       onSelect: onTextSelect,
     });
@@ -189,14 +190,14 @@ export function IframeContainer({
       : () => {};
 
     // Subscribe to content height changes for auto-sizing
-    const unsubHeight = adapter.onContentHeightChange((height) => {
+    const unsubHeight = adapter.onContentHeightChange?.((height) => {
       setContentHeight(height);
     });
 
     return () => {
       unsubPositions();
       unsubHover();
-      unsubHeight();
+      unsubHeight?.();
       adapter.dispose();
       adapterRef.current = null;
     };

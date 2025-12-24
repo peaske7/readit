@@ -159,11 +159,22 @@ export function buildIframeScript(parentOrigin: string): string {
   function collectTextNodes(root) {
     const textNodes = [];
     let currentOffset = 0;
+    let lastBlockParent = null;
 
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     let node = walker.nextNode();
 
     while (node) {
+      const blockParent = findBlockParent(node);
+
+      // Account for newline when transitioning between different block parents
+      // (same logic as getDOMTextContent)
+      if (lastBlockParent && blockParent && lastBlockParent !== blockParent) {
+        if (!lastBlockParent.contains(blockParent) && !blockParent.contains(lastBlockParent)) {
+          currentOffset += 1; // Account for the newline
+        }
+      }
+
       const length = node.textContent?.length ?? 0;
       textNodes.push({
         node: node,
@@ -171,6 +182,7 @@ export function buildIframeScript(parentOrigin: string): string {
         end: currentOffset + length,
       });
       currentOffset += length;
+      lastBlockParent = blockParent;
       node = walker.nextNode();
     }
 

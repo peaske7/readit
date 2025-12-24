@@ -9,9 +9,9 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Heading } from "../hooks/useHeadings";
 import {
-  createMarkdownAdapter,
-  type HighlightAdapter,
+  createHighlighter,
   type HighlightComment,
+  type Highlighter,
 } from "../lib/highlight";
 import { getTextContent } from "../lib/utils";
 import type { Comment, DocumentType, SelectionRange } from "../types";
@@ -88,7 +88,7 @@ export function DocumentViewer({
 }: DocumentViewerProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const adapterRef = useRef<HighlightAdapter | null>(null);
+  const adapterRef = useRef<Highlighter | null>(null);
   const headingIndexRef = useRef(0);
 
   // Initialize adapter when refs are ready
@@ -96,8 +96,9 @@ export function DocumentViewer({
     if (type !== "markdown") return;
     if (!contentRef.current || !containerRef.current) return;
 
-    // Create adapter
-    const adapter = createMarkdownAdapter({
+    // Create highlighter
+    const adapter = createHighlighter({
+      type: "markdown",
       root: contentRef.current,
       container: containerRef.current,
       onSelect: onTextSelect,

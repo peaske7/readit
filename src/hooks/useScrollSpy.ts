@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Hook to track which heading is currently in view
@@ -6,10 +6,12 @@ import { useEffect, useState } from "react";
  */
 export function useScrollSpy(headingIds: string[]): string | null {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const hasSetInitialRef = useRef(false);
 
   useEffect(() => {
     if (headingIds.length === 0) {
       setActiveId(null);
+      hasSetInitialRef.current = false;
       return;
     }
 
@@ -55,6 +57,13 @@ export function useScrollSpy(headingIds: string[]): string | null {
       },
     );
 
+    // Set initial active heading BEFORE starting observer
+    // to prevent flash when observer fires first
+    if (!hasSetInitialRef.current) {
+      setActiveId(headingIds[0]);
+      hasSetInitialRef.current = true;
+    }
+
     // Observe all headings
     for (const id of headingIds) {
       const element = document.getElementById(id);
@@ -63,15 +72,10 @@ export function useScrollSpy(headingIds: string[]): string | null {
       }
     }
 
-    // Set initial active heading (first one if none visible)
-    if (headingIds.length > 0 && !activeId) {
-      setActiveId(headingIds[0]);
-    }
-
     return () => {
       observer.disconnect();
     };
-  }, [headingIds, activeId]);
+  }, [headingIds]);
 
   return activeId;
 }

@@ -53,6 +53,9 @@ export function useComments(
    * 5. On error: rollback to previous state
    * 6. Cleanup pending operation tracking
    */
+  // Depends on `comments` to capture current state for rollback on error.
+  // This causes callback recreation on every comments change, but is necessary
+  // because we need the exact state at mutation start for accurate rollback.
   const executeMutation = useCallback(
     async <T>({
       operationId,

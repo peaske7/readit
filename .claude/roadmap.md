@@ -65,9 +65,9 @@ Review documents, add comments, then resolve one-by-one with LLM assistance.
 ## v0.4.0 - Visual Enhancements
 
 - [x] Highlight commented text in document (moved to v0.1.0)
+- [x] Syntax highlighting for code blocks (react-syntax-highlighter)
 - [ ] Click highlight → scroll to margin note
 - [ ] Click margin note → scroll to highlighted text
-- [ ] Syntax highlighting for code blocks (Prism.js)
 - [ ] Better mobile support
 
 ## v0.5.0 - Comment Categories

@@ -22,12 +22,14 @@ export function useCommentNavigation(
     string | undefined
   >();
 
-  // Reset comment index when comments change
+  // Reset comment index when comments are removed
   useEffect(() => {
-    if (currentIndex >= sortedComments.length) {
-      setCurrentIndex(Math.max(0, sortedComments.length - 1));
-    }
-  }, [sortedComments.length, currentIndex]);
+    setCurrentIndex((prev) =>
+      prev >= sortedComments.length
+        ? Math.max(0, sortedComments.length - 1)
+        : prev,
+    );
+  }, [sortedComments.length]);
 
   // Navigate to a comment by scrolling its highlight into view
   const navigateToComment = useCallback((commentId: string) => {
