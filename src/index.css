@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+/* Serif typography - editorial aesthetic */
+.font-serif {
+  font-family: serif;
+}
+
+/* Selection highlight */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f5f5f5;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+
+/* Comment highlight styles */
+mark[data-comment-id] {
+  background-color: rgba(254, 249, 195, 0.5);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+mark[data-comment-id]:hover {
+  background-color: rgba(254, 249, 195, 0.8);
+}
+
+mark[data-comment-id]:active {
+  background-color: rgba(253, 224, 71, 0.6);
+}
+
+/* Pending selection highlight */
+mark[data-pending] {
+  background-color: rgba(253, 224, 71, 0.5);
+  cursor: text;
+}
+
+/* Toast animation */
+[data-sonner-toast] {
+  animation: toast-in 0.2s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dropdown menu animation */
+.animate-in {
+  animation: menu-in 0.15s ease-out;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Table of Contents - Whisper aesthetic */
+.toc {
+  font-family: serif;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.toc-item {
+  display: block;
+  color: rgba(26, 26, 26, 0.5);
+  text-decoration: none;
+  padding: 3px 0;
+  transition: color 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+/* Hierarchy via indentation + size */
+.toc-level-1 {
+  padding-left: 0;
+  font-size: 14px;
+}
+
+.toc-level-2 {
+  padding-left: 12px;
+  font-size: 13px;
+  color: rgba(26, 26, 26, 0.45);
+}
+
+.toc-level-3 {
+  padding-left: 24px;
+  font-size: 12px;
+  color: rgba(26, 26, 26, 0.4);
+}
+
+.toc-level-4,
+.toc-level-5,
+.toc-level-6 {
+  padding-left: 36px;
+  font-size: 11px;
+  color: rgba(26, 26, 26, 0.35);
+}
+
+/* Hover - slightly more visible */
+.toc-item:hover {
+  color: rgba(26, 26, 26, 0.75);
+}
+
+/* Active - clearly readable */
+.toc-active {
+  color: rgba(26, 26, 26, 0.85);
+  font-weight: 500;
+}
+
+/* Toggle indicator for collapsible sections */
+.toc-toggle {
+  font-size: 10px;
+  vertical-align: middle;
+  transition: opacity 0.15s ease;
+}
+
+.toc-item:hover .toc-toggle {
+  opacity: 0.7;
+}

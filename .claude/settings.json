@@ -1,0 +1,18 @@
+{
+  "project": {
+    "name": "readit",
+    "description": "CLI tool for reviewing Markdown documents with inline comments",
+    "version": "0.1.0"
+  },
+  "context": {
+    "entryPoints": ["src/cli.ts", "src/App.tsx"],
+    "documentation": ["CLAUDE.md", ".claude/user-stories.md"],
+    "testFile": "test.md"
+  },
+  "preferences": {
+    "language": "typescript",
+    "style": "functional",
+    "formatting": "prettier",
+    "imports": "esm"
+  }
+}

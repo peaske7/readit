@@ -1,0 +1,86 @@
+{
+  "name": "readit",
+  "version": "0.1.0",
+  "description": "A CLI tool to review Markdown documents with inline comments",
+  "type": "module",
+  "keywords": [
+    "markdown",
+    "review",
+    "cli",
+    "comments",
+    "documentation"
+  ],
+  "author": {
+    "email": "jay.shimada@lymo.jp",
+    "name": "Jay Shimada"
+  },
+  "license": "MIT",
+  "bin": {
+    "readit": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "concurrently \"vite\" \"NODE_ENV=development tsx watch src/cli/index.ts -- test.md\"",
+    "build": "vite build && npm run build:cli",
+    "build:cli": "tsup src/cli/index.ts --format esm --outDir dist --target es2022",
+    "start": "npm run build && node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "typecheck": "tsc --noEmit",
+    "prepare": "lefthook install || true"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "commander": "^14.0.2",
+    "dompurify": "^3.3.1",
+    "express": "^5.2.1",
+    "lucide-react": "^0.562.0",
+    "open": "^11.0.0",
+    "react-markdown": "^10.1.0",
+    "rehype-parse": "^9.0.1",
+    "rehype-react": "^8.0.0",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.4.0",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.10",
+    "@playwright/test": "^1.57.0",
+    "@tailwindcss/vite": "^4.1.18",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
+    "@types/dompurify": "^3.2.0",
+    "@types/express": "^5.0.6",
+    "@types/jsdom": "^27.0.0",
+    "@types/node": "^25.0.3",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.2",
+    "concurrently": "^9.2.1",
+    "jsdom": "^27.3.0",
+    "lefthook": "^2.0.12",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "tailwindcss": "^4.1.18",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.0",
+    "vitest": "^4.0.16"
+  },
+  "packageManager": "pnpm@10.26.0",
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
