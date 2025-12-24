@@ -1,8 +1,3 @@
-/**
- * Highlight adapter for HTML documents rendered in sandboxed iframes.
- * Communicates with iframe via postMessage.
- */
-
 import type { HighlightComment, HighlightPositions, TextRange } from "../types";
 import type {
   HighlightAdapter,
@@ -20,9 +15,6 @@ export interface IframeAdapterOptions {
   onSelect: SelectionHandler;
 }
 
-/**
- * Create a highlight adapter for HTML content in an iframe.
- */
 export interface IframeHighlightAdapter extends HighlightAdapter {
   onContentHeightChange: (callback: ContentHeightHandler) => () => void;
 }
@@ -33,15 +25,15 @@ export function createIframeAdapter(
   const { getIframe, onSelect } = options;
 
   let isReady = false;
-  let positionCallback: PositionChangeHandler | null = null;
-  let hoverCallback: HoverHandler | null = null;
-  let contentHeightCallback: ContentHeightHandler | null = null;
-  let pendingHighlights: {
-    comments: HighlightComment[];
-    pending?: TextRange;
-  } | null = null;
-
-  // --- Message Handler ---
+  let positionCallback: PositionChangeHandler | undefined;
+  let hoverCallback: HoverHandler | undefined;
+  let contentHeightCallback: ContentHeightHandler | undefined;
+  let pendingHighlights:
+    | {
+        comments: HighlightComment[];
+        pending?: TextRange;
+      }
+    | undefined;
 
   const handleMessage = (event: MessageEvent) => {
     const iframe = getIframe();
@@ -52,7 +44,7 @@ export function createIframeAdapter(
         isReady = true;
         if (pendingHighlights) {
           sendHighlights(pendingHighlights.comments, pendingHighlights.pending);
-          pendingHighlights = null;
+          pendingHighlights = undefined;
         }
         break;
 
@@ -101,8 +93,6 @@ export function createIframeAdapter(
     }
   };
 
-  // --- Helper Functions ---
-
   const sendHighlights = (
     comments: HighlightComment[],
     pending?: TextRange,
@@ -124,11 +114,7 @@ export function createIframeAdapter(
     );
   };
 
-  // --- Attach Event Listener ---
-
   window.addEventListener("message", handleMessage);
-
-  // --- Adapter Implementation ---
 
   return {
     applyHighlights(
@@ -156,31 +142,31 @@ export function createIframeAdapter(
     onPositionsChange(callback: PositionChangeHandler) {
       positionCallback = callback;
       return () => {
-        positionCallback = null;
+        positionCallback = undefined;
       };
     },
 
     onHighlightHover(callback: HoverHandler) {
       hoverCallback = callback;
       return () => {
-        hoverCallback = null;
+        hoverCallback = undefined;
       };
     },
 
     onContentHeightChange(callback: ContentHeightHandler) {
       contentHeightCallback = callback;
       return () => {
-        contentHeightCallback = null;
+        contentHeightCallback = undefined;
       };
     },
 
     dispose() {
       window.removeEventListener("message", handleMessage);
-      positionCallback = null;
-      hoverCallback = null;
-      contentHeightCallback = null;
+      positionCallback = undefined;
+      hoverCallback = undefined;
+      contentHeightCallback = undefined;
       isReady = false;
-      pendingHighlights = null;
+      pendingHighlights = undefined;
     },
   };
 }

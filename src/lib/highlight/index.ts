@@ -1,15 +1,3 @@
-/**
- * Modular highlighting system for readit.
- *
- * Architecture:
- * - core.ts: Pure functions (no DOM) - findTextPosition
- * - dom.ts: DOM utilities - getTextOffset, applyHighlightToRange, etc.
- * - adapters/: Document-type specific implementations
- *   - markdown.ts: Direct DOM for react-markdown
- *   - iframe.ts: postMessage for HTML in iframe
- * - script-builder.ts: Generates iframe runtime script
- */
-
 export type {
   ContentHeightHandler,
   IframeAdapterOptions,
@@ -25,15 +13,21 @@ export type {
   PositionChangeHandler,
   SelectionHandler,
 } from "./adapters/types";
+export type { CommentColor } from "./colors";
+// Colors
+export { COMMENT_COLORS } from "./colors";
 // Core functions
-export { findTextPosition, normalizeText } from "./core";
+export { findTextPosition } from "./core";
+export type { ExtendedHighlightStyle } from "./dom";
 // DOM utilities
 export {
   applyHighlightToRange,
+  applyHighlightWithStyle,
   clearHighlights,
   collectHighlightPositions,
   collectHighlightPositionsViewport,
   collectTextNodes,
+  countLinesInRange,
   getDOMTextContent,
   getTextOffset,
 } from "./dom";

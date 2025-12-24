@@ -14,12 +14,14 @@ import {
   useComments,
   useDocument,
   useHeadings,
+  useReanchorMode,
   useScrollMetrics,
   useScrollSpy,
   useTextSelection,
 } from "./hooks";
 import { extractContext, formatForLLM } from "./lib/context";
 import { exportCommentsAsJson, generatePrompt } from "./lib/export";
+import { calculateScrollTarget, getElementTopInDocument } from "./lib/scroll";
 import type { Comment } from "./types";
 
 function truncate(text: string, maxLength = 30): string {
@@ -49,7 +51,11 @@ function App() {
     addComment,
     deleteComment,
     editComment,
+    reanchorComment,
   } = useComments(document?.filePath || null, { clean: document?.clean });
+
+  // Re-anchor mode for unresolved comments
+  const { reanchorTarget, startReanchor, cancelReanchor } = useReanchorMode();
 
   // Sort comments by document position
   const sortedComments = useMemo(
@@ -80,17 +86,42 @@ function App() {
   const scrollToHeading = useCallback(
     (id: string) => {
       let element: Element | null = null;
+      let elementTop: number;
 
       if (document?.type === "html") {
         const iframe = window.document.querySelector("iframe");
         element = iframe?.contentDocument?.getElementById(id) ?? null;
+
+        if (element && iframe) {
+          // For iframes: calculate position relative to main document
+          // The iframe is auto-sized (no internal scroll), so we scroll the main window
+          const iframeRect = iframe.getBoundingClientRect();
+          elementTop = getElementTopInDocument(
+            element.getBoundingClientRect(),
+            window.scrollY,
+            iframeRect.top,
+          );
+        } else {
+          return;
+        }
       } else {
         element = window.document.getElementById(id);
+
+        if (element) {
+          elementTop = getElementTopInDocument(
+            element.getBoundingClientRect(),
+            window.scrollY,
+          );
+        } else {
+          return;
+        }
       }
 
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      const scrollTarget = calculateScrollTarget(
+        elementTop,
+        window.innerHeight,
+      );
+      window.scrollTo({ top: scrollTarget, behavior: "smooth" });
     },
     [document?.type],
   );
@@ -124,6 +155,33 @@ function App() {
     },
     [selection, addComment, clearSelection],
   );
+
+  // Re-anchor confirmation handler
+  const handleConfirmReanchor = useCallback(() => {
+    if (!selection || !reanchorTarget) return;
+
+    reanchorComment(
+      reanchorTarget.commentId,
+      selection.text,
+      selection.startOffset,
+      selection.endOffset,
+    );
+
+    cancelReanchor();
+    clearSelection();
+  }, [
+    selection,
+    reanchorTarget,
+    reanchorComment,
+    cancelReanchor,
+    clearSelection,
+  ]);
+
+  // Cancel re-anchor and clear selection
+  const handleCancelReanchor = useCallback(() => {
+    cancelReanchor();
+    clearSelection();
+  }, [cancelReanchor, clearSelection]);
 
   // Export handlers
   const handleCopyAll = useCallback(() => {
@@ -192,6 +250,19 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selection, handleCopySelectionForLLM]);
 
+  // Update data-focused attribute on highlight marks when hover state changes
+  useEffect(() => {
+    const marks = window.document.querySelectorAll("mark[data-comment-id]");
+    for (const mark of marks) {
+      const commentId = mark.getAttribute("data-comment-id");
+      if (commentId === hoveredCommentId) {
+        mark.setAttribute("data-focused", "true");
+      } else {
+        mark.removeAttribute("data-focused");
+      }
+    }
+  }, [hoveredCommentId]);
+
   if (error) {
     return (
       <div className="min-h-screen bg-white text-gray-900 flex items-center justify-center">
@@ -209,7 +280,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
       <Toaster
         position="bottom-right"
         icons={{
@@ -229,17 +300,24 @@ function App() {
       />
       <Header
         fileName={document.fileName}
-        commentCount={comments.length}
+        comments={comments}
         onCopyAll={handleCopyAll}
         onExportJson={handleExportJson}
         onReload={reload}
+        onEditComment={editComment}
+        onDeleteComment={deleteComment}
+        onGoToComment={navigateToComment}
+        onReanchorComment={startReanchor}
+        reanchorMode={reanchorTarget}
       />
 
-      <div className="flex gap-4 max-w-7xl mx-auto w-full">
+      <div
+        className={`flex-1 flex gap-4 max-w-7xl mx-auto w-full ${hoveredCommentId ? "has-comment-focus" : ""}`}
+      >
         {/* Table of contents - left side */}
         {headings.length > 0 && (
           <aside className="w-48 flex-shrink-0 py-6 pl-6 hidden xl:block">
-            <div className="sticky top-16 max-h-[calc(100vh-5rem)] overflow-y-auto">
+            <div className="sticky top-64 max-h-[calc(100vh-17rem)] overflow-y-auto">
               <TableOfContents
                 headings={headings}
                 activeId={activeHeadingId}
@@ -255,6 +333,7 @@ function App() {
             content={document.content}
             type={document.type}
             comments={comments}
+            headings={headings}
             pendingSelection={selection ?? undefined}
             onTextSelect={onTextSelect}
             onHighlightPositionsChange={onPositionsChange}
@@ -264,18 +343,45 @@ function App() {
 
         {/* Margin notes area */}
         <div className="w-72 flex-shrink-0 py-6 pr-4 relative">
-          {/* Comment input - positioned next to selection */}
-          {selection && pendingSelectionTop !== null && (
+          {/* Comment input or re-anchor confirmation - positioned next to selection */}
+          {selection && pendingSelectionTop !== undefined && (
             <div
               className="absolute left-0 right-0 z-10 bg-white"
               style={{ top: pendingSelectionTop }}
             >
-              <CommentInputArea
-                selectedText={selection.text}
-                onSubmit={handleAddComment}
-                onCancel={clearSelection}
-                onCopyForLLM={handleCopySelectionForLLM}
-              />
+              {reanchorTarget !== null ? (
+                <div className="border-t border-gray-200 pt-2 pb-3 pl-6">
+                  <p className="text-sm text-gray-500 mb-2">
+                    Re-anchor to this selection?
+                  </p>
+                  <p className="font-serif text-sm text-gray-400 italic line-clamp-2 mb-2">
+                    "{selection.text}"
+                  </p>
+                  <div className="flex gap-3 text-sm">
+                    <button
+                      type="button"
+                      onClick={handleConfirmReanchor}
+                      className="text-gray-600 hover:text-gray-900"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelReanchor}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <CommentInputArea
+                  selectedText={selection.text}
+                  onSubmit={handleAddComment}
+                  onCancel={clearSelection}
+                  onCopyForLLM={handleCopySelectionForLLM}
+                />
+              )}
             </div>
           )}
 
@@ -283,11 +389,12 @@ function App() {
           <MarginNotesContainer
             sortedComments={sortedComments}
             highlightPositions={highlightPositions}
-            pendingSelectionTop={selection ? pendingSelectionTop : null}
+            pendingSelectionTop={selection ? pendingSelectionTop : undefined}
             hoveredCommentId={hoveredCommentId}
             onEditComment={editComment}
             onDeleteComment={deleteComment}
             onCopyCommentForLLM={handleCopyCommentForLLM}
+            onHoverComment={setHoveredCommentId}
           />
         </div>
       </div>
@@ -298,7 +405,6 @@ function App() {
         documentPositions={documentPositions}
         documentHeight={scrollMetrics.documentHeight}
         viewportHeight={scrollMetrics.viewportHeight}
-        scrollTop={scrollMetrics.scrollTop}
         hoveredCommentId={hoveredCommentId}
         onCommentClick={navigateToComment}
       />
@@ -310,6 +416,10 @@ function App() {
         onPrevious={navigatePrevious}
         onNext={navigateNext}
       />
+
+      <footer className="py-4 text-center text-sm text-gray-400">
+        Made with ❤️ by Jay and Claude
+      </footer>
     </div>
   );
 }

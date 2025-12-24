@@ -23,7 +23,8 @@
         "useExhaustiveDependencies": "warn"
       },
       "complexity": {
-        "noForEach": "off"
+        "noForEach": "off",
+        "noImportantStyles": "off"
       },
       "suspicious": {
         "noArrayIndexKey": "warn",

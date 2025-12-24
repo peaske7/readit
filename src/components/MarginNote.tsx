@@ -12,15 +12,17 @@ interface MarginNoteProps {
   onEdit: (id: string, newText: string) => void;
   onDelete: (id: string) => void;
   onCopyForLLM: (comment: Comment) => void;
+  /** Called when mouse enters/leaves the note */
+  onHover?: (commentId: string | undefined) => void;
 }
 
 const confidenceVariants = cva("", {
   variants: {
     confidence: {
       exact: "",
-      normalized: "", // Whitespace-normalized match - as reliable as exact
-      fuzzy: "border-l-2 border-l-yellow-400",
-      unresolved: "border-l-2 border-l-red-400 opacity-75",
+      normalized: "",
+      fuzzy: "",
+      unresolved: "opacity-60",
     },
   },
   defaultVariants: { confidence: "exact" },
@@ -73,9 +75,12 @@ export function MarginNote({
   onEdit,
   onDelete,
   onCopyForLLM,
+  onHover,
 }: MarginNoteProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(comment.comment);
+
+  const hasNote = comment.comment.trim().length > 0;
 
   const handleSave = () => {
     onEdit(comment.id, editText);
@@ -91,49 +96,76 @@ export function MarginNote({
 
   const createdAtFormatted = new Date(comment.createdAt).toLocaleString();
 
+  // Highlight-only (no note): minimal em-dash marker
+  if (!hasNote && !isEditing) {
+    return (
+      <article
+        className="absolute left-0 right-0 group"
+        style={{ top }}
+        title={`Added: ${createdAtFormatted}`}
+        onMouseEnter={() => onHover?.(comment.id)}
+        onMouseLeave={() => onHover?.(undefined)}
+      >
+        <span className={badgeVariants({ hovered: isHovered })}>—</span>
+
+        <div className="pt-2 pb-2 pl-3">
+          <div
+            className={cn(
+              "flex items-center gap-1.5 text-xs text-gray-400 transition-opacity duration-150",
+              isHovered ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+            )}
+          >
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="hover:text-gray-600"
+            >
+              Add note
+            </button>
+            <span>·</span>
+            <button
+              type="button"
+              onClick={() => onDelete(comment.id)}
+              className="hover:text-red-500"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
   return (
-    <div
+    <article
       className="absolute left-0 right-0 group"
       style={{ top }}
       title={`Added: ${createdAtFormatted}`}
+      onMouseEnter={() => onHover?.(comment.id)}
+      onMouseLeave={() => onHover?.(undefined)}
     >
-      {/* Footnote-style number badge */}
       <span className={badgeVariants({ hovered: isHovered })}>
         {commentIndex + 1}
       </span>
 
       <div
         className={cn(
-          "relative border-t border-gray-200 pt-2 pb-3 pl-6 transition-all duration-200",
+          "relative border-t border-gray-100 pt-3 pb-2 pl-3 transition-all duration-200",
           confidenceVariants({
             confidence: comment.anchorConfidence || "exact",
           }),
         )}
       >
-        <div
-          className={cn(
-            "font-serif",
-            selectedTextVariants({ hovered: isHovered }),
-          )}
-        >
-          <span>"{comment.selectedText}"</span>
-          {comment.anchorConfidence === "fuzzy" && (
-            <span
-              className="text-yellow-600 text-xs"
-              title="Anchor position may have shifted"
-            >
-              ⚠
-            </span>
-          )}
-          {comment.anchorConfidence === "unresolved" && (
-            <span
-              className="text-red-600 text-xs"
-              title="Could not locate original text in document"
-            >
-              ⚠
-            </span>
-          )}
-        </div>
+        {!isEditing && (
+          <div
+            className={cn(
+              "font-serif",
+              selectedTextVariants({ hovered: isHovered }),
+            )}
+          >
+            <span>"{comment.selectedText}"</span>
+          </div>
+        )}
 
         {isEditing ? (
           <div className="space-y-2">
@@ -182,32 +214,35 @@ export function MarginNote({
             >
               {comment.comment}
             </p>
-            <div className="flex gap-3 mt-2 opacity-0 group-hover:opacity-100 transition-opacity text-sm">
+            <div className="flex items-center gap-1.5 mt-2 opacity-0 group-hover:opacity-100 transition-opacity text-xs text-gray-400">
               <button
                 type="button"
                 onClick={() => setIsEditing(true)}
-                className="text-gray-400 hover:text-gray-600"
+                className="hover:text-gray-600"
               >
                 Edit
               </button>
+              <span>·</span>
               <button
                 type="button"
                 onClick={() => onDelete(comment.id)}
-                className="text-gray-400 hover:text-red-500"
+                className="hover:text-red-500"
               >
                 Delete
               </button>
+              <span>·</span>
               <button
                 type="button"
                 onClick={handleCopy}
-                className="text-gray-400 hover:text-gray-600"
+                className="hover:text-gray-600"
               >
                 Copy
               </button>
+              <span>·</span>
               <button
                 type="button"
                 onClick={() => onCopyForLLM(comment)}
-                className="text-gray-400 hover:text-gray-600"
+                className="hover:text-gray-600"
                 title="Copy with context for LLM"
               >
                 LLM
@@ -216,6 +251,6 @@ export function MarginNote({
           </>
         )}
       </div>
-    </div>
+    </article>
   );
 }

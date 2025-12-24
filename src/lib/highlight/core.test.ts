@@ -13,19 +13,19 @@ describe("findTextPosition", () => {
   });
 
   it("returns null for no match", () => {
-    expect(findTextPosition("hello", "xyz")).toBeNull();
+    expect(findTextPosition("hello", "xyz")).toBeUndefined();
   });
 
   it("returns null for empty selectedText", () => {
-    expect(findTextPosition("hello world", "")).toBeNull();
+    expect(findTextPosition("hello world", "")).toBeUndefined();
   });
 
   it("returns null for empty textContent", () => {
-    expect(findTextPosition("", "hello")).toBeNull();
+    expect(findTextPosition("", "hello")).toBeUndefined();
   });
 
   it("returns null for both empty", () => {
-    expect(findTextPosition("", "")).toBeNull();
+    expect(findTextPosition("", "")).toBeUndefined();
   });
 
   describe("multiple occurrences", () => {
@@ -92,7 +92,7 @@ describe("findTextPosition", () => {
 
     it("is case sensitive", () => {
       const result = findTextPosition("Hello World", "hello");
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
   });
 });

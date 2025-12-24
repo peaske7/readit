@@ -1,22 +1,27 @@
 import {
   type ComponentPropsWithoutRef,
+  type MutableRefObject,
   useEffect,
   useMemo,
   useRef,
 } from "react";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Heading } from "../hooks/useHeadings";
 import {
   createMarkdownAdapter,
   type HighlightAdapter,
   type HighlightComment,
 } from "../lib/highlight";
-import { slugify } from "../lib/utils";
+import { getTextContent } from "../lib/utils";
 import type { Comment, DocumentType, SelectionRange } from "../types";
+import { CodeBlock } from "./CodeBlock";
 import { IframeContainer } from "./IframeContainer";
 
 function createHeadingComponent(
   level: 1 | 2 | 3 | 4 | 5 | 6,
-  seenIds: Map<string, number>,
+  headings: Heading[],
+  headingIndexRef: MutableRefObject<number>,
 ) {
   const Tag = `h${level}` as const;
 
@@ -24,15 +29,29 @@ function createHeadingComponent(
     children,
     ...props
   }: ComponentPropsWithoutRef<typeof Tag>) {
-    const text = String(children);
-    let id = slugify(text);
+    const text = getTextContent(children);
 
-    // Handle duplicate IDs
-    const count = seenIds.get(id) ?? 0;
-    if (count > 0) {
-      id = `${id}-${count}`;
+    // Find the next heading in the pre-computed list that matches this level and text
+    // This handles React Strict Mode double-renders by always looking forward from current index
+    let id = "";
+    for (let i = headingIndexRef.current; i < headings.length; i++) {
+      const heading = headings[i];
+      if (heading.level === level && heading.text === text) {
+        id = heading.id;
+        headingIndexRef.current = i + 1;
+        break;
+      }
     }
-    seenIds.set(slugify(text), count + 1);
+
+    // Fallback: if not found (shouldn't happen), search from beginning
+    if (!id) {
+      for (const heading of headings) {
+        if (heading.level === level && heading.text === text) {
+          id = heading.id;
+          break;
+        }
+      }
+    }
 
     return (
       <Tag id={id} {...props}>
@@ -46,6 +65,7 @@ interface DocumentViewerProps {
   content: string;
   type: DocumentType;
   comments: Comment[];
+  headings: Heading[];
   pendingSelection?: SelectionRange;
   onTextSelect: (text: string, startOffset: number, endOffset: number) => void;
   onHighlightPositionsChange?: (
@@ -53,13 +73,14 @@ interface DocumentViewerProps {
     documentPositions: Record<string, number>,
     pendingTop?: number,
   ) => void;
-  onHighlightHover?: (commentId: string | null) => void;
+  onHighlightHover?: (commentId: string | undefined) => void;
 }
 
 export function DocumentViewer({
   content,
   type,
   comments,
+  headings,
   pendingSelection,
   onTextSelect,
   onHighlightPositionsChange,
@@ -68,20 +89,7 @@ export function DocumentViewer({
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<HighlightAdapter | null>(null);
-  const seenIdsRef = useRef(new Map<string, number>());
-
-  // Create heading components with shared seenIds tracker
-  const headingComponents = useMemo(() => {
-    const seenIds = seenIdsRef.current;
-    return {
-      h1: createHeadingComponent(1, seenIds),
-      h2: createHeadingComponent(2, seenIds),
-      h3: createHeadingComponent(3, seenIds),
-      h4: createHeadingComponent(4, seenIds),
-      h5: createHeadingComponent(5, seenIds),
-      h6: createHeadingComponent(6, seenIds),
-    };
-  }, []);
+  const headingIndexRef = useRef(0);
 
   // Initialize adapter when refs are ready
   useEffect(() => {
@@ -159,6 +167,23 @@ export function DocumentViewer({
       window.removeEventListener("test:select-text", handleTestSelect);
   }, [type, onTextSelect]);
 
+  // Memoize markdown components to prevent React from replacing DOM nodes on re-render.
+  // This is critical for highlight persistence - without memoization, new component
+  // references cause React to unmount/remount headings, removing our DOM-injected marks.
+  // Note: Must be called before any conditional returns to satisfy React's rules of hooks.
+  const markdownComponents = useMemo(
+    () => ({
+      h1: createHeadingComponent(1, headings, headingIndexRef),
+      h2: createHeadingComponent(2, headings, headingIndexRef),
+      h3: createHeadingComponent(3, headings, headingIndexRef),
+      h4: createHeadingComponent(4, headings, headingIndexRef),
+      h5: createHeadingComponent(5, headings, headingIndexRef),
+      h6: createHeadingComponent(6, headings, headingIndexRef),
+      code: CodeBlock,
+    }),
+    [headings],
+  );
+
   // HTML content - render in isolated iframe
   if (type === "html") {
     return (
@@ -179,13 +204,17 @@ export function DocumentViewer({
   // Markdown content - render with react-markdown
   // Note: mouseUp is handled by the adapter internally
 
-  // Reset seen IDs before each render to handle re-renders correctly
-  seenIdsRef.current.clear();
+  // Reset heading index for each render to handle React Strict Mode double-renders
+  headingIndexRef.current = 0;
 
   return (
     <div ref={containerRef} className="flex-1 min-w-0">
-      <article ref={contentRef} className="prose max-w-none">
-        <Markdown key={content} components={headingComponents}>
+      <article ref={contentRef} className="prose">
+        <Markdown
+          key={content}
+          components={markdownComponents}
+          remarkPlugins={[remarkGfm]}
+        >
           {content}
         </Markdown>
       </article>

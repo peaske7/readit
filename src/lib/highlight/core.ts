@@ -1,25 +1,16 @@
-/**
- * Pure highlighting functions that operate on text content.
- * No DOM dependencies - can run in any JavaScript environment.
- *
- * Functions marked with @iframe are included in the generated iframe runtime.
- */
-
 import type { TextPosition } from "./types";
 
 /**
  * Find text position in content, handling duplicate occurrences.
  * Returns the occurrence closest to hintOffset when multiple exist.
- *
- * @iframe
  */
 export function findTextPosition(
   textContent: string,
   selectedText: string,
   hintOffset?: number,
-): TextPosition | null {
+): TextPosition | undefined {
   if (!selectedText || !textContent) {
-    return null;
+    return undefined;
   }
 
   const occurrences: number[] = [];
@@ -33,7 +24,7 @@ export function findTextPosition(
   }
 
   if (occurrences.length === 0) {
-    return null;
+    return undefined;
   }
 
   if (occurrences.length === 1) {
@@ -60,13 +51,4 @@ export function findTextPosition(
     start: closest,
     end: closest + selectedText.length,
   };
-}
-
-/**
- * Normalize text for comparison (trim whitespace).
- *
- * @iframe
- */
-export function normalizeText(text: string): string {
-  return text.trim();
 }

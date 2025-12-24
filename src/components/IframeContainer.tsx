@@ -18,7 +18,7 @@ interface IframeContainerProps {
     documentPositions: Record<string, number>,
     pendingTop?: number,
   ) => void;
-  onHighlightHover?: (commentId: string | null) => void;
+  onHighlightHover?: (commentId: string | undefined) => void;
 }
 
 /**
@@ -73,19 +73,19 @@ const baseStyles = `
   :where(body:not([class])) :where(th) { background: #f9fafb; font-weight: 600; }
   :where(body:not([class])) :where(img) { max-width: 100%; height: auto; }
 
-  /* Highlight styles - always applied */
+  /* Highlight styles - warm ink palette */
   mark[data-comment-id] {
-    background: rgba(254, 249, 195, 0.6);
+    background: rgba(245, 222, 160, 0.5);
     cursor: pointer;
     transition: background-color 0.15s ease;
   }
   mark[data-comment-id]:hover {
-    background-color: rgba(254, 249, 195, 0.9);
+    background-color: rgba(228, 195, 110, 0.65);
   }
   mark[data-comment-id]:active {
-    background-color: rgba(253, 224, 71, 0.7);
+    background-color: rgba(228, 195, 110, 0.75);
   }
-  mark[data-pending] { background: rgba(253, 224, 71, 0.5); cursor: text; }
+  mark[data-pending] { background: rgba(180, 180, 180, 0.3); cursor: text; }
 `;
 
 /**
@@ -138,7 +138,7 @@ export function IframeContainer({
 }: IframeContainerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const adapterRef = useRef<IframeHighlightAdapter | null>(null);
-  const [contentHeight, setContentHeight] = useState<number>(600);
+  const [contentHeight, setContentHeight] = useState<number>(0);
 
   // Build the complete HTML document for the iframe
   const srcdoc = useMemo(() => {
@@ -237,7 +237,7 @@ export function IframeContainer({
       sandbox="allow-scripts allow-same-origin"
       title="Document content"
       className="w-full border-0"
-      style={{ height: contentHeight }}
+      style={{ height: contentHeight || "100%" }}
     />
   );
 }

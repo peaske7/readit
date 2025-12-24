@@ -18,8 +18,10 @@ interface MarginNotesContainerProps {
   onEditComment: (id: string, newText: string) => void;
   onDeleteComment: (id: string) => void;
   onCopyCommentForLLM: (comment: Comment) => void;
-  pendingSelectionTop?: number | null;
-  hoveredCommentId?: string | null;
+  pendingSelectionTop?: number;
+  hoveredCommentId?: string;
+  /** Callback when hovering over a margin note */
+  onHoverComment?: (commentId: string | undefined) => void;
 }
 
 export function MarginNotesContainer({
@@ -30,6 +32,7 @@ export function MarginNotesContainer({
   onCopyCommentForLLM,
   pendingSelectionTop,
   hoveredCommentId,
+  onHoverComment,
 }: MarginNotesContainerProps) {
   // Calculate resolved positions (avoiding overlaps with input and other notes)
   const resolvedPositions = useMemo(() => {
@@ -110,6 +113,7 @@ export function MarginNotesContainer({
 
   return (
     <div className="relative w-64">
+      {/* Margin notes */}
       {sortedComments.map((comment, index) => {
         const top = resolvedPositions.get(comment.id);
         if (top === undefined) return null;
@@ -124,6 +128,7 @@ export function MarginNotesContainer({
             onEdit={onEditComment}
             onDelete={onDeleteComment}
             onCopyForLLM={onCopyCommentForLLM}
+            onHover={onHoverComment}
           />
         );
       })}

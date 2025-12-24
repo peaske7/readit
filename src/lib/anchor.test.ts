@@ -157,53 +157,53 @@ line eight`;
 
   it("finds exact match at hinted line", () => {
     const result = findAnchor(multilineContent, "target text", "L6");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.confidence).toBe("exact");
     expect(result?.line).toBe(6);
   });
 
   it("finds exact match when hint is wrong", () => {
     const result = findAnchor(multilineContent, "target text", "L1");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.confidence).toBe("exact");
     expect(result?.line).toBe(6);
   });
 
   it("returns null when text not found", () => {
     const result = findAnchor(multilineContent, "nonexistent text", "L1");
-    expect(result).toBeNull();
+    expect(result).toBeUndefined();
   });
 
   it("returns null for empty text", () => {
-    expect(findAnchor(multilineContent, "", "L1")).toBeNull();
+    expect(findAnchor(multilineContent, "", "L1")).toBeUndefined();
   });
 
   it("returns null for empty source", () => {
-    expect(findAnchor("", "text", "L1")).toBeNull();
+    expect(findAnchor("", "text", "L1")).toBeUndefined();
   });
 
   it("handles partial matches (substring)", () => {
     const result = findAnchor(multilineContent, "target", "L6");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.confidence).toBe("exact");
   });
 
   it("is case sensitive", () => {
     const result = findAnchor(multilineContent, "Target Text", "L6");
-    expect(result).toBeNull();
+    expect(result).toBeUndefined();
   });
 
   it("handles unicode", () => {
     const content = "first line\nこんにちは\nthird line";
     const result = findAnchor(content, "にちは", "L2");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.line).toBe(2);
   });
 
   it("returns correct offsets", () => {
     const content = "hello world";
     const result = findAnchor(content, "world", "L1");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.start).toBe(6);
     expect(result?.end).toBe(11);
   });
@@ -214,34 +214,34 @@ describe("findAnchorNormalized", () => {
     // Original had "hello world" but source was reformatted
     const source = "hello\n  world";
     const result = findAnchorNormalized(source, "hello  world", "L1");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.confidence).toBe("normalized");
   });
 
   it("handles newlines in original text", () => {
     const source = "hello world";
     const result = findAnchorNormalized(source, "hello\nworld", "L1");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.confidence).toBe("normalized");
   });
 
   it("returns null when text has no collapsible whitespace", () => {
     // If original text has no extra whitespace, exact match would have worked
     const result = findAnchorNormalized("hello world", "hello world", "L1");
-    expect(result).toBeNull();
+    expect(result).toBeUndefined();
   });
 
   it("returns null when normalized text not found", () => {
     const result = findAnchorNormalized("hello world", "goodbye  moon", "L1");
-    expect(result).toBeNull();
+    expect(result).toBeUndefined();
   });
 
   it("returns null for empty text", () => {
-    expect(findAnchorNormalized("hello world", "", "L1")).toBeNull();
+    expect(findAnchorNormalized("hello world", "", "L1")).toBeUndefined();
   });
 
   it("returns null for empty source", () => {
-    expect(findAnchorNormalized("", "hello  world", "L1")).toBeNull();
+    expect(findAnchorNormalized("", "hello  world", "L1")).toBeUndefined();
   });
 
   it("uses line hint for faster search", () => {
@@ -249,7 +249,7 @@ describe("findAnchorNormalized", () => {
 line two hello  world here
 line three`;
     const result = findAnchorNormalized(source, "hello\n\nworld", "L2");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.line).toBe(2);
   });
 });
@@ -257,20 +257,20 @@ line three`;
 describe("findAnchorFuzzy", () => {
   it("finds exact match with distance 0", () => {
     const result = findAnchorFuzzy("hello world", "hello world");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.distance).toBe(0);
     expect(result?.confidence).toBe("fuzzy");
   });
 
   it("finds match with one character typo", () => {
     const result = findAnchorFuzzy("hello world", "hello worle");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.distance).toBe(1);
   });
 
   it("finds match with two character difference", () => {
     const result = findAnchorFuzzy("hello world", "hallo worle");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.distance).toBeLessThanOrEqual(2);
   });
 
@@ -278,22 +278,22 @@ describe("findAnchorFuzzy", () => {
     const result = findAnchorFuzzy("hello world", "goodbye moon", {
       threshold: 3,
     });
-    expect(result).toBeNull();
+    expect(result).toBeUndefined();
   });
 
   it("respects custom threshold", () => {
     const result = findAnchorFuzzy("hello world", "hxxxx xxxxx", {
       threshold: 10,
     });
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
   });
 
   it("returns null for empty text", () => {
-    expect(findAnchorFuzzy("hello world", "")).toBeNull();
+    expect(findAnchorFuzzy("hello world", "")).toBeUndefined();
   });
 
   it("returns null for empty source", () => {
-    expect(findAnchorFuzzy("", "hello")).toBeNull();
+    expect(findAnchorFuzzy("", "hello")).toBeUndefined();
   });
 
   it("uses line hint to narrow search", () => {
@@ -302,7 +302,7 @@ describe("findAnchorFuzzy", () => {
       lineHint: "L3",
       threshold: 1,
     });
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.line).toBe(3);
   });
 });
@@ -310,20 +310,20 @@ describe("findAnchorFuzzy", () => {
 describe("findAnchorWithFallback", () => {
   it("returns exact match when available", () => {
     const result = findAnchorWithFallback("hello world", "hello", "L1");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.confidence).toBe("exact");
   });
 
   it("falls back to normalized match when exact fails", () => {
     // Source was reformatted (newlines instead of spaces)
     const result = findAnchorWithFallback("hello\nworld", "hello  world", "L1");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.confidence).toBe("normalized");
   });
 
   it("falls back to fuzzy match when exact and normalized fail", () => {
     const result = findAnchorWithFallback("hello world", "helloo world", "L1");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.confidence).toBe("fuzzy");
   });
 
@@ -333,7 +333,7 @@ describe("findAnchorWithFallback", () => {
       "completely different text",
       "L1",
     );
-    expect(result).toBeNull();
+    expect(result).toBeUndefined();
   });
 });
 
@@ -343,7 +343,7 @@ describe("findClosestOccurrence", () => {
     // "the" appears at positions 0, 15, and 27
 
     const result = findClosestOccurrence(content, "the", "L1");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     // Should find the first "the" at position 0 since hint is L1
     expect(result?.start).toBe(0);
   });
@@ -357,20 +357,20 @@ line five the`;
 
     // Test finding closest to line 3
     const result = findClosestOccurrence(content, "the", "L3");
-    expect(result).not.toBeNull();
+    expect(result).not.toBeUndefined();
     expect(result?.line).toBe(3);
   });
 
   it("returns null when text not found", () => {
     const result = findClosestOccurrence("hello world", "xyz", "L1");
-    expect(result).toBeNull();
+    expect(result).toBeUndefined();
   });
 
   it("returns null for empty text", () => {
-    expect(findClosestOccurrence("hello world", "", "L1")).toBeNull();
+    expect(findClosestOccurrence("hello world", "", "L1")).toBeUndefined();
   });
 
   it("returns null for empty source", () => {
-    expect(findClosestOccurrence("", "text", "L1")).toBeNull();
+    expect(findClosestOccurrence("", "text", "L1")).toBeUndefined();
   });
 });

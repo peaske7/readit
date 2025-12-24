@@ -3,8 +3,8 @@ import type { Comment } from "../types";
 
 interface UseCommentNavigationResult {
   currentIndex: number;
-  hoveredCommentId: string | null;
-  setHoveredCommentId: (id: string | null) => void;
+  hoveredCommentId: string | undefined;
+  setHoveredCommentId: (id: string | undefined) => void;
   navigateToComment: (commentId: string) => void;
   navigatePrevious: () => void;
   navigateNext: () => void;
@@ -18,7 +18,9 @@ export function useCommentNavigation(
   sortedComments: Comment[],
 ): UseCommentNavigationResult {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [hoveredCommentId, setHoveredCommentId] = useState<string | null>(null);
+  const [hoveredCommentId, setHoveredCommentId] = useState<
+    string | undefined
+  >();
 
   // Reset comment index when comments change
   useEffect(() => {
@@ -34,7 +36,7 @@ export function useCommentNavigation(
     const scrollAndHighlight = (element: Element) => {
       element.scrollIntoView({ behavior: "smooth", block: "center" });
       setHoveredCommentId(commentId);
-      setTimeout(() => setHoveredCommentId(null), 1500);
+      setTimeout(() => setHoveredCommentId(undefined), 1500);
     };
 
     // Try main document first (for markdown)

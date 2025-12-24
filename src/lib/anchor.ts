@@ -127,9 +127,9 @@ export function findAnchor(
   selectedText: string,
   lineHint: string,
   options: { searchWindow?: number } = {},
-): Anchor | null {
+): Anchor | undefined {
   if (!selectedText || !source) {
-    return null;
+    return undefined;
   }
 
   const searchWindow = options.searchWindow ?? DEFAULT_SEARCH_WINDOW;
@@ -164,7 +164,7 @@ export function findAnchor(
     };
   }
 
-  return null;
+  return undefined;
 }
 
 /**
@@ -221,19 +221,19 @@ export function findAnchorNormalized(
   selectedText: string,
   lineHint: string,
   options: { searchWindow?: number } = {},
-): Anchor | null {
+): Anchor | undefined {
   if (!selectedText || !source) {
-    return null;
+    return undefined;
   }
 
   const normalizedText = normalizeWhitespace(selectedText);
   if (!normalizedText) {
-    return null;
+    return undefined;
   }
 
   // Skip if text has no collapsible whitespace (exact match would have worked)
   if (normalizedText === selectedText) {
-    return null;
+    return undefined;
   }
 
   const searchWindow = options.searchWindow ?? FUZZY_SEARCH_WINDOW;
@@ -290,7 +290,7 @@ export function findAnchorNormalized(
     };
   }
 
-  return null;
+  return undefined;
 }
 
 /**
@@ -301,9 +301,9 @@ export function findAnchorFuzzy(
   source: string,
   selectedText: string,
   options: { threshold?: number; lineHint?: string } = {},
-): Anchor | null {
+): Anchor | undefined {
   if (!selectedText || !source) {
-    return null;
+    return undefined;
   }
 
   const threshold = options.threshold ?? DEFAULT_FUZZY_THRESHOLD;
@@ -311,10 +311,10 @@ export function findAnchorFuzzy(
 
   // For very long texts, skip fuzzy matching (too expensive)
   if (textLen > MAX_FUZZY_TEXT_LENGTH) {
-    return null;
+    return undefined;
   }
 
-  let bestMatch: Anchor | null = null;
+  let bestMatch: Anchor | undefined;
   let bestDistance = threshold + 1;
 
   // Determine search range based on line hint
@@ -377,7 +377,7 @@ export function findAnchorWithFallback(
   selectedText: string,
   lineHint: string,
   options: { fuzzyThreshold?: number } = {},
-): Anchor | null {
+): Anchor | undefined {
   // Try exact match first (fastest)
   const exactMatch = findAnchor(source, selectedText, lineHint);
   if (exactMatch) {
@@ -404,15 +404,15 @@ export function findClosestOccurrence(
   source: string,
   selectedText: string,
   lineHint: string,
-): Anchor | null {
+): Anchor | undefined {
   if (!selectedText || !source) {
-    return null;
+    return undefined;
   }
 
   const { start: hintLine } = parseLineHint(lineHint);
   const targetOffset = getLineOffset(source, hintLine);
 
-  let bestMatch: Anchor | null = null;
+  let bestMatch: Anchor | undefined;
   let bestDistance = Number.POSITIVE_INFINITY;
   let index = 0;
 

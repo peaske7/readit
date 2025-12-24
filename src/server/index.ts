@@ -10,8 +10,10 @@ import {
   computeHash,
   createComment,
   getCommentPath,
+  getLineHint,
   parseCommentFile,
   serializeComments,
+  truncateSelection,
 } from "../lib/comment-storage.js";
 import {
   AnchorConfidences,
@@ -183,7 +185,7 @@ async function handleAddComment(
 
     if (
       !selectedText ||
-      !commentText ||
+      typeof commentText !== "string" ||
       startOffset === undefined ||
       endOffset === undefined
     ) {
@@ -227,7 +229,7 @@ async function handleUpdateComment(
     const { id } = req.params;
     const { comment: commentText } = req.body;
 
-    if (!commentText) {
+    if (typeof commentText !== "string") {
       res.status(400).json({ error: "Missing comment text" });
       return;
     }
@@ -306,6 +308,84 @@ async function handleClearComments(
   } catch (err) {
     console.error("Failed to clear comments:", err);
     res.status(500).json({ error: "Failed to clear comments" });
+  }
+}
+
+/**
+ * GET /api/comments/raw - Get raw comment file content
+ */
+async function handleGetRawComments(
+  ctx: HandlerContext,
+  res: Response,
+): Promise<void> {
+  const commentPath = getCommentPath(ctx.filePath);
+  try {
+    const content = await fs.readFile(commentPath, "utf-8");
+    res.json({ content, path: commentPath });
+  } catch (err) {
+    if (isErrnoException(err) && err.code === "ENOENT") {
+      res.json({ content: null, path: commentPath });
+      return;
+    }
+    console.error("Failed to read raw comments:", err);
+    res.status(500).json({ error: "Failed to read raw comments" });
+  }
+}
+
+/**
+ * PUT /api/comments/:id/reanchor - Re-anchor a comment to new text
+ */
+async function handleReanchorComment(
+  ctx: HandlerContext,
+  req: express.Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { selectedText, startOffset, endOffset } = req.body;
+
+    if (!selectedText || startOffset === undefined || endOffset === undefined) {
+      res.status(400).json({ error: "Missing required fields" });
+      return;
+    }
+
+    const currentContent = ctx.getCurrentContent();
+    const existingComments = await readCommentsFromFile(
+      ctx.filePath,
+      currentContent,
+    );
+    const commentIndex = existingComments.findIndex((c) => c.id === id);
+
+    if (commentIndex === -1) {
+      res.status(404).json({ error: "Comment not found" });
+      return;
+    }
+
+    const lineHint = getLineHint(currentContent, startOffset, endOffset);
+    const truncatedText = truncateSelection(selectedText);
+
+    const updatedComment: Comment = {
+      ...existingComments[commentIndex],
+      selectedText: truncatedText,
+      startOffset,
+      endOffset,
+      lineHint,
+      anchorConfidence: AnchorConfidences.EXACT,
+      // Store anchor prefix for future matching if text was truncated
+      anchorPrefix:
+        selectedText.length > 1000 ? selectedText.slice(0, 200) : undefined,
+    };
+
+    const updatedComments = existingComments.map((c, i) =>
+      i === commentIndex ? updatedComment : c,
+    );
+
+    await writeCommentsToFile(ctx.filePath, currentContent, updatedComments);
+
+    res.json({ comment: updatedComment });
+  } catch (err) {
+    console.error("Failed to re-anchor comment:", err);
+    res.status(500).json({ error: "Failed to re-anchor comment" });
   }
 }
 
@@ -417,9 +497,13 @@ function createApp(options: ServerOptions): AppWithWatcher {
 
   // Comment API routes
   app.get("/api/comments", (_req, res) => handleGetComments(ctx, res));
+  app.get("/api/comments/raw", (_req, res) => handleGetRawComments(ctx, res));
   app.post("/api/comments", (req, res) => handleAddComment(ctx, req, res));
   app.put("/api/comments/:id", (req, res) =>
     handleUpdateComment(ctx, req, res),
+  );
+  app.put("/api/comments/:id/reanchor", (req, res) =>
+    handleReanchorComment(ctx, req, res),
   );
   app.delete("/api/comments/:id", (req, res) =>
     handleDeleteComment(ctx, req, res),
@@ -445,6 +529,8 @@ function createApp(options: ServerOptions): AppWithWatcher {
     // When client disconnects (tab closed, navigation, etc.)
     req.on("close", () => {
       clearInterval(interval);
+      // In dev mode, don't auto-shutdown (Vite HMR causes brief disconnects)
+      if (isDev) return;
       // Small delay to handle any pending requests
       setTimeout(() => {
         console.log("\nBrowser disconnected, shutting down...");
@@ -477,25 +563,20 @@ async function startServerWithFallback(
   host: string,
 ): Promise<ServerResult> {
   const MAX_PORT = 65535;
-  let port = preferredPort;
 
-  while (true) {
+  for (let port = preferredPort; port <= MAX_PORT; port++) {
     try {
       return await tryListenOnPort(app, port, host);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === "EADDRINUSE") {
-        port++;
-        if (port > MAX_PORT) {
-          throw new Error(
-            `No available port found starting from ${preferredPort}`,
-          );
-        }
-        console.log(`Port ${port - 1} is busy, trying ${port}...`);
-      } else {
-        throw err;
+        console.log(`Port ${port} is busy, trying ${port + 1}...`);
+        continue;
       }
+      throw err;
     }
   }
+
+  throw new Error(`No available port found starting from ${preferredPort}`);
 }
 
 export async function startServer(

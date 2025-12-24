@@ -1,11 +1,7 @@
-/**
- * Highlight adapter for Markdown documents.
- * Operates directly on the DOM rendered by react-markdown.
- */
-
 import { findTextPosition } from "../core";
 import {
   applyHighlightToRange,
+  applyHighlightWithStyle,
   clearHighlights,
   collectHighlightPositions,
   getDOMTextContent,
@@ -28,24 +24,24 @@ export interface MarkdownAdapterOptions {
   onSelect: SelectionHandler;
 }
 
-/**
- * Create a highlight adapter for Markdown content.
- */
 export function createMarkdownAdapter(
   options: MarkdownAdapterOptions,
 ): HighlightAdapter {
   const { root, container, onSelect } = options;
 
-  let positionCallback: PositionChangeHandler | null = null;
-  let hoverCallback: HoverHandler | null = null;
-
-  // --- Event Handlers ---
+  let positionCallback: PositionChangeHandler | undefined;
+  let hoverCallback: HoverHandler | undefined;
 
   const handleMouseUp = () => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) return;
 
-    const text = selection.toString().trim();
+    // Normalize whitespace: collapse any sequence of whitespace containing newlines
+    // Browser's selection.toString() includes CSS margins as extra newlines/spaces
+    const text = selection
+      .toString()
+      .trim()
+      .replace(/\r?\n\s*/g, "\n");
     if (text.length === 0) return;
 
     const range = selection.getRangeAt(0);
@@ -64,13 +60,15 @@ export function createMarkdownAdapter(
     const target = e.target as HTMLElement;
     const mark = target.closest("mark[data-comment-id]");
     if (mark) {
-      hoverCallback(mark.getAttribute("data-comment-id"));
+      // Normalize null from DOM API to undefined
+      hoverCallback(mark.getAttribute("data-comment-id") ?? undefined);
     }
   };
 
   const handleMouseOut = (e: Event) => {
     if (!hoverCallback) return;
     const target = e.target as HTMLElement;
+    // relatedTarget is null from DOM API when mouse leaves window
     const relatedTarget = (e as MouseEvent).relatedTarget as HTMLElement | null;
     const mark = target.closest("mark[data-comment-id]");
     if (mark) {
@@ -80,7 +78,7 @@ export function createMarkdownAdapter(
         relatedMark.getAttribute("data-comment-id") !==
           mark.getAttribute("data-comment-id")
       ) {
-        hoverCallback(null);
+        hoverCallback(undefined);
       }
     }
   };
@@ -96,15 +94,11 @@ export function createMarkdownAdapter(
     positionCallback(positions);
   };
 
-  // --- Attach Event Listeners ---
-
   root.addEventListener("mouseup", handleMouseUp);
   root.addEventListener("mouseover", handleMouseOver);
   root.addEventListener("mouseout", handleMouseOut);
   window.addEventListener("scroll", updatePositions);
   window.addEventListener("resize", updatePositions);
-
-  // --- Adapter Implementation ---
 
   return {
     applyHighlights(
@@ -131,12 +125,19 @@ export function createMarkdownAdapter(
         .filter((c): c is HighlightComment => c !== null)
         .sort((a, b) => a.startOffset - b.startOffset);
 
-      // Apply comment highlights
+      // Apply comment highlights (single amber color for all)
       for (const comment of resolved) {
-        applyHighlightToRange(root, comment.startOffset, comment.endOffset, {
-          attribute: "data-comment-id",
-          attributeValue: comment.id,
-        });
+        applyHighlightWithStyle(
+          root,
+          textContent,
+          comment.startOffset,
+          comment.endOffset,
+          {
+            attribute: "data-comment-id",
+            attributeValue: comment.id,
+            colorIndex: 0,
+          },
+        );
       }
 
       // Apply pending selection highlight
@@ -168,14 +169,14 @@ export function createMarkdownAdapter(
     onPositionsChange(callback: PositionChangeHandler) {
       positionCallback = callback;
       return () => {
-        positionCallback = null;
+        positionCallback = undefined;
       };
     },
 
     onHighlightHover(callback: HoverHandler) {
       hoverCallback = callback;
       return () => {
-        hoverCallback = null;
+        hoverCallback = undefined;
       };
     },
 
@@ -185,8 +186,8 @@ export function createMarkdownAdapter(
       root.removeEventListener("mouseout", handleMouseOut);
       window.removeEventListener("scroll", updatePositions);
       window.removeEventListener("resize", updatePositions);
-      positionCallback = null;
-      hoverCallback = null;
+      positionCallback = undefined;
+      hoverCallback = undefined;
     },
   };
 }

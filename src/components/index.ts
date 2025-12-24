@@ -1,4 +1,6 @@
 export { CommentInputArea } from "./CommentInputArea";
+export { CommentListItem } from "./CommentListItem";
+export { CommentManagerDropdown } from "./CommentManagerDropdown";
 export { CommentMinimap } from "./CommentMinimap";
 export { CommentNavigator } from "./CommentNavigator";
 export { DocumentViewer } from "./DocumentViewer";
@@ -6,4 +8,5 @@ export { Header } from "./Header";
 export { IframeContainer } from "./IframeContainer";
 export { MarginNote } from "./MarginNote";
 export { MarginNotesContainer } from "./MarginNotesContainer";
+export { RawCommentsModal } from "./RawCommentsModal";
 export { TableOfContents } from "./TableOfContents";

@@ -92,16 +92,40 @@ export function buildIframeScript(parentOrigin: string): string {
 
   // --- DOM Functions (from dom.ts) ---
 
+  const BLOCK_ELEMENTS = new Set([
+    'P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+    'PRE', 'BLOCKQUOTE', 'LI', 'TR', 'BR'
+  ]);
+
+  function findBlockParent(node) {
+    let parent = node.parentElement;
+    while (parent && !BLOCK_ELEMENTS.has(parent.tagName)) {
+      parent = parent.parentElement;
+    }
+    return parent;
+  }
+
   function getTextOffset(root, targetNode, targetOffset) {
     let offset = 0;
+    let lastBlockParent = null;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
 
     let node = walker.nextNode();
     while (node) {
+      const blockParent = findBlockParent(node);
+
+      // Add newline when transitioning between different block parents
+      if (lastBlockParent && blockParent && lastBlockParent !== blockParent) {
+        if (!lastBlockParent.contains(blockParent) && !blockParent.contains(lastBlockParent)) {
+          offset += 1; // Account for the newline
+        }
+      }
+
       if (node === targetNode) {
         return offset + targetOffset;
       }
       offset += (node.textContent?.length ?? 0);
+      lastBlockParent = blockParent;
       node = walker.nextNode();
     }
 
@@ -111,10 +135,21 @@ export function buildIframeScript(parentOrigin: string): string {
   function getDOMTextContent(root) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     let text = '';
+    let lastBlockParent = null;
     let node = walker.nextNode();
 
     while (node) {
+      const blockParent = findBlockParent(node);
+
+      // Insert newline when transitioning between different block parents
+      if (lastBlockParent && blockParent && lastBlockParent !== blockParent) {
+        if (!lastBlockParent.contains(blockParent) && !blockParent.contains(lastBlockParent)) {
+          text += '\\n';
+        }
+      }
+
       text += node.textContent ?? '';
+      lastBlockParent = blockParent;
       node = walker.nextNode();
     }
 
@@ -171,7 +206,15 @@ export function buildIframeScript(parentOrigin: string): string {
       try {
         range.surroundContents(mark);
       } catch (e) {
-        // Range crosses element boundaries, skip
+        // Range crosses element boundaries (e.g., syntax-highlighted code blocks)
+        // Use extractContents + insertNode as fallback
+        try {
+          const fragment = range.extractContents();
+          mark.appendChild(fragment);
+          range.insertNode(mark);
+        } catch (e2) {
+          // If even extractContents fails, skip this node
+        }
       }
     }
   }
@@ -221,7 +264,9 @@ export function buildIframeScript(parentOrigin: string): string {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) return;
 
-    const text = selection.toString().trim();
+    // Normalize whitespace: collapse any sequence of whitespace containing newlines
+    // Browser's selection.toString() includes CSS margins as extra newlines/spaces
+    const text = selection.toString().trim().replace(/\\r?\\n\\s*/g, '\\n');
     if (text.length === 0) return;
 
     const range = selection.getRangeAt(0);

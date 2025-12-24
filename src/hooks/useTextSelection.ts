@@ -5,7 +5,7 @@ interface UseTextSelectionResult {
   selection: Selection | null;
   highlightPositions: Record<string, number>;
   documentPositions: Record<string, number>;
-  pendingSelectionTop: number | null;
+  pendingSelectionTop: number | undefined;
   onTextSelect: (text: string, startOffset: number, endOffset: number) => void;
   onPositionsChange: (
     positions: Record<string, number>,
@@ -26,9 +26,9 @@ export function useTextSelection(): UseTextSelectionResult {
   const [documentPositions, setDocumentPositions] = useState<
     Record<string, number>
   >({});
-  const [pendingSelectionTop, setPendingSelectionTop] = useState<number | null>(
-    null,
-  );
+  const [pendingSelectionTop, setPendingSelectionTop] = useState<
+    number | undefined
+  >();
 
   // Clear selection when clicking outside
   useEffect(() => {
@@ -69,7 +69,7 @@ export function useTextSelection(): UseTextSelectionResult {
     ) => {
       setHighlightPositions(positions);
       setDocumentPositions(docPositions);
-      setPendingSelectionTop(pendingTop ?? null);
+      setPendingSelectionTop(pendingTop);
     },
     [],
   );

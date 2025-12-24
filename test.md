@@ -1,51 +1,72 @@
-# readit - Markdown Review Tool
+# Welcome to readit
 
-A CLI tool for reviewing Markdown documents with inline comments.
+A simple tool for reviewing markdown with inline comments.
 
-## Features
+---
 
-- **Text Selection**: Select any text in the rendered HTML to add a comment
-- **Comment Management**: Edit, delete, and copy individual comments
-- **Export Options**: Copy all comments as a prompt or export as JSON
-- **Persistent Storage**: Comments are saved in localStorage per file
+## How It Works
 
-## Installation
+readit follows a simple loop: **read → comment → extract**.
 
-```bash
-npm install -g readit
+### 1. Read
+
+You're already doing this. Open any markdown file with `npx readit <file.md>` and it renders in your browser with a clean reading experience.
+
+### 2. Comment
+
+Select any text to add a comment. Try it now — **select this sentence** and type your first comment.
+
+Your comments appear as margin notes next to the highlighted text, just like reviewing a document in Google Docs. Add as many as you need.
+
+### 3. Extract
+
+When you're done reviewing, click the menu in the top-right and choose **Copy as Prompt**. This exports all your comments in a format ready for Claude, ChatGPT, or any AI assistant.
+
+You can also export as JSON if you prefer structured data.
+
+---
+
+## Everything is Plain Markdown
+
+Your comments are saved as `.comments.md` files in `~/.readit/comments/`. No database, no lock-in — just readable markdown files you can version control, search, or edit by hand.
+
+Each comment file looks something like this:
+
+```markdown
+## Comment 1
+**Selected:** "select this sentence"
+**Comment:** This is my first comment!
+**Created:** 2024-01-15T10:30:00Z
 ```
 
-## Usage
+---
 
-Basic usage:
+## Navigating Comments
+
+Once you have multiple comments, use the navigation bar at the bottom of the screen to jump between them. You can also use keyboard shortcuts:
+
+| Shortcut | Action |
+|----------|--------|
+| `Alt + ↑` | Previous comment |
+| `Alt + ↓` | Next comment |
+
+---
+
+## Quick Start
 
 ```bash
-readit document.md           # Open document for review
-readit document.md --port 3000  # Custom port
-readit document.md --no-open    # Don't auto-open browser
+# Review a markdown file
+npx readit document.md
+
+# Use a custom port
+npx readit document.md --port 3000
+
+# Start fresh (clear existing comments)
+npx readit document.md --clean
 ```
 
-## How it works
+---
 
-1. Converts Markdown to HTML using Pandoc
-2. Serves the HTML in a local web server
-3. Provides a UI for adding comments to selected text
-4. Stores comments in browser localStorage
-5. Exports comments for applying back to source
+## Try It Now
 
-## Technical Details
-
-The tool uses:
-
-- **CLI**: Commander.js for argument parsing
-- **Server**: Express.js for serving files and API
-- **Conversion**: Pandoc for Markdown → HTML
-- **Frontend**: React with Tailwind CSS
-- **Storage**: Browser localStorage for persistence
-
-## Future Plans
-
-- [ ] Apply comments back to Markdown as inline comments
-- [ ] Support for different comment formats
-- [ ] Collaborative review mode
-- [ ] Syntax highlighting for code blocks
+Go ahead and add a few comments to this document. When you're done, export them and see the output. That's the entire workflow — simple, transparent, and designed for reviewing AI-generated content.

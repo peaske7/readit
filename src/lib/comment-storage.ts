@@ -131,11 +131,11 @@ export function parseCommentFile(content: string): CommentFile {
 /**
  * Parse a single comment block.
  */
-function parseCommentBlock(block: string): Comment | null {
+function parseCommentBlock(block: string): Comment | undefined {
   // Extract metadata from HTML comment: <!-- c:{id}|{lineHint}|{timestamp} -->
   const metadataMatch = block.match(/<!--\s*c:([^|]+)\|([^|]+)\|([^>]+)\s*-->/);
   if (!metadataMatch) {
-    return null;
+    return undefined;
   }
 
   const [, id, lineHint, createdAt] = metadataMatch;
@@ -147,7 +147,7 @@ function parseCommentBlock(block: string): Comment | null {
   // Extract selected text from blockquote
   const blockquoteMatch = block.match(/^>\s*(.+(?:\n>\s*.+)*)$/m);
   if (!blockquoteMatch) {
-    return null;
+    return undefined;
   }
 
   // Remove the "> " prefix from each line

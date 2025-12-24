@@ -17,6 +17,12 @@ interface UseCommentsResult {
   ) => void;
   deleteComment: (id: string) => void;
   editComment: (id: string, newText: string) => void;
+  reanchorComment: (
+    id: string,
+    selectedText: string,
+    startOffset: number,
+    endOffset: number,
+  ) => void;
 }
 
 /**
@@ -234,6 +240,53 @@ export function useComments(
     [executeMutation],
   );
 
+  /**
+   * Re-anchor a comment to new text with optimistic update.
+   */
+  const reanchorComment = useCallback(
+    (
+      id: string,
+      selectedText: string,
+      startOffset: number,
+      endOffset: number,
+    ) => {
+      executeMutation({
+        operationId: `reanchor-${id}`,
+        optimisticUpdate: (prev) =>
+          prev.map((c) =>
+            c.id === id
+              ? {
+                  ...c,
+                  selectedText,
+                  startOffset,
+                  endOffset,
+                  anchorConfidence: "exact" as const,
+                }
+              : c,
+          ),
+        apiCall: async () => {
+          const response = await fetch(`/api/comments/${id}/reanchor`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ selectedText, startOffset, endOffset }),
+          });
+
+          if (!response.ok) {
+            throw new Error(
+              `Failed to re-anchor comment: ${response.statusText}`,
+            );
+          }
+
+          return response.json();
+        },
+        onSuccess: (data, prev) =>
+          prev.map((c) => (c.id === id ? data.comment : c)),
+        errorMessage: "Failed to re-anchor comment",
+      });
+    },
+    [executeMutation],
+  );
+
   return {
     comments,
     isLoading,
@@ -241,5 +294,6 @@ export function useComments(
     addComment,
     deleteComment,
     editComment,
+    reanchorComment,
   };
 }

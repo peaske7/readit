@@ -22,7 +22,7 @@ export type PositionChangeHandler = (positions: HighlightPositions) => void;
 /**
  * Hover callback type.
  */
-export type HoverHandler = (commentId: string | null) => void;
+export type HoverHandler = (commentId: string | undefined) => void;
 
 /**
  * Adapter interface for document highlighting.
