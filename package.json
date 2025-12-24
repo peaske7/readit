@@ -35,6 +35,7 @@
     "format": "biome format --write .",
     "lint": "biome lint .",
     "typecheck": "tsc --noEmit",
+    "prepack": "pnpm run build",
     "prepare": "lefthook install || true"
   },
   "dependencies": {
