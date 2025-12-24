@@ -2,6 +2,8 @@
 
 A CLI tool to review Markdown and HTML documents with inline comments. Add margin notes to highlighted text, then export for AI or apply back to source.
 
+![CleanShot 2025-12-25 at 01 53 49](https://github.com/user-attachments/assets/1259af1d-36a8-4142-9b38-5d80d160324b)
+
 Inspired by [difit](https://github.com/yoshiko-pg/difit).
 
 ## Quick Start
