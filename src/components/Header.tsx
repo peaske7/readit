@@ -9,6 +9,7 @@ interface HeaderProps {
   fileName: string;
   comments: Comment[];
   onCopyAll: () => void;
+  onCopyAllRaw: () => void;
   onExportJson: () => void;
   onReload: () => void;
   onEditComment: (id: string, newText: string) => void;
@@ -22,6 +23,7 @@ export function Header({
   fileName,
   comments,
   onCopyAll,
+  onCopyAllRaw,
   onExportJson,
   onReload,
   onEditComment,
@@ -169,8 +171,21 @@ export function Header({
                         }}
                         className="w-full px-3 py-1.5 text-left text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
                         role="menuitem"
+                        title="Copy in prompt format for AI assistants"
                       >
-                        Copy All
+                        Copy All (AI)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onCopyAllRaw();
+                          setMenuOpen(false);
+                        }}
+                        className="w-full px-3 py-1.5 text-left text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                        role="menuitem"
+                        title="Copy as plain text"
+                      >
+                        Copy All (Raw)
                       </button>
                       <button
                         type="button"

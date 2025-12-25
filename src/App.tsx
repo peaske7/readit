@@ -20,7 +20,11 @@ import {
   useTextSelection,
 } from "./hooks";
 import { extractContext, formatForLLM } from "./lib/context";
-import { exportCommentsAsJson, generatePrompt } from "./lib/export";
+import {
+  exportCommentsAsJson,
+  generatePrompt,
+  generateRawText,
+} from "./lib/export";
 import { calculateScrollTarget, getElementTopInDocument } from "./lib/scroll";
 import type { Comment } from "./types";
 
@@ -191,12 +195,27 @@ function App() {
     toast.success("Copied all comments");
   }, [comments, document]);
 
+  const handleCopyAllRaw = useCallback(() => {
+    if (!document) return;
+    const raw = generateRawText(comments);
+    navigator.clipboard.writeText(raw);
+    toast.success("Copied all comments as raw text");
+  }, [comments, document]);
+
   const handleExportJson = useCallback(() => {
     if (!document) return;
     exportCommentsAsJson(comments, document);
   }, [comments, document]);
 
-  // Copy for LLM handlers
+  // Copy handlers
+  const handleCopySelectionRaw = useCallback(() => {
+    if (!selection) return;
+
+    navigator.clipboard.writeText(selection.text);
+    toast.success(`Copied: "${truncate(selection.text)}"`);
+    clearSelection();
+  }, [selection, clearSelection]);
+
   const handleCopySelectionForLLM = useCallback(() => {
     if (!selection || !document) return;
 
@@ -211,8 +230,15 @@ function App() {
     });
 
     navigator.clipboard.writeText(formatted);
-    toast.success(`Copied: "${truncate(selection.text)}"`);
-  }, [selection, document]);
+    toast.success(`Copied for LLM: "${truncate(selection.text)}"`);
+    clearSelection();
+  }, [selection, document, clearSelection]);
+
+  const handleCopyCommentRaw = useCallback((comment: Comment) => {
+    const raw = `${comment.selectedText}\n\n${comment.comment}`;
+    navigator.clipboard.writeText(raw);
+    toast.success(`Copied: "${truncate(comment.comment)}"`);
+  }, []);
 
   const handleCopyCommentForLLM = useCallback(
     (comment: Comment) => {
@@ -230,25 +256,29 @@ function App() {
       });
 
       navigator.clipboard.writeText(formatted);
-      toast.success(`Copied: "${truncate(comment.comment)}"`);
+      toast.success(`Copied for LLM: "${truncate(comment.comment)}"`);
     },
     [document],
   );
 
-  // Keyboard shortcut: Cmd+Shift+C to copy selection for LLM
+  // Keyboard shortcuts: Cmd+C for raw copy, Cmd+Shift+C for LLM copy
   useEffect(() => {
     if (!selection) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "c" && e.metaKey && e.shiftKey) {
+      if (e.key === "c" && e.metaKey) {
         e.preventDefault();
-        handleCopySelectionForLLM();
+        if (e.shiftKey) {
+          handleCopySelectionForLLM();
+        } else {
+          handleCopySelectionRaw();
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selection, handleCopySelectionForLLM]);
+  }, [selection, handleCopySelectionRaw, handleCopySelectionForLLM]);
 
   // Update data-focused attribute on highlight marks when hover state changes
   useEffect(() => {
@@ -302,6 +332,7 @@ function App() {
         fileName={document.fileName}
         comments={comments}
         onCopyAll={handleCopyAll}
+        onCopyAllRaw={handleCopyAllRaw}
         onExportJson={handleExportJson}
         onReload={reload}
         onEditComment={editComment}
@@ -379,6 +410,7 @@ function App() {
                   selectedText={selection.text}
                   onSubmit={handleAddComment}
                   onCancel={clearSelection}
+                  onCopyRaw={handleCopySelectionRaw}
                   onCopyForLLM={handleCopySelectionForLLM}
                 />
               )}
@@ -393,6 +425,7 @@ function App() {
             hoveredCommentId={hoveredCommentId}
             onEditComment={editComment}
             onDeleteComment={deleteComment}
+            onCopyCommentRaw={handleCopyCommentRaw}
             onCopyCommentForLLM={handleCopyCommentForLLM}
             onHoverComment={setHoveredCommentId}
           />

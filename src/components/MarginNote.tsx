@@ -1,6 +1,5 @@
 import { cva } from "class-variance-authority";
 import { useState } from "react";
-import { toast } from "sonner";
 import { cn } from "../lib/utils";
 import type { Comment } from "../types";
 
@@ -11,6 +10,7 @@ interface MarginNoteProps {
   commentIndex?: number;
   onEdit: (id: string, newText: string) => void;
   onDelete: (id: string) => void;
+  onCopyRaw: (comment: Comment) => void;
   onCopyForLLM: (comment: Comment) => void;
   /** Called when mouse enters/leaves the note */
   onHover?: (commentId: string | undefined) => void;
@@ -74,6 +74,7 @@ export function MarginNote({
   commentIndex = 0,
   onEdit,
   onDelete,
+  onCopyRaw,
   onCopyForLLM,
   onHover,
 }: MarginNoteProps) {
@@ -88,10 +89,7 @@ export function MarginNote({
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(
-      `Selected: "${comment.selectedText}"\nComment: ${comment.comment}`,
-    );
-    toast.success("Copied");
+    onCopyRaw(comment);
   };
 
   const createdAtFormatted = new Date(comment.createdAt).toLocaleString();
@@ -235,6 +233,7 @@ export function MarginNote({
                 type="button"
                 onClick={handleCopy}
                 className="hover:text-gray-600"
+                title="Copy raw text (⌘C)"
               >
                 Copy
               </button>
@@ -243,7 +242,7 @@ export function MarginNote({
                 type="button"
                 onClick={() => onCopyForLLM(comment)}
                 className="hover:text-gray-600"
-                title="Copy with context for LLM"
+                title="Copy with context for LLM (⌘⇧C)"
               >
                 LLM
               </button>

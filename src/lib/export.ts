@@ -10,6 +10,12 @@ export function generatePrompt(comments: Comment[], fileName: string): string {
   return `# Review Comments for ${fileName}\n\n${prompt}`;
 }
 
+export function generateRawText(comments: Comment[]): string {
+  return comments
+    .map((c) => `${c.selectedText}\n\n${c.comment}`)
+    .join("\n\n---\n\n");
+}
+
 export function exportCommentsAsJson(
   comments: Comment[],
   document: Document,

@@ -49,6 +49,8 @@ Once you have multiple comments, use the navigation bar at the bottom of the scr
 |----------|--------|
 | `Alt + ↑` | Previous comment |
 | `Alt + ↓` | Next comment |
+| `⌘ + C` | Copy selected text (raw) |
+| `⌘ + Shift + C` | Copy selected text with context (for AI) |
 
 ---
 

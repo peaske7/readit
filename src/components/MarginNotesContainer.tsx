@@ -17,6 +17,7 @@ interface MarginNotesContainerProps {
   highlightPositions: Record<string, number>;
   onEditComment: (id: string, newText: string) => void;
   onDeleteComment: (id: string) => void;
+  onCopyCommentRaw: (comment: Comment) => void;
   onCopyCommentForLLM: (comment: Comment) => void;
   pendingSelectionTop?: number;
   hoveredCommentId?: string;
@@ -29,6 +30,7 @@ export function MarginNotesContainer({
   highlightPositions,
   onEditComment,
   onDeleteComment,
+  onCopyCommentRaw,
   onCopyCommentForLLM,
   pendingSelectionTop,
   hoveredCommentId,
@@ -127,6 +129,7 @@ export function MarginNotesContainer({
             commentIndex={index}
             onEdit={onEditComment}
             onDelete={onDeleteComment}
+            onCopyRaw={onCopyCommentRaw}
             onCopyForLLM={onCopyCommentForLLM}
             onHover={onHoverComment}
           />
