@@ -7,24 +7,24 @@ interface RawCommentsModalProps {
   onClose: () => void;
 }
 
-interface RawCommentsData {
-  content: string | null;
-  path: string;
-}
+type ModalState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "error"; error: string }
+  | { status: "empty"; path: string }
+  | { status: "success"; content: string; path: string };
 
 export function RawCommentsModal({ isOpen, onClose }: RawCommentsModalProps) {
-  const [data, setData] = useState<RawCommentsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<ModalState>({ status: "idle" });
 
   // Fetch raw comments when modal opens
   useEffect(() => {
     if (!isOpen) {
-      setData(null);
-      setLoading(true);
-      setError(null);
+      setState({ status: "idle" });
       return;
     }
+
+    setState({ status: "loading" });
 
     const fetchRawComments = async () => {
       try {
@@ -33,11 +33,20 @@ export function RawCommentsModal({ isOpen, onClose }: RawCommentsModalProps) {
           throw new Error("Failed to fetch raw comments");
         }
         const result = await response.json();
-        setData(result);
+        if (result.content === null) {
+          setState({ status: "empty", path: result.path });
+        } else {
+          setState({
+            status: "success",
+            content: result.content,
+            path: result.path,
+          });
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
-      } finally {
-        setLoading(false);
+        setState({
+          status: "error",
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
       }
     };
 
@@ -59,15 +68,15 @@ export function RawCommentsModal({ isOpen, onClose }: RawCommentsModalProps) {
   }, [isOpen, onClose]);
 
   const handleCopy = useCallback(async () => {
-    if (!data?.content) return;
+    if (state.status !== "success") return;
 
     try {
-      await navigator.clipboard.writeText(data.content);
+      await navigator.clipboard.writeText(state.content);
       toast.success("Copied to clipboard");
     } catch {
       toast.error("Failed to copy");
     }
-  }, [data?.content]);
+  }, [state]);
 
   if (!isOpen) return null;
 
@@ -91,7 +100,7 @@ export function RawCommentsModal({ isOpen, onClose }: RawCommentsModalProps) {
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h2 className="font-serif text-sm text-gray-900">Raw Comments</h2>
           <div className="flex items-center gap-2">
-            {data?.content && (
+            {state.status === "success" && (
               <button
                 type="button"
                 onClick={handleCopy}
@@ -113,33 +122,35 @@ export function RawCommentsModal({ isOpen, onClose }: RawCommentsModalProps) {
         </div>
 
         {/* File path subtitle */}
-        {data?.path && (
+        {(state.status === "success" || state.status === "empty") && (
           <div className="px-4 py-2 border-b border-gray-50 text-xs text-gray-400 font-mono truncate">
-            {data.path}
+            {state.path}
           </div>
         )}
 
         {/* Content area */}
         <div className="flex-1 overflow-auto p-4">
-          {loading && (
+          {state.status === "loading" && (
             <div className="text-sm text-gray-400 text-center py-8">
               Loading...
             </div>
           )}
 
-          {error && (
-            <div className="text-sm text-red-500 text-center py-8">{error}</div>
+          {state.status === "error" && (
+            <div className="text-sm text-red-500 text-center py-8">
+              {state.error}
+            </div>
           )}
 
-          {!loading && !error && data?.content === null && (
+          {state.status === "empty" && (
             <div className="text-sm text-gray-400 text-center py-8">
               No comments file yet. Add comments to create one.
             </div>
           )}
 
-          {!loading && !error && data?.content && (
+          {state.status === "success" && (
             <pre className="text-xs text-gray-600 font-mono whitespace-pre-wrap break-words leading-relaxed">
-              {data.content}
+              {state.content}
             </pre>
           )}
         </div>

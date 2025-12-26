@@ -16,18 +16,6 @@ interface MarginNoteProps {
   onHover?: (commentId: string | undefined) => void;
 }
 
-const confidenceVariants = cva("", {
-  variants: {
-    confidence: {
-      exact: "",
-      normalized: "",
-      fuzzy: "",
-      unresolved: "opacity-60",
-    },
-  },
-  defaultVariants: { confidence: "exact" },
-});
-
 const selectedTextVariants = cva(
   "text-sm italic mb-1 line-clamp-1 flex items-center gap-1 transition-colors duration-150",
   {
@@ -149,9 +137,7 @@ export function MarginNote({
       <div
         className={cn(
           "relative border-t border-gray-100 pt-3 pb-2 pl-3 transition-all duration-200",
-          confidenceVariants({
-            confidence: comment.anchorConfidence || "exact",
-          }),
+          comment.anchorConfidence === "unresolved" && "opacity-60",
         )}
       >
         {!isEditing && (

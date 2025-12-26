@@ -7,7 +7,6 @@ interface UseCommentsOptions {
 
 interface UseCommentsResult {
   comments: Comment[];
-  isLoading: boolean;
   error?: string;
   addComment: (
     selectedText: string,
@@ -36,7 +35,6 @@ export function useComments(
   const { clean = false } = options;
 
   const [comments, setComments] = useState<Comment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | undefined>(undefined);
 
   // Track pending operations for rollback on error
@@ -103,13 +101,9 @@ export function useComments(
 
   // Load comments from API
   useEffect(() => {
-    if (!filePath) {
-      setIsLoading(false);
-      return;
-    }
+    if (!filePath) return;
 
     const loadComments = async () => {
-      setIsLoading(true);
       setError(undefined);
 
       try {
@@ -117,7 +111,6 @@ export function useComments(
         if (clean) {
           await fetch("/api/comments", { method: "DELETE" });
           setComments([]);
-          setIsLoading(false);
           return;
         }
 
@@ -134,8 +127,6 @@ export function useComments(
           err instanceof Error ? err.message : "Failed to load comments",
         );
         setComments([]);
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -292,7 +283,6 @@ export function useComments(
 
   return {
     comments,
-    isLoading,
     error,
     addComment,
     deleteComment,

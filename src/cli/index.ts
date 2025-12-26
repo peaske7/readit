@@ -53,7 +53,7 @@ function findCommentFiles(dir: string): string[] {
 program
   .name("readit")
   .description("Review Markdown and HTML documents with inline comments")
-  .version("0.1.0");
+  .version("0.1.2");
 
 // List command: show all commented files
 program

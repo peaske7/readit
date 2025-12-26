@@ -20,11 +20,15 @@ pnpm check:fix        # Fix lint + format issues
 pnpm format           # Format with Biome
 
 # Usage
-npx readit <file.md>              # Review Markdown file
-npx readit <file.html>            # Review HTML file
-npx readit <file.md> --port 3000  # Custom port
-npx readit <file.md> --no-open    # Don't auto-open browser
-npx readit <file.md> --clean      # Clear existing comments
+npx readit <file.md>               # Review Markdown file
+npx readit <file.html>             # Review HTML file
+npx readit <file.md> --port 3000   # Custom port
+npx readit <file.md> --host 0.0.0.0  # Custom host address
+npx readit <file.md> --no-open     # Don't auto-open browser
+npx readit <file.md> --clean       # Clear existing comments
+
+npx readit list                    # List all files with comments
+npx readit show <file.md>          # Show comments for a file
 ```
 
 ## Architecture

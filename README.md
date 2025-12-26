@@ -20,10 +20,11 @@ npx readit document.md
 ## Usage
 
 ```bash
-readit <file>                # Review a .md or .html file
-readit <file> --port 3000    # Custom port (default: 4567)
-readit <file> --no-open      # Don't auto-open browser
-readit <file> --clean        # Clear existing comments
+readit <file>                 # Review a .md or .html file
+readit <file> --port 3000     # Custom port (default: 4567)
+readit <file> --host 0.0.0.0  # Custom host (default: 127.0.0.1)
+readit <file> --no-open       # Don't auto-open browser
+readit <file> --clean         # Clear existing comments
 
 readit list                  # List all files with comments
 readit show <file>           # Show comments for a file

@@ -346,33 +346,3 @@ export function collectHighlightPositions(
 
   return { positions, documentPositions, pendingTop };
 }
-
-/**
- * Collect highlight positions relative to viewport (for iframe use).
- */
-export function collectHighlightPositionsViewport(
-  root: HTMLElement,
-  scrollY = 0,
-): HighlightPositions {
-  const positions: Record<string, number> = {};
-  const documentPositions: Record<string, number> = {};
-
-  const marks = root.querySelectorAll("mark[data-comment-id]");
-  for (const mark of marks) {
-    const commentId = mark.getAttribute("data-comment-id");
-    if (!commentId || positions[commentId] !== undefined) continue;
-
-    const rect = mark.getBoundingClientRect();
-    positions[commentId] = rect.top;
-    documentPositions[commentId] = rect.top + scrollY;
-  }
-
-  let pendingTop: number | undefined;
-  const pendingMark = root.querySelector("mark[data-pending]");
-  if (pendingMark) {
-    const pendingRect = pendingMark.getBoundingClientRect();
-    pendingTop = pendingRect.top;
-  }
-
-  return { positions, documentPositions, pendingTop };
-}

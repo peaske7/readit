@@ -89,38 +89,34 @@ function App() {
 
   const scrollToHeading = useCallback(
     (id: string) => {
-      let element: Element | null = null;
-      let elementTop: number;
-
+      // For iframes: calculate position relative to main document
+      // The iframe is auto-sized (no internal scroll), so we scroll the main window
       if (document?.type === "html") {
         const iframe = window.document.querySelector("iframe");
-        element = iframe?.contentDocument?.getElementById(id) ?? null;
+        const element = iframe?.contentDocument?.getElementById(id);
+        if (!element || !iframe) return;
 
-        if (element && iframe) {
-          // For iframes: calculate position relative to main document
-          // The iframe is auto-sized (no internal scroll), so we scroll the main window
-          const iframeRect = iframe.getBoundingClientRect();
-          elementTop = getElementTopInDocument(
-            element.getBoundingClientRect(),
-            window.scrollY,
-            iframeRect.top,
-          );
-        } else {
-          return;
-        }
-      } else {
-        element = window.document.getElementById(id);
-
-        if (element) {
-          elementTop = getElementTopInDocument(
-            element.getBoundingClientRect(),
-            window.scrollY,
-          );
-        } else {
-          return;
-        }
+        const iframeRect = iframe.getBoundingClientRect();
+        const elementTop = getElementTopInDocument(
+          element.getBoundingClientRect(),
+          window.scrollY,
+          iframeRect.top,
+        );
+        const scrollTarget = calculateScrollTarget(
+          elementTop,
+          window.innerHeight,
+        );
+        window.scrollTo({ top: scrollTarget, behavior: "smooth" });
+        return;
       }
 
+      const element = window.document.getElementById(id);
+      if (!element) return;
+
+      const elementTop = getElementTopInDocument(
+        element.getBoundingClientRect(),
+        window.scrollY,
+      );
       const scrollTarget = calculateScrollTarget(
         elementTop,
         window.innerHeight,
