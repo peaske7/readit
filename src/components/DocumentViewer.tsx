@@ -6,6 +6,7 @@ import {
   useRef,
 } from "react";
 import Markdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import type { Heading } from "../hooks/useHeadings";
 import {
@@ -135,23 +136,36 @@ export function DocumentViewer({
   useEffect(() => {
     if (type !== "markdown") return;
 
-    // Wait for DOM to be ready after React render
-    const timeoutId = requestAnimationFrame(() => {
-      const adapter = adapterRef.current;
-      if (!adapter) return;
+    // Use double requestAnimationFrame to ensure:
+    // 1. First frame: React has committed DOM changes
+    // 2. Second frame: Browser has completed layout pass
+    let outerFrameId: number;
+    let innerFrameId: number;
 
-      // Convert Comment[] to HighlightComment[]
-      const highlightComments: HighlightComment[] = comments.map((c) => ({
-        id: c.id,
-        selectedText: c.selectedText,
-        startOffset: c.startOffset,
-        endOffset: c.endOffset,
-      }));
+    outerFrameId = requestAnimationFrame(() => {
+      innerFrameId = requestAnimationFrame(() => {
+        const adapter = adapterRef.current;
+        if (!adapter) return;
 
-      adapter.applyHighlights(highlightComments, pendingSelection ?? undefined);
+        // Convert Comment[] to HighlightComment[]
+        const highlightComments: HighlightComment[] = comments.map((c) => ({
+          id: c.id,
+          selectedText: c.selectedText,
+          startOffset: c.startOffset,
+          endOffset: c.endOffset,
+        }));
+
+        adapter.applyHighlights(
+          highlightComments,
+          pendingSelection ?? undefined,
+        );
+      });
     });
 
-    return () => cancelAnimationFrame(timeoutId);
+    return () => {
+      cancelAnimationFrame(outerFrameId);
+      cancelAnimationFrame(innerFrameId);
+    };
   }, [comments, content, type, pendingSelection]);
 
   // Test helper: listen for custom event to trigger text selection (E2E testing)
@@ -215,6 +229,7 @@ export function DocumentViewer({
           key={content}
           components={markdownComponents}
           remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw]}
         >
           {content}
         </Markdown>

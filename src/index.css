@@ -543,3 +543,43 @@ mark[data-pending] {
 .prose em {
   font-style: italic;
 }
+
+/* Collapsible details/summary */
+.prose details {
+  margin: 1.25em 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5em;
+  padding: 0 1em;
+}
+
+.prose summary {
+  cursor: pointer;
+  font-weight: 500;
+  padding: 0.75em 0;
+  list-style: none;
+}
+
+.prose summary::-webkit-details-marker {
+  display: none;
+}
+
+.prose summary::before {
+  content: "▸";
+  margin-right: 0.5em;
+  color: #9ca3af;
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+
+.prose details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.prose details[open] summary {
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 0.75em;
+}
+
+.prose details > *:not(summary) {
+  margin-left: 0;
+}

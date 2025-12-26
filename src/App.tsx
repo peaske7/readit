@@ -261,7 +261,7 @@ function App() {
     [document],
   );
 
-  // Keyboard shortcuts: Cmd+C for raw copy, Cmd+Shift+C for LLM copy
+  // Keyboard shortcuts: Cmd+C for raw copy, Cmd+Shift+C for LLM copy, Escape to cancel
   useEffect(() => {
     if (!selection) return;
 
@@ -274,11 +274,19 @@ function App() {
           handleCopySelectionRaw();
         }
       }
+      if (e.key === "Escape") {
+        clearSelection();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selection, handleCopySelectionRaw, handleCopySelectionForLLM]);
+  }, [
+    selection,
+    handleCopySelectionRaw,
+    handleCopySelectionForLLM,
+    clearSelection,
+  ]);
 
   // Update data-focused attribute on highlight marks when hover state changes
   useEffect(() => {

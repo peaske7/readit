@@ -63,6 +63,7 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
 
   let positionCallback: PositionChangeHandler | undefined;
   let hoverCallback: HoverHandler | undefined;
+  let scrollRafId: number | null = null;
 
   const handleMouseUp = () => {
     const selection = window.getSelection();
@@ -122,10 +123,19 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
     positionCallback(positions);
   };
 
+  // Throttle scroll updates to once per animation frame to prevent scroll jank
+  const handleScroll = () => {
+    if (scrollRafId !== null) return;
+    scrollRafId = requestAnimationFrame(() => {
+      updatePositions();
+      scrollRafId = null;
+    });
+  };
+
   root.addEventListener("mouseup", handleMouseUp);
   root.addEventListener("mouseover", handleMouseOver);
   root.addEventListener("mouseout", handleMouseOut);
-  window.addEventListener("scroll", updatePositions);
+  window.addEventListener("scroll", handleScroll, { passive: true });
   window.addEventListener("resize", updatePositions);
 
   return {
@@ -178,7 +188,9 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
         );
       }
 
-      updatePositions();
+      // Defer position update to next frame to ensure browser has completed layout
+      // after DOM changes from highlight application
+      requestAnimationFrame(() => updatePositions());
     },
 
     clearHighlights() {
@@ -208,8 +220,11 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
       root.removeEventListener("mouseup", handleMouseUp);
       root.removeEventListener("mouseover", handleMouseOver);
       root.removeEventListener("mouseout", handleMouseOut);
-      window.removeEventListener("scroll", updatePositions);
+      window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", updatePositions);
+      if (scrollRafId !== null) {
+        cancelAnimationFrame(scrollRafId);
+      }
       positionCallback = undefined;
       hoverCallback = undefined;
     },
