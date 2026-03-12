@@ -1,5 +1,5 @@
 {
-  "name": "@peaske7/readit",
+  "name": "peaske7/readit",
   "version": "0.1.3",
   "description": "A CLI tool to review Markdown documents with inline comments",
   "type": "module",
@@ -10,13 +10,10 @@
     "comments",
     "documentation"
   ],
-  "author": {
-    "email": "jay.shimada@lymo.jp",
-    "name": "Jay Shimada"
-  },
+  "author": "Jay Shimada <peaske@pm.me>",
   "license": "MIT",
   "bin": {
-    "readit": "./dist/index.js"
+    "readit": "dist/index.js"
   },
   "files": [
     "dist"
@@ -89,5 +86,17 @@
   "packageManager": "pnpm@10.26.0",
   "engines": {
     "node": ">=22.0.0"
-  }
+  },
+  "main": "./dist/index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/peaske7/readit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/peaske7/readit/issues"
+  },
+  "homepage": "https://github.com/peaske7/readit#readme"
 }
