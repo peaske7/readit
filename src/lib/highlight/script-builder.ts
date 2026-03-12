@@ -306,6 +306,15 @@ export function buildIframeScript(parentOrigin: string): string {
       return;
     }
 
+    // Handle scroll to highlight request from parent
+    if (event.data.type === 'scrollToHighlight') {
+      const mark = document.querySelector('mark[data-comment-id="' + event.data.commentId + '"]');
+      if (mark) {
+        mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
     if (event.data.type === 'applyHighlights') {
       clearHighlights(root);
 
@@ -394,6 +403,16 @@ export function buildIframeScript(parentOrigin: string): string {
       if (!related || related.getAttribute('data-comment-id') !== mark.getAttribute('data-comment-id')) {
         parent.postMessage({ type: 'highlightHover', commentId: null }, parentOrigin);
       }
+    }
+  });
+
+  document.addEventListener('click', function(e) {
+    const mark = e.target.closest('mark[data-comment-id]');
+    if (mark) {
+      parent.postMessage({
+        type: 'highlightClick',
+        commentId: mark.getAttribute('data-comment-id')
+      }, parentOrigin);
     }
   });
 

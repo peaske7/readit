@@ -5,6 +5,7 @@ import {
   CommentMinimap,
   CommentNavigator,
   DocumentViewer,
+  FloatingTOC,
   Header,
   MarginNotesContainer,
   TableOfContents,
@@ -13,7 +14,9 @@ import {
   useCommentNavigation,
   useComments,
   useDocument,
+  useFontPreference,
   useHeadings,
+  useLayoutMode,
   useReanchorMode,
   useScrollMetrics,
   useScrollSpy,
@@ -87,6 +90,14 @@ function App() {
   );
   const activeHeadingId = useScrollSpy(headings.map((h) => h.id));
 
+  // Layout mode toggle
+  const { isFullscreen, toggleLayoutMode } = useLayoutMode();
+
+  // Font preference
+  const { fontFamily, setFontFamily } = useFontPreference(
+    document?.filePath ?? null,
+  );
+
   const scrollToHeading = useCallback(
     (id: string) => {
       // For iframes: calculate position relative to main document
@@ -97,15 +108,15 @@ function App() {
         if (!element || !iframe) return;
 
         const iframeRect = iframe.getBoundingClientRect();
-        const elementTop = getElementTopInDocument(
-          element.getBoundingClientRect(),
-          window.scrollY,
-          iframeRect.top,
-        );
-        const scrollTarget = calculateScrollTarget(
+        const elementTop = getElementTopInDocument({
+          elementRect: element.getBoundingClientRect(),
+          scrollY: window.scrollY,
+          iframeTopOffset: iframeRect.top,
+        });
+        const scrollTarget = calculateScrollTarget({
           elementTop,
-          window.innerHeight,
-        );
+          viewportHeight: window.innerHeight,
+        });
         window.scrollTo({ top: scrollTarget, behavior: "smooth" });
         return;
       }
@@ -113,15 +124,48 @@ function App() {
       const element = window.document.getElementById(id);
       if (!element) return;
 
-      const elementTop = getElementTopInDocument(
-        element.getBoundingClientRect(),
-        window.scrollY,
-      );
-      const scrollTarget = calculateScrollTarget(
+      const elementTop = getElementTopInDocument({
+        elementRect: element.getBoundingClientRect(),
+        scrollY: window.scrollY,
+      });
+      const scrollTarget = calculateScrollTarget({
         elementTop,
-        window.innerHeight,
-      );
+        viewportHeight: window.innerHeight,
+      });
       window.scrollTo({ top: scrollTarget, behavior: "smooth" });
+    },
+    [document?.type],
+  );
+
+  // Handle highlight click - scroll to corresponding margin note
+  const handleHighlightClick = useCallback((commentId: string) => {
+    const marginNote = window.document.querySelector(
+      `article[data-comment-id="${commentId}"]`,
+    );
+    if (marginNote) {
+      marginNote.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, []);
+
+  // Handle margin note click - scroll to corresponding highlight
+  const handleScrollToHighlight = useCallback(
+    (commentId: string) => {
+      if (document?.type === "html") {
+        // For HTML documents, send message to iframe
+        const iframe = window.document.querySelector("iframe");
+        iframe?.contentWindow?.postMessage(
+          { type: "scrollToHighlight", commentId },
+          "*",
+        );
+      } else {
+        // For Markdown, scroll directly to the mark element
+        const mark = window.document.querySelector(
+          `mark[data-comment-id="${commentId}"]`,
+        );
+        if (mark) {
+          mark.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }
     },
     [document?.type],
   );
@@ -215,11 +259,11 @@ function App() {
   const handleCopySelectionForLLM = useCallback(() => {
     if (!selection || !document) return;
 
-    const context = extractContext(
-      document.content,
-      selection.startOffset,
-      selection.endOffset,
-    );
+    const context = extractContext({
+      content: document.content,
+      startOffset: selection.startOffset,
+      endOffset: selection.endOffset,
+    });
     const formatted = formatForLLM({
       context,
       fileName: document.fileName,
@@ -240,11 +284,11 @@ function App() {
     (comment: Comment) => {
       if (!document) return;
 
-      const context = extractContext(
-        document.content,
-        comment.startOffset,
-        comment.endOffset,
-      );
+      const context = extractContext({
+        content: document.content,
+        startOffset: comment.startOffset,
+        endOffset: comment.endOffset,
+      });
       const formatted = formatForLLM({
         context,
         fileName: document.fileName,
@@ -344,13 +388,17 @@ function App() {
         onGoToComment={navigateToComment}
         onReanchorComment={startReanchor}
         reanchorMode={reanchorTarget}
+        isFullscreen={isFullscreen}
+        onToggleLayout={toggleLayoutMode}
+        fontFamily={fontFamily}
+        onFontFamilyChange={setFontFamily}
       />
 
       <div
-        className={`flex-1 flex gap-4 max-w-7xl mx-auto w-full ${hoveredCommentId ? "has-comment-focus" : ""}`}
+        className={`flex-1 flex gap-4 w-full ${!isFullscreen ? "max-w-7xl mx-auto" : ""} ${hoveredCommentId ? "has-comment-focus" : ""}`}
       >
-        {/* Table of contents - left side */}
-        {headings.length > 0 && (
+        {/* Table of contents - sidebar in centered mode, floating in fullscreen mode */}
+        {!isFullscreen && headings.length > 0 && (
           <aside className="w-48 flex-shrink-0 py-6 pl-6 hidden xl:block">
             <div className="sticky top-64 max-h-[calc(100vh-17rem)] overflow-y-auto">
               <TableOfContents
@@ -360,6 +408,13 @@ function App() {
               />
             </div>
           </aside>
+        )}
+        {isFullscreen && (
+          <FloatingTOC
+            headings={headings}
+            activeId={activeHeadingId}
+            onHeadingClick={scrollToHeading}
+          />
         )}
 
         {/* Document content */}
@@ -373,6 +428,9 @@ function App() {
             onTextSelect={onTextSelect}
             onHighlightPositionsChange={onPositionsChange}
             onHighlightHover={setHoveredCommentId}
+            onHighlightClick={handleHighlightClick}
+            isFullscreen={isFullscreen}
+            fontFamily={fontFamily}
           />
         </div>
 
@@ -432,6 +490,8 @@ function App() {
             onCopyCommentRaw={handleCopyCommentRaw}
             onCopyCommentForLLM={handleCopyCommentForLLM}
             onHoverComment={setHoveredCommentId}
+            onScrollToHighlight={handleScrollToHighlight}
+            fontFamily={fontFamily}
           />
         </div>
       </div>

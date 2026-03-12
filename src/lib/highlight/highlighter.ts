@@ -17,6 +17,7 @@ export type SelectionHandler = (
 ) => void;
 export type PositionChangeHandler = (positions: HighlightPositions) => void;
 export type HoverHandler = (commentId: string | undefined) => void;
+export type ClickHandler = (commentId: string) => void;
 export type ContentHeightHandler = (height: number) => void;
 
 // Highlighter interface
@@ -29,6 +30,7 @@ export interface Highlighter {
   getPositions(): HighlightPositions;
   onPositionsChange(callback: PositionChangeHandler): () => void;
   onHighlightHover(callback: HoverHandler): () => void;
+  onHighlightClick(callback: ClickHandler): () => void;
   onContentHeightChange?(callback: ContentHeightHandler): () => void;
   dispose(): void;
 }
@@ -63,6 +65,7 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
 
   let positionCallback: PositionChangeHandler | undefined;
   let hoverCallback: HoverHandler | undefined;
+  let clickCallback: ClickHandler | undefined;
   let scrollRafId: number | null = null;
 
   const handleMouseUp = () => {
@@ -112,6 +115,18 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
     }
   };
 
+  const handleClick = (e: Event) => {
+    if (!clickCallback) return;
+    const target = e.target as HTMLElement;
+    const mark = target.closest("mark[data-comment-id]");
+    if (mark) {
+      const commentId = mark.getAttribute("data-comment-id");
+      if (commentId) {
+        clickCallback(commentId);
+      }
+    }
+  };
+
   const updatePositions = () => {
     if (!positionCallback) return;
     const containerRect = container.getBoundingClientRect();
@@ -135,6 +150,7 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
   root.addEventListener("mouseup", handleMouseUp);
   root.addEventListener("mouseover", handleMouseOver);
   root.addEventListener("mouseout", handleMouseOut);
+  root.addEventListener("click", handleClick);
   window.addEventListener("scroll", handleScroll, { passive: true });
   window.addEventListener("resize", updatePositions);
 
@@ -216,10 +232,18 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
       };
     },
 
+    onHighlightClick(callback: ClickHandler) {
+      clickCallback = callback;
+      return () => {
+        clickCallback = undefined;
+      };
+    },
+
     dispose() {
       root.removeEventListener("mouseup", handleMouseUp);
       root.removeEventListener("mouseover", handleMouseOver);
       root.removeEventListener("mouseout", handleMouseOut);
+      root.removeEventListener("click", handleClick);
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", updatePositions);
       if (scrollRafId !== null) {
@@ -227,6 +251,7 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
       }
       positionCallback = undefined;
       hoverCallback = undefined;
+      clickCallback = undefined;
     },
   };
 }
@@ -238,6 +263,7 @@ function createIframeHighlighter(options: IframeOptions): Highlighter {
   let isReady = false;
   let positionCallback: PositionChangeHandler | undefined;
   let hoverCallback: HoverHandler | undefined;
+  let clickCallback: ClickHandler | undefined;
   let contentHeightCallback: ContentHeightHandler | undefined;
   let pendingHighlights:
     | { comments: HighlightComment[]; pending?: TextRange }
@@ -290,6 +316,12 @@ function createIframeHighlighter(options: IframeOptions): Highlighter {
       case "highlightHover":
         if (hoverCallback) {
           hoverCallback(event.data.commentId);
+        }
+        break;
+
+      case "highlightClick":
+        if (clickCallback && event.data.commentId) {
+          clickCallback(event.data.commentId);
         }
         break;
 
@@ -359,6 +391,13 @@ function createIframeHighlighter(options: IframeOptions): Highlighter {
       };
     },
 
+    onHighlightClick(callback: ClickHandler) {
+      clickCallback = callback;
+      return () => {
+        clickCallback = undefined;
+      };
+    },
+
     onContentHeightChange(callback: ContentHeightHandler) {
       contentHeightCallback = callback;
       return () => {
@@ -370,6 +409,7 @@ function createIframeHighlighter(options: IframeOptions): Highlighter {
       window.removeEventListener("message", handleMessage);
       positionCallback = undefined;
       hoverCallback = undefined;
+      clickCallback = undefined;
       contentHeightCallback = undefined;
       isReady = false;
       pendingHighlights = undefined;

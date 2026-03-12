@@ -50,16 +50,21 @@ readit/
 │   │   ├── CommentManagerDropdown.tsx # Dropdown menu for managing comments
 │   │   ├── CommentMinimap.tsx # Visual minimap of comment positions
 │   │   ├── CommentNavigator.tsx # Navigate between comments
+│   │   ├── FloatingTOC.tsx    # Floating TOC button (fullscreen mode)
 │   │   ├── MarginNote.tsx     # Individual margin note
 │   │   ├── MarginNotesContainer.tsx
+│   │   ├── MermaidDiagram.tsx # Mermaid diagram rendering
 │   │   ├── RawCommentsModal.tsx # View raw .comments.md file
+│   │   ├── SettingsModal.tsx  # Settings modal (font preferences)
 │   │   ├── TableOfContents.tsx # Document headings navigation
 │   │   └── index.ts
 │   ├── hooks/
 │   │   ├── useComments.ts     # Comment state management
 │   │   ├── useCommentNavigation.ts # Navigate between comments
 │   │   ├── useDocument.ts     # Document fetching and state
+│   │   ├── useFontPreference.ts # Font preference with server persistence
 │   │   ├── useHeadings.ts     # Extract headings from document
+│   │   ├── useLayoutMode.ts   # Layout mode toggle (centered/fullscreen)
 │   │   ├── useReanchorMode.ts # Re-anchor mode for unresolved comments
 │   │   ├── useScrollMetrics.ts # Scroll position tracking
 │   │   ├── useScrollSpy.ts    # Track scroll position for TOC
@@ -70,8 +75,8 @@ readit/
 │   │   ├── comment-storage.ts # File-based comment storage
 │   │   ├── context.ts         # LLM context extraction
 │   │   ├── export.ts          # Export utilities (JSON, prompt format)
-│   │   ├── html-processor.tsx # HTML sanitization (unified/rehype)
 │   │   ├── layout-constants.ts # Layout dimensions and breakpoints
+│   │   ├── margin-layout.ts   # Margin note position resolution
 │   │   ├── scroll.ts          # Scroll calculation utilities
 │   │   ├── utils.ts           # Common utilities (cn, etc.)
 │   │   └── highlight/         # Text highlighting system

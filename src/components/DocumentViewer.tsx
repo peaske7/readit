@@ -14,8 +14,15 @@ import {
   type HighlightComment,
   type Highlighter,
 } from "../lib/highlight";
-import { getTextContent } from "../lib/utils";
-import type { Comment, DocumentType, SelectionRange } from "../types";
+import { cn, getTextContent } from "../lib/utils";
+import {
+  AnchorConfidences,
+  type Comment,
+  type DocumentType,
+  FontFamilies,
+  type FontFamily,
+  type SelectionRange,
+} from "../types";
 import { CodeBlock } from "./CodeBlock";
 import { IframeContainer } from "./IframeContainer";
 
@@ -75,6 +82,9 @@ interface DocumentViewerProps {
     pendingTop?: number,
   ) => void;
   onHighlightHover?: (commentId: string | undefined) => void;
+  onHighlightClick?: (commentId: string) => void;
+  isFullscreen?: boolean;
+  fontFamily?: FontFamily;
 }
 
 export function DocumentViewer({
@@ -86,6 +96,9 @@ export function DocumentViewer({
   onTextSelect,
   onHighlightPositionsChange,
   onHighlightHover,
+  onHighlightClick,
+  isFullscreen = false,
+  fontFamily = FontFamilies.SERIF,
 }: DocumentViewerProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -123,22 +136,40 @@ export function DocumentViewer({
       ? adapter.onHighlightHover(onHighlightHover)
       : () => {};
 
+    // Subscribe to click events
+    const unsubClick = onHighlightClick
+      ? adapter.onHighlightClick(onHighlightClick)
+      : () => {};
+
     return () => {
       unsubPositions();
       unsubHover();
+      unsubClick();
       adapter.dispose();
       adapterRef.current = null;
     };
-  }, [type, onTextSelect, onHighlightPositionsChange, onHighlightHover]);
+  }, [
+    type,
+    onTextSelect,
+    onHighlightPositionsChange,
+    onHighlightHover,
+    onHighlightClick,
+  ]);
 
-  // Apply highlights when comments or pending selection change
+  // Apply highlights when comments or pending selection change.
+  //
+  // Why double requestAnimationFrame?
+  // In React 18+ concurrent mode, a single RAF can fire before React's commit phase
+  // completes, causing us to query stale DOM. The double RAF pattern ensures:
+  //   1. First frame: React finishes committing DOM changes
+  //   2. Second frame: Browser completes layout/paint, DOM is queryable
+  // This is a known workaround for DOM manipulation after React renders.
+  // See: https://github.com/facebook/react/issues/20863
+  //
   // biome-ignore lint/correctness/useExhaustiveDependencies: must reapply highlights when content changes
   useEffect(() => {
     if (type !== "markdown") return;
 
-    // Use double requestAnimationFrame to ensure:
-    // 1. First frame: React has committed DOM changes
-    // 2. Second frame: Browser has completed layout pass
     let outerFrameId: number;
     let innerFrameId: number;
 
@@ -147,13 +178,16 @@ export function DocumentViewer({
         const adapter = adapterRef.current;
         if (!adapter) return;
 
-        // Convert Comment[] to HighlightComment[]
-        const highlightComments: HighlightComment[] = comments.map((c) => ({
-          id: c.id,
-          selectedText: c.selectedText,
-          startOffset: c.startOffset,
-          endOffset: c.endOffset,
-        }));
+        // Convert Comment[] to HighlightComment[], excluding unresolved anchors
+        // (unresolved comments have stale offsets that would cause broken highlights)
+        const highlightComments: HighlightComment[] = comments
+          .filter((c) => c.anchorConfidence !== AnchorConfidences.UNRESOLVED)
+          .map((c) => ({
+            id: c.id,
+            selectedText: c.selectedText,
+            startOffset: c.startOffset,
+            endOffset: c.endOffset,
+          }));
 
         adapter.applyHighlights(
           highlightComments,
@@ -211,6 +245,8 @@ export function DocumentViewer({
           onTextSelect={onTextSelect}
           onHighlightPositionsChange={onHighlightPositionsChange}
           onHighlightHover={onHighlightHover}
+          onHighlightClick={onHighlightClick}
+          fontFamily={fontFamily}
         />
       </main>
     );
@@ -224,7 +260,14 @@ export function DocumentViewer({
 
   return (
     <div ref={containerRef} className="flex-1 min-w-0">
-      <article ref={contentRef} className="prose">
+      <article
+        ref={contentRef}
+        className={cn(
+          "prose",
+          isFullscreen && "prose-fullscreen",
+          fontFamily === FontFamilies.SANS_SERIF ? "prose-sans" : "prose-serif",
+        )}
+      >
         <Markdown
           key={content}
           components={markdownComponents}

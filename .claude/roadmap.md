@@ -62,12 +62,17 @@ Review documents, add comments, then resolve one-by-one with LLM assistance.
   - [ ] Click to toggle status
   - [ ] Auto-navigate to next unresolved (optional)
 
-## v0.4.0 - Visual Enhancements
+## v0.4.0 - Visual Enhancements ✅
 
 - [x] Highlight commented text in document (moved to v0.1.0)
 - [x] Syntax highlighting for code blocks (react-syntax-highlighter)
-- [ ] Click highlight → scroll to margin note
-- [ ] Click margin note → scroll to highlighted text
+- [x] Click highlight → scroll to margin note
+- [x] Click margin note → scroll to highlighted text
+- [x] Mermaid diagram rendering
+- [x] Layout mode toggle (centered / fullscreen)
+- [x] Floating TOC in fullscreen mode
+- [x] Settings modal with font preference (serif / sans-serif)
+- [x] Per-document settings storage (`~/.readit/settings/`)
 - [ ] Better mobile support
 
 ## v0.5.0 - Comment Categories

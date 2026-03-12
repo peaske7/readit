@@ -209,8 +209,9 @@ export function applyHighlightToRange(
         const fragment = range.extractContents();
         mark.appendChild(fragment);
         range.insertNode(mark);
-      } catch {
-        // Skip if fallback also fails
+      } catch (err) {
+        // Skip if fallback also fails, but log for debugging
+        console.warn("[highlight] Failed to apply highlight to range:", err);
       }
     }
   }
@@ -281,8 +282,9 @@ export function applyHighlightWithStyle(
         const fragment = range.extractContents();
         mark.appendChild(fragment);
         range.insertNode(mark);
-      } catch {
-        // Skip if fallback also fails
+      } catch (err) {
+        // Skip if fallback also fails, but log for debugging
+        console.warn("[highlight] Failed to apply styled highlight:", err);
       }
     }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Comment } from "../types";
+import { AnchorConfidences, type Comment } from "../types";
 
 interface UseCommentsOptions {
   clean?: boolean;
@@ -37,6 +37,10 @@ export function useComments(
   const [comments, setComments] = useState<Comment[]>([]);
   const [error, setError] = useState<string | undefined>(undefined);
 
+  // Track current comments for stable rollback (avoids callback recreation on every change)
+  const commentsRef = useRef<Comment[]>(comments);
+  commentsRef.current = comments;
+
   // Track pending operations for rollback on error
   const pendingOperations = useRef<Map<string, Comment[]>>(new Map());
 
@@ -51,9 +55,7 @@ export function useComments(
    * 5. On error: rollback to previous state
    * 6. Cleanup pending operation tracking
    */
-  // Depends on `comments` to capture current state for rollback on error.
-  // This causes callback recreation on every comments change, but is necessary
-  // because we need the exact state at mutation start for accurate rollback.
+  // Uses commentsRef to capture current state for rollback, avoiding callback recreation.
   const executeMutation = useCallback(
     async <T>({
       operationId,
@@ -68,8 +70,8 @@ export function useComments(
       onSuccess?: (result: T, prev: Comment[]) => Comment[];
       errorMessage: string;
     }) => {
-      // Save previous state for rollback
-      const previousComments = [...comments];
+      // Save previous state for rollback (read from ref for current value)
+      const previousComments = [...commentsRef.current];
       pendingOperations.current.set(operationId, previousComments);
 
       // Apply optimistic update
@@ -96,7 +98,7 @@ export function useComments(
         pendingOperations.current.delete(operationId);
       }
     },
-    [comments],
+    [],
   );
 
   // Load comments from API
@@ -254,7 +256,7 @@ export function useComments(
                   selectedText,
                   startOffset,
                   endOffset,
-                  anchorConfidence: "exact" as const,
+                  anchorConfidence: AnchorConfidences.EXACT,
                 }
               : c,
           ),

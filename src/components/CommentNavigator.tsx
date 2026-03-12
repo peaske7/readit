@@ -2,6 +2,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { cn } from "../lib/utils";
 
+const ANIMATION_DURATION_MS = 200;
+
 interface CommentNavigatorProps {
   currentIndex: number;
   totalComments: number;
@@ -23,13 +25,13 @@ export function CommentNavigator({
   const handlePrevious = () => {
     setAnimating("prev");
     onPrevious();
-    setTimeout(() => setAnimating(null), 200);
+    setTimeout(() => setAnimating(null), ANIMATION_DURATION_MS);
   };
 
   const handleNext = () => {
     setAnimating("next");
     onNext();
-    setTimeout(() => setAnimating(null), 200);
+    setTimeout(() => setAnimating(null), ANIMATION_DURATION_MS);
   };
 
   return (

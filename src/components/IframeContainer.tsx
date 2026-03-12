@@ -6,7 +6,13 @@ import {
   type HighlightComment,
   type Highlighter,
 } from "../lib/highlight";
-import type { Comment, SelectionRange } from "../types";
+import {
+  AnchorConfidences,
+  type Comment,
+  FontFamilies,
+  type FontFamily,
+  type SelectionRange,
+} from "../types";
 
 interface IframeContainerProps {
   html: string;
@@ -19,6 +25,20 @@ interface IframeContainerProps {
     pendingTop?: number,
   ) => void;
   onHighlightHover?: (commentId: string | undefined) => void;
+  onHighlightClick?: (commentId: string) => void;
+  fontFamily?: FontFamily;
+}
+
+const FONT_SERIF =
+  'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif';
+const FONT_SANS =
+  'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+/**
+ * Get font stack based on font family preference.
+ */
+function getFontStack(fontFamily: FontFamily): string {
+  return fontFamily === FontFamilies.SANS_SERIF ? FONT_SANS : FONT_SERIF;
 }
 
 /**
@@ -26,7 +46,9 @@ interface IframeContainerProps {
  * Critical layout styles use !important to ensure proper sizing.
  * Prose styles use :where() for zero specificity (easily overridden by external CSS).
  */
-const baseStyles = `
+function getBaseStyles(fontFamily: FontFamily): string {
+  const fontStack = getFontStack(fontFamily);
+  return `
   /* Critical layout - must override external CSS to ensure proper sizing */
   html {
     width: 100% !important;
@@ -46,7 +68,7 @@ const baseStyles = `
     padding: 2rem 1rem;
     line-height: 1.75;
     color: #374151;
-    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    font-family: ${fontStack};
   }
   :where(body:not([class])) :where(h1, h2, h3, h4, h5, h6) {
     color: #111827;
@@ -87,6 +109,7 @@ const baseStyles = `
   }
   mark[data-pending] { background: rgba(180, 180, 180, 0.3); cursor: text; }
 `;
+}
 
 /**
  * Sanitizes HTML using DOMPurify while preserving styles.
@@ -135,6 +158,8 @@ export function IframeContainer({
   onTextSelect,
   onHighlightPositionsChange,
   onHighlightHover,
+  onHighlightClick,
+  fontFamily = FontFamilies.SERIF,
 }: IframeContainerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const adapterRef = useRef<Highlighter | null>(null);
@@ -143,13 +168,14 @@ export function IframeContainer({
   // Build the complete HTML document for the iframe
   const srcdoc = useMemo(() => {
     const sanitized = sanitizeHtml(html);
+    const baseStyles = getBaseStyles(fontFamily);
     const styleTag = `<style id="readit-base-styles">${baseStyles}</style>`;
 
     const finalHtml = injectStyleTag(sanitized, styleTag);
 
     // Append the highlight script from the shared module
     return finalHtml + buildIframeScript(window.location.origin);
-  }, [html]);
+  }, [html, fontFamily]);
 
   // Initialize adapter
   useEffect(() => {
@@ -189,6 +215,11 @@ export function IframeContainer({
       ? adapter.onHighlightHover(onHighlightHover)
       : () => {};
 
+    // Subscribe to click events
+    const unsubClick = onHighlightClick
+      ? adapter.onHighlightClick(onHighlightClick)
+      : () => {};
+
     // Subscribe to content height changes for auto-sizing
     const unsubHeight = adapter.onContentHeightChange?.((height) => {
       setContentHeight(height);
@@ -197,24 +228,33 @@ export function IframeContainer({
     return () => {
       unsubPositions();
       unsubHover();
+      unsubClick();
       unsubHeight?.();
       adapter.dispose();
       adapterRef.current = null;
     };
-  }, [onTextSelect, onHighlightPositionsChange, onHighlightHover]);
+  }, [
+    onTextSelect,
+    onHighlightPositionsChange,
+    onHighlightHover,
+    onHighlightClick,
+  ]);
 
   // Send highlight updates when comments or pending selection change
   useEffect(() => {
     const adapter = adapterRef.current;
     if (!adapter) return;
 
-    // Convert Comment[] to HighlightComment[]
-    const highlightComments: HighlightComment[] = comments.map((c) => ({
-      id: c.id,
-      selectedText: c.selectedText,
-      startOffset: c.startOffset,
-      endOffset: c.endOffset,
-    }));
+    // Convert Comment[] to HighlightComment[], excluding unresolved anchors
+    // (unresolved comments have stale offsets that would cause broken highlights)
+    const highlightComments: HighlightComment[] = comments
+      .filter((c) => c.anchorConfidence !== AnchorConfidences.UNRESOLVED)
+      .map((c) => ({
+        id: c.id,
+        selectedText: c.selectedText,
+        startOffset: c.startOffset,
+        endOffset: c.endOffset,
+      }));
 
     adapter.applyHighlights(highlightComments, pendingSelection ?? undefined);
   }, [comments, pendingSelection]);

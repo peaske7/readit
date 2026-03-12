@@ -14,6 +14,17 @@ interface FormatOptions {
   comment?: string;
 }
 
+/**
+ * Parameters for context extraction.
+ * Using object destructuring per style guide §3.5 for clarity.
+ */
+export interface ExtractContextParams {
+  content: string;
+  startOffset: number;
+  endOffset: number;
+  contextLines?: number;
+}
+
 const DEFAULT_CONTEXT_LINES = 2;
 const MAX_SELECTION_LINES = 10;
 const MAX_LINE_LENGTH = 200;
@@ -65,12 +76,12 @@ function truncateLine(
  * Extract context around a selection using character offsets.
  * Returns lines with >>> and <<< markers inserted at selection boundaries.
  */
-export function extractContext(
-  content: string,
-  startOffset: number,
-  endOffset: number,
-  contextLines: number = DEFAULT_CONTEXT_LINES,
-): ContextResult {
+export function extractContext({
+  content,
+  startOffset,
+  endOffset,
+  contextLines = DEFAULT_CONTEXT_LINES,
+}: ExtractContextParams): ContextResult {
   // For HTML, strip tags to match offset calculation
   const textContent = isHtml(content) ? stripHtmlTags(content) : content;
   // Normalize CRLF to LF for consistent offset calculation

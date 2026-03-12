@@ -16,6 +16,7 @@ import tsx from "react-syntax-highlighter/dist/esm/languages/prism/tsx";
 import typescript from "react-syntax-highlighter/dist/esm/languages/prism/typescript";
 import yaml from "react-syntax-highlighter/dist/esm/languages/prism/yaml";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { MermaidDiagram } from "./MermaidDiagram";
 
 // Register languages
 SyntaxHighlighter.registerLanguage("bash", bash);
@@ -52,6 +53,11 @@ export function CodeBlock({ className, children }: CodeBlockProps) {
   const langMatch = className?.match(/language-(\w+)/);
   const language = langMatch?.[1] ?? "";
   const codeString = String(children).replace(/\n$/, "");
+
+  // Mermaid diagrams
+  if (language === "mermaid") {
+    return <MermaidDiagram code={codeString} />;
+  }
 
   // Inline code (no language specified and no newlines)
   if (!langMatch && !String(children).includes("\n")) {

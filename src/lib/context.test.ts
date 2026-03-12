@@ -42,7 +42,7 @@ describe("extractContext", () => {
   it("extracts single-line selection with markers", () => {
     const content = "line1\nline2\nline3\nline4\nline5";
     // "line2" starts at offset 6, ends at 11
-    const result = extractContext(content, 6, 11);
+    const result = extractContext({ content, startOffset: 6, endOffset: 11 });
 
     expect(result.startLine).toBe(2);
     expect(result.endLine).toBe(2);
@@ -53,7 +53,12 @@ describe("extractContext", () => {
   it("includes context lines before and after", () => {
     const content = "line1\nline2\nline3\nline4\nline5";
     // Select "line3" at offset 12
-    const result = extractContext(content, 12, 17, 2);
+    const result = extractContext({
+      content,
+      startOffset: 12,
+      endOffset: 17,
+      contextLines: 2,
+    });
 
     expect(result.startLine).toBe(3);
     expect(result.endLine).toBe(3);
@@ -64,7 +69,7 @@ describe("extractContext", () => {
   it("handles multi-line selection", () => {
     const content = "line1\nline2\nline3\nline4\nline5";
     // Select from "line2" to "line3" (offset 6 to 17)
-    const result = extractContext(content, 6, 17);
+    const result = extractContext({ content, startOffset: 6, endOffset: 17 });
 
     expect(result.startLine).toBe(2);
     expect(result.endLine).toBe(3);
@@ -77,7 +82,7 @@ describe("extractContext", () => {
   it("handles selection at start of document", () => {
     const content = "line1\nline2\nline3";
     // Select "line1" at start
-    const result = extractContext(content, 0, 5);
+    const result = extractContext({ content, startOffset: 0, endOffset: 5 });
 
     expect(result.startLine).toBe(1);
     expect(result.endLine).toBe(1);
@@ -87,7 +92,7 @@ describe("extractContext", () => {
   it("handles selection at end of document", () => {
     const content = "line1\nline2\nline3";
     // Select "line3" (offset 12 to 17)
-    const result = extractContext(content, 12, 17);
+    const result = extractContext({ content, startOffset: 12, endOffset: 17 });
 
     expect(result.startLine).toBe(3);
     expect(result.endLine).toBe(3);
@@ -98,7 +103,7 @@ describe("extractContext", () => {
     const longLine = "a".repeat(250);
     const content = `short\n${longLine}\nshort`;
     // Select part of the long line
-    const result = extractContext(content, 6, 256);
+    const result = extractContext({ content, startOffset: 6, endOffset: 256 });
 
     // Long line should be truncated with ...
     const longLineOutput = result.lines.find((l) => l.length > 100);
@@ -109,7 +114,11 @@ describe("extractContext", () => {
     const html = "<p>paragraph</p>\n<div>div content</div>";
     // After stripping: "paragraph\ndiv content"
     // Select "paragraph" at offset 0-9
-    const result = extractContext(html, 0, 9);
+    const result = extractContext({
+      content: html,
+      startOffset: 0,
+      endOffset: 9,
+    });
 
     expect(result.lines.some((l) => l.includes(">>> paragraph <<<"))).toBe(
       true,
@@ -120,7 +129,7 @@ describe("extractContext", () => {
     const content = "line1\r\nline2\r\nline3";
     // After normalization: "line1\nline2\nline3"
     // Select "line2" at offset 6
-    const result = extractContext(content, 6, 11);
+    const result = extractContext({ content, startOffset: 6, endOffset: 11 });
 
     expect(result.startLine).toBe(2);
     expect(result.lines.some((l) => l.includes(">>> line2 <<<"))).toBe(true);
@@ -129,7 +138,12 @@ describe("extractContext", () => {
   it("limits context lines to document bounds", () => {
     const content = "only\ntwo\nlines";
     // Select middle line with 5 context lines requested
-    const result = extractContext(content, 5, 8, 5);
+    const result = extractContext({
+      content,
+      startOffset: 5,
+      endOffset: 8,
+      contextLines: 5,
+    });
 
     // Should not go beyond document bounds
     expect(result.lines.length).toBeLessThanOrEqual(3);
@@ -140,7 +154,12 @@ describe("extractContext", () => {
     const lines = Array.from({ length: 15 }, (_, i) => `line${i + 1}`);
     const content = lines.join("\n");
     // Select all content
-    const result = extractContext(content, 0, content.length, 0);
+    const result = extractContext({
+      content,
+      startOffset: 0,
+      endOffset: content.length,
+      contextLines: 0,
+    });
 
     // Should include ... for truncated middle
     expect(result.lines.some((l) => l === "...")).toBe(true);

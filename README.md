@@ -11,6 +11,10 @@ A CLI tool to review Markdown and HTML documents with inline comments. Add margi
 
 Inspired by [difit](https://github.com/yoshiko-pg/difit).
 
+## Requirements
+
+- Node.js >= 22.0.0
+
 ## Quick Start
 
 ```bash

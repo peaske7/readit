@@ -1,6 +1,8 @@
 import { type FSWatcher, watch } from "node:fs";
 import * as fs from "node:fs/promises";
 import type { Server } from "node:http";
+import * as os from "node:os";
+import * as path from "node:path";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Response } from "express";
@@ -18,7 +20,10 @@ import {
 import {
   AnchorConfidences,
   type Comment,
+  type DocumentSettings,
   type DocumentType,
+  FontFamilies,
+  type FontFamily,
 } from "../types/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -62,11 +67,11 @@ async function readCommentsFromFile(
     return file.comments.map((comment) => {
       // Use anchorPrefix for matching when text was truncated, fall back to selectedText
       const textForMatching = comment.anchorPrefix || comment.selectedText;
-      const anchor = findAnchorWithFallback(
-        sourceContent,
-        textForMatching,
-        comment.lineHint || "L1",
-      );
+      const anchor = findAnchorWithFallback({
+        source: sourceContent,
+        selectedText: textForMatching,
+        lineHint: comment.lineHint || "L1",
+      });
 
       if (anchor) {
         return {
@@ -133,6 +138,71 @@ async function deleteCommentFile(filePath: string): Promise<void> {
       throw err;
     }
   }
+}
+
+/**
+ * Compute settings file path for a source file.
+ * Settings are stored in ~/.readit/settings/[path-structure].settings.json
+ */
+function getSettingsPath(sourcePath: string): string {
+  const absolute = path.resolve(sourcePath);
+  const normalized = absolute.replace(/^\//, "").replace(/^[A-Z]:[\\/]/, "");
+  return path.join(
+    os.homedir(),
+    ".readit",
+    "settings",
+    `${normalized}.settings.json`,
+  );
+}
+
+/**
+ * Default settings for new documents.
+ */
+const DEFAULT_SETTINGS: DocumentSettings = {
+  version: 1,
+  fontFamily: FontFamilies.SERIF,
+};
+
+/**
+ * Read settings from file, returning defaults if not found.
+ */
+async function readSettingsFromFile(
+  filePath: string,
+): Promise<DocumentSettings> {
+  const settingsPath = getSettingsPath(filePath);
+  try {
+    const content = await fs.readFile(settingsPath, "utf-8");
+    return JSON.parse(content) as DocumentSettings;
+  } catch (err) {
+    if (isErrnoException(err) && err.code === "ENOENT") {
+      return DEFAULT_SETTINGS;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Write settings to file with atomic write.
+ */
+async function writeSettingsToFile(
+  filePath: string,
+  settings: DocumentSettings,
+): Promise<void> {
+  const settingsPath = getSettingsPath(filePath);
+  const settingsDir = dirname(settingsPath);
+
+  await fs.mkdir(settingsDir, { recursive: true });
+
+  const tempPath = `${settingsPath}.tmp`;
+  await fs.writeFile(tempPath, JSON.stringify(settings, null, 2), "utf-8");
+  await fs.rename(tempPath, settingsPath);
+}
+
+/**
+ * Validate font family value.
+ */
+function isValidFontFamily(value: unknown): value is FontFamily {
+  return value === FontFamilies.SERIF || value === FontFamilies.SANS_SERIF;
 }
 
 interface AppWithWatcher {
@@ -509,6 +579,39 @@ function createApp(options: ServerOptions): AppWithWatcher {
     handleDeleteComment(ctx, req, res),
   );
   app.delete("/api/comments", (_req, res) => handleClearComments(ctx, res));
+
+  // Settings API routes
+  app.get("/api/settings", async (_req, res) => {
+    try {
+      const settings = await readSettingsFromFile(ctx.filePath);
+      res.json(settings);
+    } catch (err) {
+      console.error("Failed to read settings:", err);
+      res.status(500).json({ error: "Failed to read settings" });
+    }
+  });
+
+  app.put("/api/settings", async (req, res) => {
+    try {
+      const { fontFamily } = req.body;
+
+      if (!isValidFontFamily(fontFamily)) {
+        res.status(400).json({ error: "Invalid font family" });
+        return;
+      }
+
+      const settings: DocumentSettings = {
+        version: 1,
+        fontFamily,
+      };
+
+      await writeSettingsToFile(ctx.filePath, settings);
+      res.json(settings);
+    } catch (err) {
+      console.error("Failed to save settings:", err);
+      res.status(500).json({ error: "Failed to save settings" });
+    }
+  });
 
   // API: Heartbeat SSE - detects when browser tab closes
   app.get("/api/heartbeat", (req, res) => {

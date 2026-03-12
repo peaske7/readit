@@ -22,6 +22,14 @@ function getFileType(filePath: string): DocumentType | null {
   return null;
 }
 
+function isPermissionError(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    "code" in err &&
+    (err as NodeJS.ErrnoException).code === "EACCES"
+  );
+}
+
 /**
  * Recursively find all .comments.md files in a directory.
  */
@@ -39,12 +47,18 @@ function findCommentFiles(dir: string): string[] {
         } else if (entry.endsWith(".comments.md")) {
           results.push(fullPath);
         }
-      } catch {
-        // Skip inaccessible files
+      } catch (err) {
+        if (isPermissionError(err)) {
+          console.warn(`Warning: Permission denied: ${fullPath}`);
+        }
+        // Skip other inaccessible files
       }
     }
-  } catch {
-    // Skip inaccessible directories
+  } catch (err) {
+    if (isPermissionError(err)) {
+      console.warn(`Warning: Permission denied: ${dir}`);
+    }
+    // Skip other inaccessible directories
   }
 
   return results;
@@ -53,7 +67,7 @@ function findCommentFiles(dir: string): string[] {
 program
   .name("readit")
   .description("Review Markdown and HTML documents with inline comments")
-  .version("0.1.2");
+  .version("0.1.3");
 
 // List command: show all commented files
 program
@@ -131,7 +145,7 @@ program
       }
     } catch (err) {
       console.error(
-        `Error reading comments:`,
+        "error: failed to read comments:",
         err instanceof Error ? err.message : err,
       );
       process.exit(1);
@@ -158,14 +172,14 @@ program
       const filePath = resolve(process.cwd(), file);
 
       if (!existsSync(filePath)) {
-        console.error(`Error: File not found: ${filePath}`);
+        console.error(`error: file not found: ${filePath}`);
         process.exit(1);
       }
 
       const fileType = getFileType(file);
       if (!fileType) {
         console.error(
-          "Error: File must be a Markdown (.md, .markdown) or HTML (.html, .htm) file",
+          "error: file must be a Markdown (.md, .markdown) or HTML (.html, .htm) file",
         );
         process.exit(1);
       }
@@ -178,7 +192,7 @@ program
         preferredPort < 1 ||
         preferredPort > 65535
       ) {
-        console.error(`Error: Invalid port number: ${options.port}`);
+        console.error(`error: invalid port number: ${options.port}`);
         process.exit(1);
       }
 
@@ -215,7 +229,7 @@ readit - Document Review Tool
         });
       } catch (error) {
         console.error(
-          "Error starting server:",
+          "error: failed to start server:",
           error instanceof Error ? error.message : error,
         );
         process.exit(1);

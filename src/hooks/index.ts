@@ -1,7 +1,9 @@
 export { useCommentNavigation } from "./useCommentNavigation";
 export { useComments } from "./useComments";
 export { useDocument } from "./useDocument";
+export { useFontPreference } from "./useFontPreference";
 export { useHeadings } from "./useHeadings";
+export { useLayoutMode } from "./useLayoutMode";
 export { useReanchorMode } from "./useReanchorMode";
 export { useScrollMetrics } from "./useScrollMetrics";
 export { useScrollSpy } from "./useScrollSpy";

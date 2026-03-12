@@ -129,10 +129,10 @@
 
 - Text with comments has yellow background highlight (`<mark>` tags)
 - Margin notes are positioned next to their corresponding highlights
-- ~~Clicking highlight scrolls to comment~~ (not yet implemented)
-- ~~Clicking comment scrolls to text~~ (not yet implemented)
+- Clicking highlight scrolls to margin note
+- Clicking quoted text in margin note scrolls to highlight
 
-**Status:** Implemented (basic highlighting and margin notes)
+**Status:** Implemented
 
 ---
 

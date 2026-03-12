@@ -8,6 +8,31 @@ const MAX_FUZZY_TEXT_LENGTH = 200; // skip fuzzy matching for texts longer than 
 const FUZZY_SEARCH_WINDOW = 2000; // larger window for fuzzy search near line hint
 
 /**
+ * Common parameters for anchor finding functions.
+ * Using object destructuring per style guide §3.5 for multiple string parameters.
+ */
+export interface FindAnchorParams {
+  source: string;
+  selectedText: string;
+  lineHint: string;
+  searchWindow?: number;
+}
+
+export interface FindAnchorFuzzyParams {
+  source: string;
+  selectedText: string;
+  lineHint?: string;
+  threshold?: number;
+}
+
+export interface FindAnchorWithFallbackParams {
+  source: string;
+  selectedText: string;
+  lineHint: string;
+  fuzzyThreshold?: number;
+}
+
+/**
  * Normalize whitespace for comparison: collapse runs of whitespace to single space.
  * This allows matching text that was reformatted (line breaks, indentation changes).
  */
@@ -122,17 +147,15 @@ export function parseLineHint(lineHint: string): {
  * Find anchor position for selected text in source content.
  * Uses line hint for fast lookup, falls back to global search.
  */
-export function findAnchor(
-  source: string,
-  selectedText: string,
-  lineHint: string,
-  options: { searchWindow?: number } = {},
-): Anchor | undefined {
+export function findAnchor({
+  source,
+  selectedText,
+  lineHint,
+  searchWindow = DEFAULT_SEARCH_WINDOW,
+}: FindAnchorParams): Anchor | undefined {
   if (!selectedText || !source) {
     return undefined;
   }
-
-  const searchWindow = options.searchWindow ?? DEFAULT_SEARCH_WINDOW;
   const { start: hintLine } = parseLineHint(lineHint);
 
   // Fast path: search near line hint
@@ -216,12 +239,12 @@ function buildNormalizedPositionMap(text: string): {
  * 2. Find normalized text in normalized source (fast substring search)
  * 3. Map positions back to original source
  */
-export function findAnchorNormalized(
-  source: string,
-  selectedText: string,
-  lineHint: string,
-  options: { searchWindow?: number } = {},
-): Anchor | undefined {
+export function findAnchorNormalized({
+  source,
+  selectedText,
+  lineHint,
+  searchWindow = FUZZY_SEARCH_WINDOW,
+}: FindAnchorParams): Anchor | undefined {
   if (!selectedText || !source) {
     return undefined;
   }
@@ -235,8 +258,6 @@ export function findAnchorNormalized(
   if (normalizedText === selectedText) {
     return undefined;
   }
-
-  const searchWindow = options.searchWindow ?? FUZZY_SEARCH_WINDOW;
   const { start: hintLine } = parseLineHint(lineHint);
   const lineOffset = getLineOffset(source, hintLine);
 
@@ -297,16 +318,16 @@ export function findAnchorNormalized(
  * Find anchor using fuzzy matching with Levenshtein distance.
  * Scans the source for substrings similar to the selected text.
  */
-export function findAnchorFuzzy(
-  source: string,
-  selectedText: string,
-  options: { threshold?: number; lineHint?: string } = {},
-): Anchor | undefined {
+export function findAnchorFuzzy({
+  source,
+  selectedText,
+  lineHint,
+  threshold = DEFAULT_FUZZY_THRESHOLD,
+}: FindAnchorFuzzyParams): Anchor | undefined {
   if (!selectedText || !source) {
     return undefined;
   }
 
-  const threshold = options.threshold ?? DEFAULT_FUZZY_THRESHOLD;
   const textLen = selectedText.length;
 
   // For very long texts, skip fuzzy matching (too expensive)
@@ -321,8 +342,8 @@ export function findAnchorFuzzy(
   let searchStart = 0;
   let searchEnd = source.length;
 
-  if (options.lineHint) {
-    const { start: hintLine } = parseLineHint(options.lineHint);
+  if (lineHint) {
+    const { start: hintLine } = parseLineHint(lineHint);
     const lineOffset = getLineOffset(source, hintLine);
     // Search in a larger window for fuzzy matching
     searchStart = Math.max(0, lineOffset - FUZZY_SEARCH_WINDOW);
@@ -372,39 +393,45 @@ export function findAnchorFuzzy(
  * 2. Normalized: Whitespace-collapsed match for reformatted text (O(n))
  * 3. Fuzzy: Levenshtein distance for small edits (O(n × m × threshold))
  */
-export function findAnchorWithFallback(
-  source: string,
-  selectedText: string,
-  lineHint: string,
-  options: { fuzzyThreshold?: number } = {},
-): Anchor | undefined {
+export function findAnchorWithFallback({
+  source,
+  selectedText,
+  lineHint,
+  fuzzyThreshold,
+}: FindAnchorWithFallbackParams): Anchor | undefined {
   // Try exact match first (fastest)
-  const exactMatch = findAnchor(source, selectedText, lineHint);
+  const exactMatch = findAnchor({ source, selectedText, lineHint });
   if (exactMatch) {
     return exactMatch;
   }
 
   // Try normalized match (handles reformatting)
-  const normalizedMatch = findAnchorNormalized(source, selectedText, lineHint);
+  const normalizedMatch = findAnchorNormalized({
+    source,
+    selectedText,
+    lineHint,
+  });
   if (normalizedMatch) {
     return normalizedMatch;
   }
 
   // Fall back to fuzzy matching (handles small edits)
-  return findAnchorFuzzy(source, selectedText, {
-    threshold: options.fuzzyThreshold,
+  return findAnchorFuzzy({
+    source,
+    selectedText,
     lineHint,
+    threshold: fuzzyThreshold,
   });
 }
 
 /**
  * Find the closest match when multiple occurrences exist.
  */
-export function findClosestOccurrence(
-  source: string,
-  selectedText: string,
-  lineHint: string,
-): Anchor | undefined {
+export function findClosestOccurrence({
+  source,
+  selectedText,
+  lineHint,
+}: Omit<FindAnchorParams, "searchWindow">): Anchor | undefined {
   if (!selectedText || !source) {
     return undefined;
   }

@@ -64,5 +64,27 @@ export interface Document {
   type: DocumentType;
   filePath: string;
   fileName: string;
-  clean?: boolean;
+  clean: boolean;
+}
+
+// Font family options - const object pattern per style guide 6.3
+export const FontFamilies = {
+  SERIF: "serif",
+  SANS_SERIF: "sans-serif",
+} as const;
+
+export type FontFamily = (typeof FontFamilies)[keyof typeof FontFamilies];
+
+// Layout mode options - const object pattern per style guide 6.3
+export const LayoutModes = {
+  CENTERED: "centered",
+  FULLSCREEN: "fullscreen",
+} as const;
+
+export type LayoutMode = (typeof LayoutModes)[keyof typeof LayoutModes];
+
+// Document settings stored per-file
+export interface DocumentSettings {
+  version: number;
+  fontFamily: FontFamily;
 }

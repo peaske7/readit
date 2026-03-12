@@ -1,8 +1,14 @@
 @import "tailwindcss";
 
-/* Serif typography - editorial aesthetic */
+/* Font family system */
 .font-serif {
-  font-family: serif;
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+.font-sans {
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
 }
 
 /* Selection highlight */
@@ -544,6 +550,36 @@ mark[data-pending] {
   font-style: italic;
 }
 
+/* Fullscreen prose - left-aligned, full width */
+.prose-fullscreen {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Prose font family variants */
+.prose.prose-serif,
+.prose.prose-serif h1,
+.prose.prose-serif h2,
+.prose.prose-serif h3,
+.prose.prose-serif h4,
+.prose.prose-serif h5,
+.prose.prose-serif h6 {
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+.prose.prose-sans,
+.prose.prose-sans h1,
+.prose.prose-sans h2,
+.prose.prose-sans h3,
+.prose.prose-sans h4,
+.prose.prose-sans h5,
+.prose.prose-sans h6 {
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+}
+
 /* Collapsible details/summary */
 .prose details {
   margin: 1.25em 0;
@@ -582,4 +618,122 @@ mark[data-pending] {
 
 .prose details > *:not(summary) {
   margin-left: 0;
+}
+
+/* ========================================
+   Mermaid Diagram Styles
+   ======================================== */
+
+/* Container - break out of prose width for larger diagrams */
+.mermaid-container {
+  margin-left: -3rem;
+  margin-right: -3rem;
+  padding: 1rem 0;
+}
+
+.mermaid-container > svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Typography overrides - make text more readable */
+.mermaid-container text {
+  font-size: 14px !important;
+}
+
+.mermaid-container .section {
+  font-size: 13px !important;
+  font-weight: 500;
+}
+
+.mermaid-container .taskText {
+  font-size: 13px !important;
+}
+
+.mermaid-container .taskTextOutsideRight,
+.mermaid-container .taskTextOutsideLeft {
+  font-size: 12px !important;
+}
+
+.mermaid-container .titleText {
+  font-size: 18px !important;
+  font-weight: 600;
+}
+
+/* Flowchart specific */
+.mermaid-container .nodeLabel {
+  font-size: 14px !important;
+}
+
+.mermaid-container .edgeLabel {
+  font-size: 12px !important;
+}
+
+.mermaid-container .cluster-label {
+  font-size: 14px !important;
+  font-weight: 500;
+}
+
+/* Sequence diagram specific */
+.mermaid-container .actor {
+  font-size: 14px !important;
+}
+
+.mermaid-container .messageText {
+  font-size: 13px !important;
+}
+
+.mermaid-container .noteText {
+  font-size: 12px !important;
+}
+
+/* Grid lines - subtle */
+.mermaid-container .grid path {
+  stroke: #e5e7eb !important;
+  stroke-width: 1px;
+}
+
+/* Today line in Gantt - distinct */
+.mermaid-container .today {
+  stroke: #b86b78 !important;
+  stroke-width: 2px;
+}
+
+/* Improve stroke contrast */
+.mermaid-container path.path {
+  stroke-width: 1.5px;
+}
+
+/* Responsive breakout margins */
+@media (max-width: 768px) {
+  .mermaid-container {
+    margin-left: -1rem;
+    margin-right: -1rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .mermaid-container {
+    margin-left: -4rem;
+    margin-right: -4rem;
+  }
+}
+
+/* ========================================
+   Floating TOC Panel
+   ======================================== */
+
+.floating-toc-panel {
+  animation: floating-toc-in 0.2s ease-out;
+}
+
+@keyframes floating-toc-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }

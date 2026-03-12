@@ -1,9 +1,10 @@
-import { MoreHorizontal } from "lucide-react";
+import { Maximize2, Minimize2, MoreHorizontal, Settings } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../lib/utils";
-import type { Comment } from "../types";
+import type { Comment, FontFamily } from "../types";
 import { CommentManagerDropdown } from "./CommentManagerDropdown";
 import { RawCommentsModal } from "./RawCommentsModal";
+import { SettingsModal } from "./SettingsModal";
 
 interface HeaderProps {
   fileName: string;
@@ -17,6 +18,10 @@ interface HeaderProps {
   onGoToComment: (id: string) => void;
   onReanchorComment?: (id: string) => void;
   reanchorMode?: { commentId: string } | null;
+  isFullscreen?: boolean;
+  onToggleLayout?: () => void;
+  fontFamily?: FontFamily;
+  onFontFamilyChange?: (font: FontFamily) => Promise<void>;
 }
 
 export function Header({
@@ -31,10 +36,15 @@ export function Header({
   onGoToComment,
   onReanchorComment,
   reanchorMode,
+  isFullscreen = false,
+  onToggleLayout,
+  fontFamily,
+  onFontFamilyChange,
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [rawModalOpen, setRawModalOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const commentsRef = useRef<HTMLDivElement>(null);
 
@@ -75,7 +85,12 @@ export function Header({
   return (
     <>
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div
+          className={cn(
+            "px-6 py-3 flex items-center justify-between",
+            !isFullscreen && "max-w-7xl mx-auto",
+          )}
+        >
           {/* Left: Brand + filename */}
           <div className="flex items-center gap-3">
             <h1 className="font-serif text-lg tracking-tight text-gray-900">
@@ -147,9 +162,44 @@ export function Header({
               {/* Dropdown menu */}
               {menuOpen && (
                 <div
-                  className="absolute right-0 top-full mt-1 py-1 bg-white rounded-lg shadow-lg shadow-gray-200/50 border border-gray-100 min-w-[140px] animate-in"
+                  className="absolute right-0 top-full mt-1 py-1 bg-white rounded-lg shadow-lg shadow-gray-200/50 border border-gray-100 min-w-[160px] animate-in"
                   role="menu"
                 >
+                  {onToggleLayout && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onToggleLayout();
+                        setMenuOpen(false);
+                      }}
+                      className="w-full px-3 py-1.5 text-left text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center gap-2"
+                      role="menuitem"
+                    >
+                      {isFullscreen ? (
+                        <Minimize2 className="w-3.5 h-3.5" />
+                      ) : (
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      )}
+                      {isFullscreen ? "Centered" : "Fullscreen"}
+                    </button>
+                  )}
+                  {onFontFamilyChange && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSettingsOpen(true);
+                        setMenuOpen(false);
+                      }}
+                      className="w-full px-3 py-1.5 text-left text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors flex items-center gap-2"
+                      role="menuitem"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                      Settings
+                    </button>
+                  )}
+                  {(onToggleLayout || onFontFamilyChange) && (
+                    <div className="my-1 border-t border-gray-100" />
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -222,6 +272,15 @@ export function Header({
         isOpen={rawModalOpen}
         onClose={() => setRawModalOpen(false)}
       />
+
+      {fontFamily && onFontFamilyChange && (
+        <SettingsModal
+          isOpen={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          fontFamily={fontFamily}
+          onFontFamilyChange={onFontFamilyChange}
+        />
+      )}
     </>
   );
 }

@@ -1,7 +1,7 @@
 import { cva } from "class-variance-authority";
 import { useState } from "react";
 import { cn } from "../lib/utils";
-import type { Comment } from "../types";
+import { type Comment, FontFamilies, type FontFamily } from "../types";
 
 interface MarginNoteProps {
   comment: Comment;
@@ -14,6 +14,9 @@ interface MarginNoteProps {
   onCopyForLLM: (comment: Comment) => void;
   /** Called when mouse enters/leaves the note */
   onHover?: (commentId: string | undefined) => void;
+  /** Called when user clicks quoted text to scroll to highlight */
+  onScrollToHighlight?: (commentId: string) => void;
+  fontFamily?: FontFamily;
 }
 
 const selectedTextVariants = cva(
@@ -65,7 +68,11 @@ export function MarginNote({
   onCopyRaw,
   onCopyForLLM,
   onHover,
+  onScrollToHighlight,
+  fontFamily = FontFamilies.SERIF,
 }: MarginNoteProps) {
+  const fontClass =
+    fontFamily === FontFamilies.SANS_SERIF ? "font-sans" : "font-serif";
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(comment.comment);
 
@@ -89,6 +96,7 @@ export function MarginNote({
         className="absolute left-0 right-0 group"
         style={{ top }}
         title={`Added: ${createdAtFormatted}`}
+        data-comment-id={comment.id}
         onMouseEnter={() => onHover?.(comment.id)}
         onMouseLeave={() => onHover?.(undefined)}
       >
@@ -127,6 +135,7 @@ export function MarginNote({
       className="absolute left-0 right-0 group"
       style={{ top }}
       title={`Added: ${createdAtFormatted}`}
+      data-comment-id={comment.id}
       onMouseEnter={() => onHover?.(comment.id)}
       onMouseLeave={() => onHover?.(undefined)}
     >
@@ -143,11 +152,17 @@ export function MarginNote({
         {!isEditing && (
           <div
             className={cn(
-              "font-serif",
+              fontClass,
               selectedTextVariants({ hovered: isHovered }),
             )}
           >
-            <span>"{comment.selectedText}"</span>
+            <button
+              type="button"
+              onClick={() => onScrollToHighlight?.(comment.id)}
+              className="cursor-pointer hover:underline text-left"
+            >
+              "{comment.selectedText}"
+            </button>
           </div>
         )}
 
@@ -192,7 +207,7 @@ export function MarginNote({
           <>
             <p
               className={cn(
-                "font-serif",
+                fontClass,
                 commentTextVariants({ hovered: isHovered }),
               )}
             >
