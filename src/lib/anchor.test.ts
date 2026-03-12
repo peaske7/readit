@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { LARGE_DOC } from "./__fixtures__/bench-data";
 import {
   findAnchor,
   findAnchorFuzzy,
@@ -495,5 +496,36 @@ line five the`;
         lineHint: "L1",
       }),
     ).toBeUndefined();
+  });
+});
+
+describe("performance", () => {
+  const exactText = "The conclusion of section 8 summarizes the key findings";
+  const fuzzyText = "- Item 1 in section 1x"; // 1-char typo
+
+  it("findAnchorWithFallback exact match completes within 50ms (1000 iterations)", () => {
+    const start = performance.now();
+    for (let i = 0; i < 1000; i++) {
+      findAnchorWithFallback({
+        source: LARGE_DOC,
+        selectedText: exactText,
+        lineHint: "L149",
+      });
+    }
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeLessThan(50);
+  });
+
+  it("findAnchorWithFallback fuzzy fallback completes within 50ms (10 iterations)", () => {
+    const start = performance.now();
+    for (let i = 0; i < 10; i++) {
+      findAnchorWithFallback({
+        source: LARGE_DOC,
+        selectedText: fuzzyText,
+        lineHint: "L250",
+      });
+    }
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeLessThan(50);
   });
 });

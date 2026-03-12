@@ -5,14 +5,14 @@ import {
   createHighlighter,
   type HighlightComment,
   type Highlighter,
-} from "../lib/highlight";
+} from "../../lib/highlight";
 import {
   AnchorConfidences,
   type Comment,
   FontFamilies,
   type FontFamily,
   type SelectionRange,
-} from "../types";
+} from "../../types";
 
 interface IframeContainerProps {
   html: string;
@@ -34,18 +34,11 @@ const FONT_SERIF =
 const FONT_SANS =
   'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
-/**
- * Get font stack based on font family preference.
- */
 function getFontStack(fontFamily: FontFamily): string {
   return fontFamily === FontFamilies.SANS_SERIF ? FONT_SANS : FONT_SERIF;
 }
 
-/**
- * Base styles injected into the iframe.
- * Critical layout styles use !important to ensure proper sizing.
- * Prose styles use :where() for zero specificity (easily overridden by external CSS).
- */
+// Layout styles use !important; prose styles use :where() for zero specificity
 function getBaseStyles(fontFamily: FontFamily): string {
   const fontStack = getFontStack(fontFamily);
   return `
@@ -67,11 +60,11 @@ function getBaseStyles(fontFamily: FontFamily): string {
     margin-right: auto;
     padding: 2rem 1rem;
     line-height: 1.75;
-    color: #374151;
+    color: #3f3f46;
     font-family: ${fontStack};
   }
   :where(body:not([class])) :where(h1, h2, h3, h4, h5, h6) {
-    color: #111827;
+    color: #18181b;
     font-weight: 600;
     line-height: 1.25;
     margin-top: 2em;
@@ -85,14 +78,14 @@ function getBaseStyles(fontFamily: FontFamily): string {
   :where(body:not([class])) :where(ul, ol) { padding-left: 1.5em; margin: 1em 0; }
   :where(body:not([class])) :where(li) { margin: 0.5em 0; }
   :where(body:not([class])) :where(a) { color: #2563eb; text-decoration: underline; }
-  :where(body:not([class])) :where(code) { background: #f3f4f6; padding: 0.2em 0.4em; border-radius: 0.25em; font-size: 0.875em; }
-  :where(body:not([class])) :where(pre) { background: #f3f4f6; padding: 1em; border-radius: 0.5em; overflow-x: auto; }
+  :where(body:not([class])) :where(code) { background: #f4f4f5; padding: 0.2em 0.4em; border-radius: 0.25em; font-size: 0.875em; }
+  :where(body:not([class])) :where(pre) { background: #f4f4f5; padding: 1em; border-radius: 0.5em; overflow-x: auto; }
   :where(body:not([class])) :where(pre code) { background: none; padding: 0; }
-  :where(body:not([class])) :where(blockquote) { border-left: 4px solid #e5e7eb; padding-left: 1em; color: #6b7280; margin: 1em 0; font-style: italic; }
-  :where(body:not([class])) :where(hr) { border: none; border-top: 1px solid #e5e7eb; margin: 2em 0; }
+  :where(body:not([class])) :where(blockquote) { border-left: 4px solid #e4e4e7; padding-left: 1em; color: #71717a; margin: 1em 0; font-style: italic; }
+  :where(body:not([class])) :where(hr) { border: none; border-top: 1px solid #e4e4e7; margin: 2em 0; }
   :where(body:not([class])) :where(table) { border-collapse: collapse; width: 100%; margin: 1em 0; }
-  :where(body:not([class])) :where(th, td) { border: 1px solid #e5e7eb; padding: 0.5em 1em; text-align: left; }
-  :where(body:not([class])) :where(th) { background: #f9fafb; font-weight: 600; }
+  :where(body:not([class])) :where(th, td) { border: 1px solid #e4e4e7; padding: 0.5em 1em; text-align: left; }
+  :where(body:not([class])) :where(th) { background: #fafafa; font-weight: 600; }
   :where(body:not([class])) :where(img) { max-width: 100%; height: auto; }
 
   /* Highlight styles - warm ink palette */
@@ -111,32 +104,18 @@ function getBaseStyles(fontFamily: FontFamily): string {
 `;
 }
 
-/**
- * Sanitizes HTML using DOMPurify while preserving styles.
- * Removes scripts, event handlers, and dangerous URLs.
- */
 function sanitizeHtml(html: string): string {
-  // Configure DOMPurify to allow styles but remove scripts
   const sanitized = DOMPurify.sanitize(html, {
-    // Allow all safe tags including style
     ADD_TAGS: ["style"],
-    // Allow style attribute on elements
     ADD_ATTR: ["style"],
-    // Remove dangerous elements
     FORBID_TAGS: ["script", "iframe", "object", "embed", "form"],
-    // Remove event handlers and dangerous attributes
     FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
   });
 
   // Escape </iframe> to prevent breaking out of srcdoc
-  // (DOMPurify removes iframe tags, but this is extra protection for edge cases)
   return sanitized.replace(/<\/iframe/gi, "&lt;/iframe");
 }
 
-/**
- * Injects a style tag into HTML. Prefers end of <head>, falls back to
- * after <head> opening, or prepends if no head tag exists.
- */
 function injectStyleTag(html: string, styleTag: string): string {
   if (/<\/head>/i.test(html)) {
     return html.replace(/<\/head>/i, `${styleTag}</head>`);
@@ -147,10 +126,6 @@ function injectStyleTag(html: string, styleTag: string): string {
   return styleTag + html;
 }
 
-/**
- * Renders HTML content inside a sandboxed iframe for complete CSS isolation.
- * Communicates with parent via postMessage for text selection and highlighting.
- */
 export function IframeContainer({
   html,
   comments,
@@ -165,7 +140,6 @@ export function IframeContainer({
   const adapterRef = useRef<Highlighter | null>(null);
   const [contentHeight, setContentHeight] = useState<number>(0);
 
-  // Build the complete HTML document for the iframe
   const srcdoc = useMemo(() => {
     const sanitized = sanitizeHtml(html);
     const baseStyles = getBaseStyles(fontFamily);
@@ -173,11 +147,9 @@ export function IframeContainer({
 
     const finalHtml = injectStyleTag(sanitized, styleTag);
 
-    // Append the highlight script from the shared module
     return finalHtml + buildIframeScript(window.location.origin);
   }, [html, fontFamily]);
 
-  // Initialize adapter
   useEffect(() => {
     const adapter = createHighlighter({
       type: "iframe",
@@ -187,8 +159,6 @@ export function IframeContainer({
 
     adapterRef.current = adapter;
 
-    // Subscribe to position changes
-    // Convert iframe-relative positions to main document positions
     const unsubPositions = onHighlightPositionsChange
       ? adapter.onPositionsChange((pos) => {
           const iframe = iframeRef.current;
@@ -196,7 +166,6 @@ export function IframeContainer({
             ? iframe.getBoundingClientRect().top + window.scrollY
             : 0;
 
-          // Adjust documentPositions to main document coordinates
           const adjustedDocPositions: Record<string, number> = {};
           for (const [id, iframePos] of Object.entries(pos.documentPositions)) {
             adjustedDocPositions[id] = iframePos + iframeOffset;
@@ -210,17 +179,14 @@ export function IframeContainer({
         })
       : () => {};
 
-    // Subscribe to hover events
     const unsubHover = onHighlightHover
       ? adapter.onHighlightHover(onHighlightHover)
       : () => {};
 
-    // Subscribe to click events
     const unsubClick = onHighlightClick
       ? adapter.onHighlightClick(onHighlightClick)
       : () => {};
 
-    // Subscribe to content height changes for auto-sizing
     const unsubHeight = adapter.onContentHeightChange?.((height) => {
       setContentHeight(height);
     });
@@ -240,13 +206,10 @@ export function IframeContainer({
     onHighlightClick,
   ]);
 
-  // Send highlight updates when comments or pending selection change
   useEffect(() => {
     const adapter = adapterRef.current;
     if (!adapter) return;
 
-    // Convert Comment[] to HighlightComment[], excluding unresolved anchors
-    // (unresolved comments have stale offsets that would cause broken highlights)
     const highlightComments: HighlightComment[] = comments
       .filter((c) => c.anchorConfidence !== AnchorConfidences.UNRESOLVED)
       .map((c) => ({
@@ -259,7 +222,6 @@ export function IframeContainer({
     adapter.applyHighlights(highlightComments, pendingSelection ?? undefined);
   }, [comments, pendingSelection]);
 
-  // Test helper: listen for custom event to trigger text selection (E2E testing)
   useEffect(() => {
     const handleTestSelect = (e: Event) => {
       const { text, startOffset, endOffset } = (e as CustomEvent).detail;

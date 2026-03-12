@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Comment } from "../types";
 
 interface UseCommentNavigationResult {
@@ -18,61 +18,103 @@ export function useCommentNavigation(
   sortedComments: Comment[],
 ): UseCommentNavigationResult {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [hoveredCommentId, setHoveredCommentId] = useState<
-    string | undefined
-  >();
+  const [hoveredCommentId, setHoveredState] = useState<string | undefined>();
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
-  // Reset comment index when comments are removed
+  // Keep a ref to sortedComments so navigation callbacks stay stable
+  const sortedRef = useRef(sortedComments);
+  sortedRef.current = sortedComments;
+
+  // Cleanup hover timeout on unmount
   useEffect(() => {
-    setCurrentIndex((prev) =>
-      prev >= sortedComments.length
-        ? Math.max(0, sortedComments.length - 1)
-        : prev,
-    );
-  }, [sortedComments.length]);
+    return () => clearTimeout(hoverTimeoutRef.current);
+  }, []);
 
-  // Navigate to a comment by scrolling its highlight into view
-  const navigateToComment = useCallback((commentId: string) => {
-    const selector = `mark[data-comment-id="${commentId}"]`;
+  // Clamp index when comments are removed (derived during render, no effect needed)
+  const clampedIndex =
+    sortedComments.length === 0
+      ? 0
+      : Math.min(currentIndex, sortedComments.length - 1);
+  if (clampedIndex !== currentIndex) {
+    setCurrentIndex(clampedIndex);
+  }
 
-    const scrollAndHighlight = (element: Element) => {
-      element.scrollIntoView({ behavior: "smooth", block: "center" });
-      setHoveredCommentId(commentId);
-      setTimeout(() => setHoveredCommentId(undefined), 1500);
-    };
-
-    // Try main document first (for markdown)
-    const mainHighlight = document.querySelector(selector);
-    if (mainHighlight) {
-      scrollAndHighlight(mainHighlight);
-      return;
-    }
-
-    // Try inside iframe (for HTML content)
-    const iframe = document.querySelector("iframe");
-    const iframeHighlight = iframe?.contentDocument?.querySelector(selector);
-    if (iframeHighlight) {
-      scrollAndHighlight(iframeHighlight);
+  // Update DOM data-focused attributes imperatively
+  const updateFocusedMarks = useCallback((commentId: string | undefined) => {
+    const marks = window.document.querySelectorAll("mark[data-comment-id]");
+    for (const mark of marks) {
+      const id = mark.getAttribute("data-comment-id");
+      if (id === commentId) {
+        mark.setAttribute("data-focused", "true");
+      } else {
+        mark.removeAttribute("data-focused");
+      }
     }
   }, []);
 
+  const setHoveredCommentId = useCallback(
+    (id: string | undefined) => {
+      setHoveredState(id);
+      updateFocusedMarks(id);
+    },
+    [updateFocusedMarks],
+  );
+
+  // Navigate to a comment by scrolling its highlight into view
+  const navigateToComment = useCallback(
+    (commentId: string) => {
+      const selector = `mark[data-comment-id="${commentId}"]`;
+
+      const scrollAndHighlight = (element: Element) => {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHoveredCommentId(commentId);
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = setTimeout(
+          () => setHoveredCommentId(undefined),
+          1500,
+        );
+      };
+
+      // Try main document first (for markdown)
+      const mainHighlight = document.querySelector(selector);
+      if (mainHighlight) {
+        scrollAndHighlight(mainHighlight);
+        return;
+      }
+
+      // Try inside iframe (for HTML content)
+      const iframe = document.querySelector("iframe");
+      const iframeHighlight = iframe?.contentDocument?.querySelector(selector);
+      if (iframeHighlight) {
+        scrollAndHighlight(iframeHighlight);
+      }
+    },
+    [setHoveredCommentId],
+  );
+
   // Navigate to previous comment (cycles to last when at first)
   const navigatePrevious = useCallback(() => {
-    if (sortedComments.length === 0) return;
-    const newIndex =
-      currentIndex === 0 ? sortedComments.length - 1 : currentIndex - 1;
-    setCurrentIndex(newIndex);
-    navigateToComment(sortedComments[newIndex].id);
-  }, [currentIndex, sortedComments, navigateToComment]);
+    const sc = sortedRef.current;
+    if (sc.length === 0) return;
+    setCurrentIndex((prev) => {
+      const newIndex = prev === 0 ? sc.length - 1 : prev - 1;
+      navigateToComment(sc[newIndex].id);
+      return newIndex;
+    });
+  }, [navigateToComment]);
 
   // Navigate to next comment (cycles to first when at last)
   const navigateNext = useCallback(() => {
-    if (sortedComments.length === 0) return;
-    const newIndex =
-      currentIndex === sortedComments.length - 1 ? 0 : currentIndex + 1;
-    setCurrentIndex(newIndex);
-    navigateToComment(sortedComments[newIndex].id);
-  }, [currentIndex, sortedComments, navigateToComment]);
+    const sc = sortedRef.current;
+    if (sc.length === 0) return;
+    setCurrentIndex((prev) => {
+      const newIndex = prev === sc.length - 1 ? 0 : prev + 1;
+      navigateToComment(sc[newIndex].id);
+      return newIndex;
+    });
+  }, [navigateToComment]);
 
   // Keyboard navigation: Alt+↑/↓
   useEffect(() => {
@@ -94,7 +136,7 @@ export function useCommentNavigation(
   }, [sortedComments.length, navigatePrevious, navigateNext]);
 
   return {
-    currentIndex,
+    currentIndex: clampedIndex,
     hoveredCommentId,
     setHoveredCommentId,
     navigateToComment,

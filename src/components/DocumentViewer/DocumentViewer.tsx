@@ -8,21 +8,21 @@ import {
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
-import type { Heading } from "../hooks/useHeadings";
+import { useLayoutContext } from "../../contexts/LayoutContext";
+import type { Heading } from "../../hooks/useHeadings";
 import {
   createHighlighter,
   type HighlightComment,
   type Highlighter,
-} from "../lib/highlight";
-import { cn, getTextContent } from "../lib/utils";
+} from "../../lib/highlight";
+import { cn, getTextContent } from "../../lib/utils";
 import {
   AnchorConfidences,
   type Comment,
   type DocumentType,
   FontFamilies,
-  type FontFamily,
   type SelectionRange,
-} from "../types";
+} from "../../types";
 import { CodeBlock } from "./CodeBlock";
 import { IframeContainer } from "./IframeContainer";
 
@@ -83,8 +83,6 @@ interface DocumentViewerProps {
   ) => void;
   onHighlightHover?: (commentId: string | undefined) => void;
   onHighlightClick?: (commentId: string) => void;
-  isFullscreen?: boolean;
-  fontFamily?: FontFamily;
 }
 
 export function DocumentViewer({
@@ -97,20 +95,17 @@ export function DocumentViewer({
   onHighlightPositionsChange,
   onHighlightHover,
   onHighlightClick,
-  isFullscreen = false,
-  fontFamily = FontFamilies.SERIF,
 }: DocumentViewerProps) {
+  const { isFullscreen, fontFamily } = useLayoutContext();
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<Highlighter | null>(null);
   const headingIndexRef = useRef(0);
 
-  // Initialize adapter when refs are ready
   useEffect(() => {
     if (type !== "markdown") return;
     if (!contentRef.current || !containerRef.current) return;
 
-    // Create highlighter
     const adapter = createHighlighter({
       type: "markdown",
       root: contentRef.current,
@@ -120,7 +115,6 @@ export function DocumentViewer({
 
     adapterRef.current = adapter;
 
-    // Subscribe to position changes
     const unsubPositions = onHighlightPositionsChange
       ? adapter.onPositionsChange((pos) => {
           onHighlightPositionsChange(
@@ -131,12 +125,10 @@ export function DocumentViewer({
         })
       : () => {};
 
-    // Subscribe to hover events
     const unsubHover = onHighlightHover
       ? adapter.onHighlightHover(onHighlightHover)
       : () => {};
 
-    // Subscribe to click events
     const unsubClick = onHighlightClick
       ? adapter.onHighlightClick(onHighlightClick)
       : () => {};
@@ -156,16 +148,8 @@ export function DocumentViewer({
     onHighlightClick,
   ]);
 
-  // Apply highlights when comments or pending selection change.
-  //
-  // Why double requestAnimationFrame?
-  // In React 18+ concurrent mode, a single RAF can fire before React's commit phase
-  // completes, causing us to query stale DOM. The double RAF pattern ensures:
-  //   1. First frame: React finishes committing DOM changes
-  //   2. Second frame: Browser completes layout/paint, DOM is queryable
-  // This is a known workaround for DOM manipulation after React renders.
+  // Double RAF: ensures React commit phase completes before DOM queries.
   // See: https://github.com/facebook/react/issues/20863
-  //
   // biome-ignore lint/correctness/useExhaustiveDependencies: must reapply highlights when content changes
   useEffect(() => {
     if (type !== "markdown") return;
@@ -178,8 +162,6 @@ export function DocumentViewer({
         const adapter = adapterRef.current;
         if (!adapter) return;
 
-        // Convert Comment[] to HighlightComment[], excluding unresolved anchors
-        // (unresolved comments have stale offsets that would cause broken highlights)
         const highlightComments: HighlightComment[] = comments
           .filter((c) => c.anchorConfidence !== AnchorConfidences.UNRESOLVED)
           .map((c) => ({
@@ -202,7 +184,6 @@ export function DocumentViewer({
     };
   }, [comments, content, type, pendingSelection]);
 
-  // Test helper: listen for custom event to trigger text selection (E2E testing)
   useEffect(() => {
     if (type !== "markdown") return;
 
@@ -216,10 +197,7 @@ export function DocumentViewer({
       window.removeEventListener("test:select-text", handleTestSelect);
   }, [type, onTextSelect]);
 
-  // Memoize markdown components to prevent React from replacing DOM nodes on re-render.
-  // This is critical for highlight persistence - without memoization, new component
-  // references cause React to unmount/remount headings, removing our DOM-injected marks.
-  // Note: Must be called before any conditional returns to satisfy React's rules of hooks.
+  // Memoized to prevent DOM node replacement (breaks highlight persistence)
   const markdownComponents = useMemo(
     () => ({
       h1: createHeadingComponent(1, headings, headingIndexRef),
@@ -233,7 +211,6 @@ export function DocumentViewer({
     [headings],
   );
 
-  // HTML content - render in isolated iframe
   if (type === "html") {
     return (
       <main className="flex-1 min-w-0 flex flex-col">
@@ -252,10 +229,6 @@ export function DocumentViewer({
     );
   }
 
-  // Markdown content - render with react-markdown
-  // Note: mouseUp is handled by the adapter internally
-
-  // Reset heading index for each render to handle React Strict Mode double-renders
   headingIndexRef.current = 0;
 
   return (

@@ -1,12 +1,8 @@
 import { type FSWatcher, watch } from "node:fs";
 import * as fs from "node:fs/promises";
-import type { Server } from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
 import { basename, dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import type { Response } from "express";
-import express, { type Express } from "express";
 import { findAnchorWithFallback } from "../lib/anchor.js";
 import {
   computeHash,
@@ -26,7 +22,7 @@ import {
   type FontFamily,
 } from "../types/index.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// ─── Helpers (unchanged from Express version) ───────────────────────
 
 /**
  * Type predicate for NodeJS file system errors.
@@ -47,7 +43,7 @@ export interface ServerOptions {
 export interface ServerResult {
   port: number;
   url: string;
-  server: Server;
+  server: { stop(): void };
 }
 
 /**
@@ -63,9 +59,7 @@ async function readCommentsFromFile(
     const content = await fs.readFile(commentPath, "utf-8");
     const file = parseCommentFile(content);
 
-    // Resolve anchors for each comment
     return file.comments.map((comment) => {
-      // Use anchorPrefix for matching when text was truncated, fall back to selectedText
       const textForMatching = comment.anchorPrefix || comment.selectedText;
       const anchor = findAnchorWithFallback({
         source: sourceContent,
@@ -83,7 +77,6 @@ async function readCommentsFromFile(
         };
       }
 
-      // Anchor not found - return with original offsets (may be stale)
       return {
         ...comment,
         anchorConfidence: AnchorConfidences.UNRESOLVED,
@@ -97,9 +90,6 @@ async function readCommentsFromFile(
   }
 }
 
-/**
- * Write comments to file.
- */
 async function writeCommentsToFile(
   filePath: string,
   sourceContent: string,
@@ -108,7 +98,6 @@ async function writeCommentsToFile(
   const commentPath = getCommentPath(filePath);
   const commentDir = dirname(commentPath);
 
-  // Ensure directory exists
   await fs.mkdir(commentDir, { recursive: true });
 
   const file = {
@@ -119,16 +108,11 @@ async function writeCommentsToFile(
   };
 
   const content = serializeComments(file);
-
-  // Atomic write: temp file + rename
   const tempPath = `${commentPath}.tmp`;
   await fs.writeFile(tempPath, content, "utf-8");
   await fs.rename(tempPath, commentPath);
 }
 
-/**
- * Delete comment file.
- */
 async function deleteCommentFile(filePath: string): Promise<void> {
   const commentPath = getCommentPath(filePath);
   try {
@@ -142,7 +126,6 @@ async function deleteCommentFile(filePath: string): Promise<void> {
 
 /**
  * Compute settings file path for a source file.
- * Settings are stored in ~/.readit/settings/[path-structure].settings.json
  */
 function getSettingsPath(sourcePath: string): string {
   const absolute = path.resolve(sourcePath);
@@ -155,17 +138,11 @@ function getSettingsPath(sourcePath: string): string {
   );
 }
 
-/**
- * Default settings for new documents.
- */
 const DEFAULT_SETTINGS: DocumentSettings = {
   version: 1,
   fontFamily: FontFamilies.SERIF,
 };
 
-/**
- * Read settings from file, returning defaults if not found.
- */
 async function readSettingsFromFile(
   filePath: string,
 ): Promise<DocumentSettings> {
@@ -181,9 +158,6 @@ async function readSettingsFromFile(
   }
 }
 
-/**
- * Write settings to file with atomic write.
- */
 async function writeSettingsToFile(
   filePath: string,
   settings: DocumentSettings,
@@ -198,60 +172,50 @@ async function writeSettingsToFile(
   await fs.rename(tempPath, settingsPath);
 }
 
-/**
- * Validate font family value.
- */
 function isValidFontFamily(value: unknown): value is FontFamily {
   return value === FontFamilies.SERIF || value === FontFamilies.SANS_SERIF;
 }
 
-interface AppWithWatcher {
-  app: Express;
-  watcher: FSWatcher | null;
+// ─── Response helpers ───────────────────────────────────────────────
+
+function json(data: unknown, status = 200): Response {
+  return Response.json(data, { status });
 }
 
-/**
- * Context passed to route handlers for accessing shared state.
- */
-interface HandlerContext {
+function errorResponse(message: string, status: number): Response {
+  return Response.json({ error: message }, { status });
+}
+
+// ─── Route context ──────────────────────────────────────────────────
+
+interface RouteContext {
   filePath: string;
   getCurrentContent: () => string;
 }
 
-/**
- * GET /api/comments - Fetch all comments for the current document
- */
-async function handleGetComments(
-  ctx: HandlerContext,
-  res: Response,
-): Promise<void> {
+// ─── Route handlers ─────────────────────────────────────────────────
+
+async function getComments(ctx: RouteContext): Promise<Response> {
   try {
     const comments = await readCommentsFromFile(
       ctx.filePath,
       ctx.getCurrentContent(),
     );
-    res.json({ comments });
+    return json({ comments });
   } catch (err) {
     console.error("Failed to read comments:", err);
-    res.status(500).json({ error: "Failed to read comments" });
+    return errorResponse("Failed to read comments", 500);
   }
 }
 
-/**
- * POST /api/comments - Add a new comment
- */
-async function handleAddComment(
-  ctx: HandlerContext,
-  req: express.Request,
-  res: Response,
-): Promise<void> {
+async function addComment(ctx: RouteContext, req: Request): Promise<Response> {
   try {
     const {
       selectedText,
       comment: commentText,
       startOffset,
       endOffset,
-    } = req.body;
+    } = await req.json();
 
     if (
       !selectedText ||
@@ -259,8 +223,7 @@ async function handleAddComment(
       startOffset === undefined ||
       endOffset === undefined
     ) {
-      res.status(400).json({ error: "Missing required fields" });
-      return;
+      return errorResponse("Missing required fields", 400);
     }
 
     const currentContent = ctx.getCurrentContent();
@@ -280,28 +243,23 @@ async function handleAddComment(
 
     await writeCommentsToFile(ctx.filePath, currentContent, allComments);
 
-    res.status(201).json({ comment: newComment });
+    return json({ comment: newComment }, 201);
   } catch (err) {
     console.error("Failed to add comment:", err);
-    res.status(500).json({ error: "Failed to add comment" });
+    return errorResponse("Failed to add comment", 500);
   }
 }
 
-/**
- * PUT /api/comments/:id - Update a comment
- */
-async function handleUpdateComment(
-  ctx: HandlerContext,
-  req: express.Request,
-  res: Response,
-): Promise<void> {
+async function updateComment(
+  ctx: RouteContext,
+  req: Request,
+  id: string,
+): Promise<Response> {
   try {
-    const { id } = req.params;
-    const { comment: commentText } = req.body;
+    const { comment: commentText } = await req.json();
 
     if (typeof commentText !== "string") {
-      res.status(400).json({ error: "Missing comment text" });
-      return;
+      return errorResponse("Missing comment text", 400);
     }
 
     const currentContent = ctx.getCurrentContent();
@@ -312,8 +270,7 @@ async function handleUpdateComment(
     const commentIndex = existingComments.findIndex((c) => c.id === id);
 
     if (commentIndex === -1) {
-      res.status(404).json({ error: "Comment not found" });
-      return;
+      return errorResponse("Comment not found", 404);
     }
 
     const updatedComments = existingComments.map((c, i) =>
@@ -322,24 +279,15 @@ async function handleUpdateComment(
 
     await writeCommentsToFile(ctx.filePath, currentContent, updatedComments);
 
-    res.json({ comment: updatedComments[commentIndex] });
+    return json({ comment: updatedComments[commentIndex] });
   } catch (err) {
     console.error("Failed to update comment:", err);
-    res.status(500).json({ error: "Failed to update comment" });
+    return errorResponse("Failed to update comment", 500);
   }
 }
 
-/**
- * DELETE /api/comments/:id - Delete a single comment
- */
-async function handleDeleteComment(
-  ctx: HandlerContext,
-  req: express.Request,
-  res: Response,
-): Promise<void> {
+async function deleteComment(ctx: RouteContext, id: string): Promise<Response> {
   try {
-    const { id } = req.params;
-
     const currentContent = ctx.getCurrentContent();
     const existingComments = await readCommentsFromFile(
       ctx.filePath,
@@ -348,8 +296,7 @@ async function handleDeleteComment(
     const filteredComments = existingComments.filter((c) => c.id !== id);
 
     if (filteredComments.length === existingComments.length) {
-      res.status(404).json({ error: "Comment not found" });
-      return;
+      return errorResponse("Comment not found", 404);
     }
 
     if (filteredComments.length === 0) {
@@ -358,65 +305,47 @@ async function handleDeleteComment(
       await writeCommentsToFile(ctx.filePath, currentContent, filteredComments);
     }
 
-    res.json({ success: true });
+    return json({ success: true });
   } catch (err) {
     console.error("Failed to delete comment:", err);
-    res.status(500).json({ error: "Failed to delete comment" });
+    return errorResponse("Failed to delete comment", 500);
   }
 }
 
-/**
- * DELETE /api/comments - Clear all comments
- */
-async function handleClearComments(
-  ctx: HandlerContext,
-  res: Response,
-): Promise<void> {
+async function clearComments(ctx: RouteContext): Promise<Response> {
   try {
     await deleteCommentFile(ctx.filePath);
-    res.json({ success: true });
+    return json({ success: true });
   } catch (err) {
     console.error("Failed to clear comments:", err);
-    res.status(500).json({ error: "Failed to clear comments" });
+    return errorResponse("Failed to clear comments", 500);
   }
 }
 
-/**
- * GET /api/comments/raw - Get raw comment file content
- */
-async function handleGetRawComments(
-  ctx: HandlerContext,
-  res: Response,
-): Promise<void> {
+async function getRawComments(ctx: RouteContext): Promise<Response> {
   const commentPath = getCommentPath(ctx.filePath);
   try {
     const content = await fs.readFile(commentPath, "utf-8");
-    res.json({ content, path: commentPath });
+    return json({ content, path: commentPath });
   } catch (err) {
     if (isErrnoException(err) && err.code === "ENOENT") {
-      res.json({ content: null, path: commentPath });
-      return;
+      return json({ content: null, path: commentPath });
     }
     console.error("Failed to read raw comments:", err);
-    res.status(500).json({ error: "Failed to read raw comments" });
+    return errorResponse("Failed to read raw comments", 500);
   }
 }
 
-/**
- * PUT /api/comments/:id/reanchor - Re-anchor a comment to new text
- */
-async function handleReanchorComment(
-  ctx: HandlerContext,
-  req: express.Request,
-  res: Response,
-): Promise<void> {
+async function reanchorComment(
+  ctx: RouteContext,
+  req: Request,
+  id: string,
+): Promise<Response> {
   try {
-    const { id } = req.params;
-    const { selectedText, startOffset, endOffset } = req.body;
+    const { selectedText, startOffset, endOffset } = await req.json();
 
     if (!selectedText || startOffset === undefined || endOffset === undefined) {
-      res.status(400).json({ error: "Missing required fields" });
-      return;
+      return errorResponse("Missing required fields", 400);
     }
 
     const currentContent = ctx.getCurrentContent();
@@ -427,8 +356,7 @@ async function handleReanchorComment(
     const commentIndex = existingComments.findIndex((c) => c.id === id);
 
     if (commentIndex === -1) {
-      res.status(404).json({ error: "Comment not found" });
-      return;
+      return errorResponse("Comment not found", 404);
     }
 
     const lineHint = getLineHint(currentContent, startOffset, endOffset);
@@ -441,7 +369,6 @@ async function handleReanchorComment(
       endOffset,
       lineHint,
       anchorConfidence: AnchorConfidences.EXACT,
-      // Store anchor prefix for future matching if text was truncated
       anchorPrefix:
         selectedText.length > 1000 ? selectedText.slice(0, 200) : undefined,
     };
@@ -452,32 +379,152 @@ async function handleReanchorComment(
 
     await writeCommentsToFile(ctx.filePath, currentContent, updatedComments);
 
-    res.json({ comment: updatedComment });
+    return json({ comment: updatedComment });
   } catch (err) {
     console.error("Failed to re-anchor comment:", err);
-    res.status(500).json({ error: "Failed to re-anchor comment" });
+    return errorResponse("Failed to re-anchor comment", 500);
   }
 }
 
-function createApp(options: ServerOptions): AppWithWatcher {
-  const app = express();
+async function getSettings(ctx: RouteContext): Promise<Response> {
+  try {
+    const settings = await readSettingsFromFile(ctx.filePath);
+    return json(settings);
+  } catch (err) {
+    console.error("Failed to read settings:", err);
+    return errorResponse("Failed to read settings", 500);
+  }
+}
 
-  // Mutable content store - updated when file changes
+async function updateSettings(
+  ctx: RouteContext,
+  req: Request,
+): Promise<Response> {
+  try {
+    const { fontFamily } = await req.json();
+
+    if (!isValidFontFamily(fontFamily)) {
+      return errorResponse("Invalid font family", 400);
+    }
+
+    const settings: DocumentSettings = {
+      version: 1,
+      fontFamily,
+    };
+
+    await writeSettingsToFile(ctx.filePath, settings);
+    return json(settings);
+  } catch (err) {
+    console.error("Failed to save settings:", err);
+    return errorResponse("Failed to save settings", 500);
+  }
+}
+
+// ─── SSE helpers ────────────────────────────────────────────────────
+
+function createDocumentStream(
+  sseClients: Set<ReadableStreamDefaultController>,
+): Response {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue("data: connected\n\n");
+      sseClients.add(controller);
+    },
+    cancel(controller) {
+      sseClients.delete(controller);
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+}
+
+function createHeartbeat(isDev: boolean): Response {
+  let interval: ReturnType<typeof setInterval>;
+
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue("data: connected\n\n");
+      interval = setInterval(() => {
+        try {
+          controller.enqueue("data: ping\n\n");
+        } catch {
+          clearInterval(interval);
+        }
+      }, 5000);
+    },
+    cancel() {
+      clearInterval(interval);
+      if (isDev) return;
+      setTimeout(() => {
+        console.log("\nBrowser disconnected, shutting down...");
+        process.exit(0);
+      }, 100);
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+}
+
+// ─── Static file serving ────────────────────────────────────────────
+
+async function serveStaticFile(
+  distPath: string,
+  pathname: string,
+): Promise<Response> {
+  // Try the exact file path first
+  const filePath = join(distPath, pathname);
+  const file = Bun.file(filePath);
+
+  if (await file.exists()) {
+    return new Response(file);
+  }
+
+  // SPA fallback: serve index.html for non-API routes
+  const indexFile = Bun.file(join(distPath, "index.html"));
+  if (await indexFile.exists()) {
+    return new Response(indexFile);
+  }
+
+  return new Response("Not Found", { status: 404 });
+}
+
+// ─── Extract route param ────────────────────────────────────────────
+
+function extractCommentId(pathname: string): string | undefined {
+  // Match /api/comments/:id or /api/comments/:id/reanchor
+  const match = pathname.match(/^\/api\/comments\/([^/]+)/);
+  return match?.[1];
+}
+
+// ─── Server creation ────────────────────────────────────────────────
+
+interface ServerWithWatcher {
+  server: ReturnType<typeof Bun.serve>;
+  watcher: FSWatcher | null;
+}
+
+function createServer(options: ServerOptions): ServerWithWatcher {
   let currentContent = options.content;
-
-  // SSE clients for document update broadcasts
-  const documentStreamClients: Set<Response> = new Set();
-
-  // Debounce timer for file changes
+  const sseClients = new Set<ReadableStreamDefaultController>();
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // File watcher
   let watcher: FSWatcher | null = null;
   try {
     watcher = watch(options.filePath, async (eventType) => {
       if (eventType !== "change") return;
 
-      // Debounce rapid changes (editors often trigger multiple events)
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(async () => {
         try {
@@ -485,9 +532,12 @@ function createApp(options: ServerOptions): AppWithWatcher {
           if (newContent !== currentContent) {
             currentContent = newContent;
             console.log("File changed, notifying clients...");
-            // Broadcast to all connected clients
-            for (const client of documentStreamClients) {
-              client.write("data: update\n\n");
+            for (const controller of sseClients) {
+              try {
+                controller.enqueue("data: update\n\n");
+              } catch {
+                sseClients.delete(controller);
+              }
             }
           }
         } catch (err) {
@@ -499,179 +549,139 @@ function createApp(options: ServerOptions): AppWithWatcher {
     console.warn("File watching not available:", err);
   }
 
-  app.use(express.json());
-
-  // Serve static files from dist (production) or redirect to vite (dev)
   const isDev = process.env.NODE_ENV === "development";
+  const distPath = import.meta.dir;
 
-  if (isDev) {
-    // In dev, proxy to Vite dev server
-    app.get("/", (_req, res) => {
-      res.redirect("http://localhost:5173");
-    });
-  } else {
-    // In production, serve built files from dist (same directory as CLI)
-    const distPath = __dirname;
-    app.use(express.static(distPath));
-
-    // Serve index.html for SPA routing (Express 5 syntax)
-    app.get("/{*path}", (req, res, next) => {
-      if (req.path.startsWith("/api")) {
-        return next();
-      }
-      res.sendFile(join(distPath, "index.html"));
-    });
-  }
-
-  // API: Get document content (always returns current content)
-  app.get("/api/document", (_req, res) => {
-    res.json({
-      content: currentContent,
-      type: options.type,
-      filePath: options.filePath,
-      fileName: basename(options.filePath),
-      clean: options.clean || false,
-    });
-  });
-
-  // API: SSE stream for document updates
-  app.get("/api/document/stream", (req, res) => {
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    });
-
-    // Send initial connection
-    res.write("data: connected\n\n");
-
-    // Add to clients set
-    documentStreamClients.add(res);
-
-    // Remove on disconnect
-    req.on("close", () => {
-      documentStreamClients.delete(res);
-    });
-  });
-
-  // API: Health check
-  app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok" });
-  });
-
-  // Handler context for comment routes
-  const ctx: HandlerContext = {
+  const ctx: RouteContext = {
     filePath: options.filePath,
     getCurrentContent: () => currentContent,
   };
 
-  // Comment API routes
-  app.get("/api/comments", (_req, res) => handleGetComments(ctx, res));
-  app.get("/api/comments/raw", (_req, res) => handleGetRawComments(ctx, res));
-  app.post("/api/comments", (req, res) => handleAddComment(ctx, req, res));
-  app.put("/api/comments/:id", (req, res) =>
-    handleUpdateComment(ctx, req, res),
-  );
-  app.put("/api/comments/:id/reanchor", (req, res) =>
-    handleReanchorComment(ctx, req, res),
-  );
-  app.delete("/api/comments/:id", (req, res) =>
-    handleDeleteComment(ctx, req, res),
-  );
-  app.delete("/api/comments", (_req, res) => handleClearComments(ctx, res));
+  const server = Bun.serve({
+    port: options.port,
+    hostname: options.host,
 
-  // Settings API routes
-  app.get("/api/settings", async (_req, res) => {
-    try {
-      const settings = await readSettingsFromFile(ctx.filePath);
-      res.json(settings);
-    } catch (err) {
-      console.error("Failed to read settings:", err);
-      res.status(500).json({ error: "Failed to read settings" });
-    }
-  });
+    async fetch(req) {
+      const url = new URL(req.url);
+      const { pathname } = url;
+      const method = req.method;
 
-  app.put("/api/settings", async (req, res) => {
-    try {
-      const { fontFamily } = req.body;
+      // ── API routes ──────────────────────────────────────────
 
-      if (!isValidFontFamily(fontFamily)) {
-        res.status(400).json({ error: "Invalid font family" });
-        return;
+      if (pathname === "/api/document" && method === "GET") {
+        return json({
+          content: currentContent,
+          type: options.type,
+          filePath: options.filePath,
+          fileName: basename(options.filePath),
+          clean: options.clean || false,
+        });
       }
 
-      const settings: DocumentSettings = {
-        version: 1,
-        fontFamily,
-      };
+      if (pathname === "/api/document/stream" && method === "GET") {
+        return createDocumentStream(sseClients);
+      }
 
-      await writeSettingsToFile(ctx.filePath, settings);
-      res.json(settings);
-    } catch (err) {
-      console.error("Failed to save settings:", err);
-      res.status(500).json({ error: "Failed to save settings" });
-    }
+      if (pathname === "/api/health" && method === "GET") {
+        return json({ status: "ok" });
+      }
+
+      if (pathname === "/api/heartbeat" && method === "GET") {
+        return createHeartbeat(isDev);
+      }
+
+      // Comments routes
+      if (pathname === "/api/comments" && method === "GET") {
+        return getComments(ctx);
+      }
+
+      if (pathname === "/api/comments/raw" && method === "GET") {
+        return getRawComments(ctx);
+      }
+
+      if (pathname === "/api/comments" && method === "POST") {
+        return addComment(ctx, req);
+      }
+
+      if (pathname === "/api/comments" && method === "DELETE") {
+        return clearComments(ctx);
+      }
+
+      // Parameterized comment routes
+      const commentId = extractCommentId(pathname);
+      if (commentId) {
+        if (pathname.endsWith("/reanchor") && method === "PUT") {
+          return reanchorComment(ctx, req, commentId);
+        }
+        if (method === "PUT") {
+          return updateComment(ctx, req, commentId);
+        }
+        if (method === "DELETE") {
+          return deleteComment(ctx, commentId);
+        }
+      }
+
+      // Settings routes
+      if (pathname === "/api/settings" && method === "GET") {
+        return getSettings(ctx);
+      }
+
+      if (pathname === "/api/settings" && method === "PUT") {
+        return updateSettings(ctx, req);
+      }
+
+      // ── Static / SPA serving ────────────────────────────────
+
+      if (isDev && pathname === "/") {
+        return Response.redirect("http://localhost:5173", 302);
+      }
+
+      if (!isDev) {
+        return serveStaticFile(distPath, pathname);
+      }
+
+      return new Response("Not Found", { status: 404 });
+    },
   });
 
-  // API: Heartbeat SSE - detects when browser tab closes
-  app.get("/api/heartbeat", (req, res) => {
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    });
-
-    // Send initial connection
-    res.write("data: connected\n\n");
-
-    // Send heartbeat every 5 seconds
-    const interval = setInterval(() => {
-      res.write("data: ping\n\n");
-    }, 5000);
-
-    // When client disconnects (tab closed, navigation, etc.)
-    req.on("close", () => {
-      clearInterval(interval);
-      // In dev mode, don't auto-shutdown (Vite HMR causes brief disconnects)
-      if (isDev) return;
-      // Small delay to handle any pending requests
-      setTimeout(() => {
-        console.log("\nBrowser disconnected, shutting down...");
-        process.exit(0);
-      }, 100);
-    });
-  });
-
-  return { app, watcher };
+  return { server, watcher };
 }
 
-function tryListenOnPort(
-  app: Express,
-  port: number,
-  host: string,
-): Promise<ServerResult> {
-  return new Promise((resolve, reject) => {
-    const server = app.listen(port, host);
-    server.on("listening", () => {
-      const displayHost = host === "0.0.0.0" ? "localhost" : host;
-      resolve({ port, url: `http://${displayHost}:${port}`, server });
-    });
-    server.on("error", reject);
-  });
-}
+// ─── Port fallback + start ──────────────────────────────────────────
 
-async function startServerWithFallback(
-  app: Express,
-  preferredPort: number,
-  host: string,
+export async function startServer(
+  options: ServerOptions,
 ): Promise<ServerResult> {
   const MAX_PORT = 65535;
 
-  for (let port = preferredPort; port <= MAX_PORT; port++) {
+  for (let port = options.port; port <= MAX_PORT; port++) {
     try {
-      return await tryListenOnPort(app, port, host);
+      const { server, watcher } = createServer({ ...options, port });
+
+      const displayHost =
+        options.host === "0.0.0.0" ? "localhost" : options.host;
+
+      // Clean up watcher when server stops
+      const originalStop = server.stop.bind(server);
+      const wrappedServer = {
+        stop() {
+          watcher?.close();
+          originalStop();
+        },
+      };
+
+      const actualPort = server.port ?? port;
+
+      return {
+        port: actualPort,
+        url: `http://${displayHost}:${actualPort}`,
+        server: wrappedServer,
+      };
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "EADDRINUSE") {
+      if (
+        isErrnoException(err) &&
+        (err.code === "EADDRINUSE" || err.code === "EACCES")
+      ) {
         console.log(`Port ${port} is busy, trying ${port + 1}...`);
         continue;
       }
@@ -679,19 +689,5 @@ async function startServerWithFallback(
     }
   }
 
-  throw new Error(`No available port found starting from ${preferredPort}`);
-}
-
-export async function startServer(
-  options: ServerOptions,
-): Promise<ServerResult> {
-  const { app, watcher } = createApp(options);
-  const result = await startServerWithFallback(app, options.port, options.host);
-
-  // Clean up watcher on server close
-  result.server.on("close", () => {
-    watcher?.close();
-  });
-
-  return result;
+  throw new Error(`No available port found starting from ${options.port}`);
 }

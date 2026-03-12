@@ -10,25 +10,25 @@ Inspired by [difit](https://github.com/yoshiko-pg/difit) - a local code review t
 
 ```bash
 # Development
-pnpm install          # Install dependencies
-pnpm dev              # Start dev server (Vite + CLI)
-pnpm build            # Build for production
-pnpm test             # Run tests
-pnpm typecheck        # Run TypeScript checks
-pnpm check            # Run Biome (lint + format check)
-pnpm check:fix        # Fix lint + format issues
-pnpm format           # Format with Biome
+bun install           # Install dependencies
+bun dev               # Start dev server (Vite + CLI)
+bun run build         # Build for production
+bun run test          # Run tests
+bun run typecheck     # Run TypeScript checks
+bun run check         # Run Biome (lint + format check)
+bun run check:fix     # Fix lint + format issues
+bun run format        # Format with Biome
 
 # Usage
-npx readit <file.md>               # Review Markdown file
-npx readit <file.html>             # Review HTML file
-npx readit <file.md> --port 3000   # Custom port
-npx readit <file.md> --host 0.0.0.0  # Custom host address
-npx readit <file.md> --no-open     # Don't auto-open browser
-npx readit <file.md> --clean       # Clear existing comments
+bunx readit <file.md>               # Review Markdown file
+bunx readit <file.html>             # Review HTML file
+bunx readit <file.md> --port 3000   # Custom port
+bunx readit <file.md> --host 0.0.0.0  # Custom host address
+bunx readit <file.md> --no-open     # Don't auto-open browser
+bunx readit <file.md> --clean       # Clear existing comments
 
-npx readit list                    # List all files with comments
-npx readit show <file.md>          # Show comments for a file
+bunx readit list                    # List all files with comments
+bunx readit show <file.md>          # Show comments for a file
 ```
 
 ## Architecture
@@ -39,7 +39,7 @@ readit/
 │   ├── cli/
 │   │   └── index.ts           # CLI entry point (Commander.js)
 │   ├── server/
-│   │   └── index.ts           # Express server + API routes
+│   │   └── index.ts           # Bun.serve() server + API routes
 │   ├── components/
 │   │   ├── Header.tsx
 │   │   ├── DocumentViewer.tsx # Renders MD (react-markdown) or HTML (IframeContainer)
@@ -114,8 +114,9 @@ readit/
 
 ## Tech Stack
 
+- **Runtime**: Bun
 - **CLI**: Commander.js for argument parsing
-- **Server**: Express.js for API and static files
+- **Server**: Bun.serve() for API and static files
 - **Markdown Rendering**: react-markdown
 - **HTML Rendering**: unified + rehype-parse + rehype-react (with XSS sanitization)
 - **Frontend**: React 19 + TypeScript + Vite

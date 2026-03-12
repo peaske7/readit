@@ -1,26 +1,22 @@
+import { useCommentContext } from "../contexts/CommentContext";
 import { MINIMAP_HEADER_OFFSET_PX } from "../lib/layout-constants";
 import { cn } from "../lib/utils";
-import type { Comment } from "../types";
 
 interface CommentMinimapProps {
-  /** Comments pre-sorted by startOffset */
-  sortedComments: Comment[];
   /** Absolute Y-positions from document top for each comment */
   documentPositions: Record<string, number>;
   documentHeight: number;
   viewportHeight: number;
-  hoveredCommentId?: string | null;
-  onCommentClick: (commentId: string) => void;
 }
 
 export function CommentMinimap({
-  sortedComments,
   documentPositions,
   documentHeight,
   viewportHeight,
-  hoveredCommentId,
-  onCommentClick,
 }: CommentMinimapProps) {
+  const { sortedComments, hoveredCommentId, navigateToComment } =
+    useCommentContext();
+
   // Don't render if no comments or document height is 0
   if (sortedComments.length === 0 || documentHeight === 0) {
     return null;
@@ -34,7 +30,6 @@ export function CommentMinimap({
       className="fixed right-0 top-12 w-3 z-40"
       style={{ height: minimapHeight }}
     >
-      {/* Comment position indicators */}
       {sortedComments.map((comment) => {
         const position = documentPositions[comment.id];
         if (position === undefined) return null;
@@ -57,7 +52,7 @@ export function CommentMinimap({
             style={{
               top: Math.max(0, Math.min(indicatorTop, minimapHeight - 6)),
             }}
-            onClick={() => onCommentClick(comment.id)}
+            onClick={() => navigateToComment(comment.id)}
             title={`"${comment.selectedText.slice(0, 30)}${comment.selectedText.length > 30 ? "..." : ""}"`}
           />
         );

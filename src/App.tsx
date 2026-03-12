@@ -1,46 +1,56 @@
-import { useCallback, useEffect, useMemo } from "react";
-import { Toaster, toast } from "sonner";
+import { use, useCallback, useEffect } from "react";
+import { Toaster } from "sonner";
 import {
-  CommentInputArea,
+  CommentInput,
   CommentMinimap,
-  CommentNavigator,
+  CommentNav,
   DocumentViewer,
   FloatingTOC,
   Header,
-  MarginNotesContainer,
+  MarginNotes,
+  ReanchorConfirm,
   TableOfContents,
+  textVariants,
 } from "./components";
+import { CommentContext, CommentProvider } from "./contexts/CommentContext";
+import { LayoutContext, LayoutProvider } from "./contexts/LayoutContext";
 import {
-  useCommentNavigation,
-  useComments,
+  useClipboard,
   useDocument,
-  useFontPreference,
   useHeadings,
-  useLayoutMode,
-  useReanchorMode,
   useScrollMetrics,
   useScrollSpy,
   useTextSelection,
 } from "./hooks";
-import { extractContext, formatForLLM } from "./lib/context";
-import {
-  exportCommentsAsJson,
-  generatePrompt,
-  generateRawText,
-} from "./lib/export";
 import { calculateScrollTarget, getElementTopInDocument } from "./lib/scroll";
-import type { Comment } from "./types";
+import { cn } from "./lib/utils";
 
-function truncate(text: string, maxLength = 30): string {
-  if (text.length <= maxLength) return text;
-  return `${text.slice(0, maxLength)}…`;
-}
+const TOASTER_ICONS = { success: null, error: null, info: null, warning: null };
+const TOASTER_OPTIONS = {
+  unstyled: true,
+  duration: 2000,
+  classNames: {
+    toast: cn(
+      "backdrop-blur-sm bg-white/90 border border-zinc-100 px-3 py-2 shadow-sm rounded-md",
+      textVariants({ variant: "caption" }),
+    ),
+  },
+};
 
-function App() {
-  // Document loading and live reload
-  const { document, error, reload } = useDocument();
+function AppContent() {
+  const {
+    comments,
+    sortedComments,
+    addComment,
+    reanchorComment,
+    reanchorTarget,
+    cancelReanchor,
+    hoveredCommentId,
+    setHoveredCommentId,
+  } = use(CommentContext)!;
 
-  // Text selection and highlight positions
+  const { document, reload } = useDocument();
+
   const {
     selection,
     highlightPositions,
@@ -51,82 +61,51 @@ function App() {
     clearSelection,
   } = useTextSelection();
 
-  // Comments CRUD
   const {
+    copyAll,
+    copyAllRaw,
+    exportJson,
+    copySelectionRaw,
+    copySelectionForLLM,
+  } = useClipboard({
     comments,
-    error: commentsError,
-    addComment,
-    deleteComment,
-    editComment,
-    reanchorComment,
-  } = useComments(document?.filePath || null, { clean: document?.clean });
+    document: document ?? undefined,
+    selection: selection ?? undefined,
+    clearSelection,
+  });
 
-  // Re-anchor mode for unresolved comments
-  const { reanchorTarget, startReanchor, cancelReanchor } = useReanchorMode();
-
-  // Sort comments by document position
-  const sortedComments = useMemo(
-    () => [...comments].sort((a, b) => a.startOffset - b.startOffset),
-    [comments],
-  );
-
-  // Comment navigation with keyboard shortcuts
-  const {
-    currentIndex,
-    hoveredCommentId,
-    setHoveredCommentId,
-    navigateToComment,
-    navigatePrevious,
-    navigateNext,
-  } = useCommentNavigation(sortedComments);
-
-  // Scroll metrics for minimap
   const scrollMetrics = useScrollMetrics();
 
-  // Table of contents
   const headings = useHeadings(
     document?.content ?? null,
     document?.type ?? null,
   );
   const activeHeadingId = useScrollSpy(headings.map((h) => h.id));
 
-  // Layout mode toggle
-  const { isFullscreen, toggleLayoutMode } = useLayoutMode();
-
-  // Font preference
-  const { fontFamily, setFontFamily } = useFontPreference(
-    document?.filePath ?? null,
-  );
+  const { isFullscreen } = use(LayoutContext)!;
 
   const scrollToHeading = useCallback(
     (id: string) => {
-      // For iframes: calculate position relative to main document
-      // The iframe is auto-sized (no internal scroll), so we scroll the main window
+      let elementRect: DOMRect | undefined;
+      let iframeTopOffset: number | undefined;
+
       if (document?.type === "html") {
         const iframe = window.document.querySelector("iframe");
-        const element = iframe?.contentDocument?.getElementById(id);
-        if (!element || !iframe) return;
-
-        const iframeRect = iframe.getBoundingClientRect();
-        const elementTop = getElementTopInDocument({
-          elementRect: element.getBoundingClientRect(),
-          scrollY: window.scrollY,
-          iframeTopOffset: iframeRect.top,
-        });
-        const scrollTarget = calculateScrollTarget({
-          elementTop,
-          viewportHeight: window.innerHeight,
-        });
-        window.scrollTo({ top: scrollTarget, behavior: "smooth" });
-        return;
+        const el = iframe?.contentDocument?.getElementById(id);
+        if (!el || !iframe) return;
+        elementRect = el.getBoundingClientRect();
+        iframeTopOffset = iframe.getBoundingClientRect().top;
+      } else {
+        elementRect = window.document
+          .getElementById(id)
+          ?.getBoundingClientRect();
       }
-
-      const element = window.document.getElementById(id);
-      if (!element) return;
+      if (!elementRect) return;
 
       const elementTop = getElementTopInDocument({
-        elementRect: element.getBoundingClientRect(),
+        elementRect,
         scrollY: window.scrollY,
+        iframeTopOffset,
       });
       const scrollTarget = calculateScrollTarget({
         elementTop,
@@ -137,7 +116,6 @@ function App() {
     [document?.type],
   );
 
-  // Handle highlight click - scroll to corresponding margin note
   const handleHighlightClick = useCallback((commentId: string) => {
     const marginNote = window.document.querySelector(
       `article[data-comment-id="${commentId}"]`,
@@ -147,43 +125,11 @@ function App() {
     }
   }, []);
 
-  // Handle margin note click - scroll to corresponding highlight
-  const handleScrollToHighlight = useCallback(
-    (commentId: string) => {
-      if (document?.type === "html") {
-        // For HTML documents, send message to iframe
-        const iframe = window.document.querySelector("iframe");
-        iframe?.contentWindow?.postMessage(
-          { type: "scrollToHighlight", commentId },
-          "*",
-        );
-      } else {
-        // For Markdown, scroll directly to the mark element
-        const mark = window.document.querySelector(
-          `mark[data-comment-id="${commentId}"]`,
-        );
-        if (mark) {
-          mark.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      }
-    },
-    [document?.type],
-  );
-
-  // Connect to heartbeat SSE - keeps server alive while tab is open
   useEffect(() => {
     const eventSource = new EventSource("/api/heartbeat");
     return () => eventSource.close();
   }, []);
 
-  // Show comments errors as toast
-  useEffect(() => {
-    if (commentsError) {
-      toast.error(commentsError);
-    }
-  }, [commentsError]);
-
-  // Add comment handler
   const handleAddComment = useCallback(
     (commentText: string) => {
       if (!selection) return;
@@ -200,7 +146,6 @@ function App() {
     [selection, addComment, clearSelection],
   );
 
-  // Re-anchor confirmation handler
   const handleConfirmReanchor = useCallback(() => {
     if (!selection || !reanchorTarget) return;
 
@@ -221,183 +166,31 @@ function App() {
     clearSelection,
   ]);
 
-  // Cancel re-anchor and clear selection
   const handleCancelReanchor = useCallback(() => {
     cancelReanchor();
     clearSelection();
   }, [cancelReanchor, clearSelection]);
 
-  // Export handlers
-  const handleCopyAll = useCallback(() => {
-    if (!document) return;
-    const prompt = generatePrompt(comments, document.fileName);
-    navigator.clipboard.writeText(prompt);
-    toast.success("Copied all comments");
-  }, [comments, document]);
-
-  const handleCopyAllRaw = useCallback(() => {
-    if (!document) return;
-    const raw = generateRawText(comments);
-    navigator.clipboard.writeText(raw);
-    toast.success("Copied all comments as raw text");
-  }, [comments, document]);
-
-  const handleExportJson = useCallback(() => {
-    if (!document) return;
-    exportCommentsAsJson(comments, document);
-  }, [comments, document]);
-
-  // Copy handlers
-  const handleCopySelectionRaw = useCallback(() => {
-    if (!selection) return;
-
-    navigator.clipboard.writeText(selection.text);
-    toast.success(`Copied: "${truncate(selection.text)}"`);
-    clearSelection();
-  }, [selection, clearSelection]);
-
-  const handleCopySelectionForLLM = useCallback(() => {
-    if (!selection || !document) return;
-
-    const context = extractContext({
-      content: document.content,
-      startOffset: selection.startOffset,
-      endOffset: selection.endOffset,
-    });
-    const formatted = formatForLLM({
-      context,
-      fileName: document.fileName,
-    });
-
-    navigator.clipboard.writeText(formatted);
-    toast.success(`Copied for LLM: "${truncate(selection.text)}"`);
-    clearSelection();
-  }, [selection, document, clearSelection]);
-
-  const handleCopyCommentRaw = useCallback((comment: Comment) => {
-    const raw = `${comment.selectedText}\n\n${comment.comment}`;
-    navigator.clipboard.writeText(raw);
-    toast.success(`Copied: "${truncate(comment.comment)}"`);
-  }, []);
-
-  const handleCopyCommentForLLM = useCallback(
-    (comment: Comment) => {
-      if (!document) return;
-
-      const context = extractContext({
-        content: document.content,
-        startOffset: comment.startOffset,
-        endOffset: comment.endOffset,
-      });
-      const formatted = formatForLLM({
-        context,
-        fileName: document.fileName,
-        comment: comment.comment,
-      });
-
-      navigator.clipboard.writeText(formatted);
-      toast.success(`Copied for LLM: "${truncate(comment.comment)}"`);
-    },
-    [document],
-  );
-
-  // Keyboard shortcuts: Cmd+C for raw copy, Cmd+Shift+C for LLM copy, Escape to cancel
-  useEffect(() => {
-    if (!selection) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "c" && e.metaKey) {
-        e.preventDefault();
-        if (e.shiftKey) {
-          handleCopySelectionForLLM();
-        } else {
-          handleCopySelectionRaw();
-        }
-      }
-      if (e.key === "Escape") {
-        clearSelection();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    selection,
-    handleCopySelectionRaw,
-    handleCopySelectionForLLM,
-    clearSelection,
-  ]);
-
-  // Update data-focused attribute on highlight marks when hover state changes
-  useEffect(() => {
-    const marks = window.document.querySelectorAll("mark[data-comment-id]");
-    for (const mark of marks) {
-      const commentId = mark.getAttribute("data-comment-id");
-      if (commentId === hoveredCommentId) {
-        mark.setAttribute("data-focused", "true");
-      } else {
-        mark.removeAttribute("data-focused");
-      }
-    }
-  }, [hoveredCommentId]);
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-white text-gray-900 flex items-center justify-center">
-        <div className="text-red-600">{error}</div>
-      </div>
-    );
-  }
-
-  if (!document) {
-    return (
-      <div className="min-h-screen bg-white text-gray-900 flex items-center justify-center">
-        <div className="text-gray-500">Loading...</div>
-      </div>
-    );
-  }
+  if (!document) return null;
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
+    <div className="min-h-screen bg-white text-zinc-900 flex flex-col">
       <Toaster
         position="bottom-right"
-        icons={{
-          success: null,
-          error: null,
-          info: null,
-          warning: null,
-        }}
-        toastOptions={{
-          unstyled: true,
-          duration: 2000,
-          classNames: {
-            toast:
-              "backdrop-blur-sm bg-white/90 border border-gray-100 px-3 py-2 text-xs text-gray-500 shadow-sm rounded-md",
-          },
-        }}
+        icons={TOASTER_ICONS}
+        toastOptions={TOASTER_OPTIONS}
       />
       <Header
         fileName={document.fileName}
-        comments={comments}
-        onCopyAll={handleCopyAll}
-        onCopyAllRaw={handleCopyAllRaw}
-        onExportJson={handleExportJson}
+        onCopyAll={copyAll}
+        onCopyAllRaw={copyAllRaw}
+        onExportJson={exportJson}
         onReload={reload}
-        onEditComment={editComment}
-        onDeleteComment={deleteComment}
-        onGoToComment={navigateToComment}
-        onReanchorComment={startReanchor}
-        reanchorMode={reanchorTarget}
-        isFullscreen={isFullscreen}
-        onToggleLayout={toggleLayoutMode}
-        fontFamily={fontFamily}
-        onFontFamilyChange={setFontFamily}
       />
 
       <div
         className={`flex-1 flex gap-4 w-full ${!isFullscreen ? "max-w-7xl mx-auto" : ""} ${hoveredCommentId ? "has-comment-focus" : ""}`}
       >
-        {/* Table of contents - sidebar in centered mode, floating in fullscreen mode */}
         {!isFullscreen && headings.length > 0 && (
           <aside className="w-48 flex-shrink-0 py-6 pl-6 hidden xl:block">
             <div className="sticky top-64 max-h-[calc(100vh-17rem)] overflow-y-auto">
@@ -417,7 +210,6 @@ function App() {
           />
         )}
 
-        {/* Document content */}
         <div className="flex-1 px-6 py-6">
           <DocumentViewer
             content={document.content}
@@ -429,95 +221,87 @@ function App() {
             onHighlightPositionsChange={onPositionsChange}
             onHighlightHover={setHoveredCommentId}
             onHighlightClick={handleHighlightClick}
-            isFullscreen={isFullscreen}
-            fontFamily={fontFamily}
           />
         </div>
 
-        {/* Margin notes area */}
         <div className="w-72 flex-shrink-0 py-6 pr-4 relative">
-          {/* Comment input or re-anchor confirmation - positioned next to selection */}
           {selection && pendingSelectionTop !== undefined && (
             <div
               className="absolute left-0 right-0 z-10 bg-white"
               style={{ top: pendingSelectionTop }}
             >
               {reanchorTarget !== null ? (
-                <div className="border-t border-gray-200 pt-2 pb-3 pl-6">
-                  <p className="text-sm text-gray-500 mb-2">
-                    Re-anchor to this selection?
-                  </p>
-                  <p className="font-serif text-sm text-gray-400 italic line-clamp-2 mb-2">
-                    "{selection.text}"
-                  </p>
-                  <div className="flex gap-3 text-sm">
-                    <button
-                      type="button"
-                      onClick={handleConfirmReanchor}
-                      className="text-gray-600 hover:text-gray-900"
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCancelReanchor}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
+                <ReanchorConfirm
+                  selectionText={selection.text}
+                  onConfirm={handleConfirmReanchor}
+                  onCancel={handleCancelReanchor}
+                />
               ) : (
-                <CommentInputArea
+                <CommentInput
                   selectedText={selection.text}
                   onSubmit={handleAddComment}
                   onCancel={clearSelection}
-                  onCopyRaw={handleCopySelectionRaw}
-                  onCopyForLLM={handleCopySelectionForLLM}
+                  onCopyRaw={copySelectionRaw}
+                  onCopyForLLM={copySelectionForLLM}
                 />
               )}
             </div>
           )}
 
-          {/* Margin notes - positioned relative to highlights */}
-          <MarginNotesContainer
+          <MarginNotes
             sortedComments={sortedComments}
             highlightPositions={highlightPositions}
             pendingSelectionTop={selection ? pendingSelectionTop : undefined}
-            hoveredCommentId={hoveredCommentId}
-            onEditComment={editComment}
-            onDeleteComment={deleteComment}
-            onCopyCommentRaw={handleCopyCommentRaw}
-            onCopyCommentForLLM={handleCopyCommentForLLM}
-            onHoverComment={setHoveredCommentId}
-            onScrollToHighlight={handleScrollToHighlight}
-            fontFamily={fontFamily}
           />
         </div>
       </div>
 
-      {/* Comment minimap - fixed on right edge */}
       <CommentMinimap
-        sortedComments={sortedComments}
         documentPositions={documentPositions}
         documentHeight={scrollMetrics.documentHeight}
         viewportHeight={scrollMetrics.viewportHeight}
-        hoveredCommentId={hoveredCommentId}
-        onCommentClick={navigateToComment}
       />
 
-      {/* Comment navigator - floating bottom-center */}
-      <CommentNavigator
-        currentIndex={currentIndex}
-        totalComments={sortedComments.length}
-        onPrevious={navigatePrevious}
-        onNext={navigateNext}
-      />
+      <CommentNav />
 
-      <footer className="py-4 text-center text-sm text-gray-400">
+      <footer className="py-4 text-center text-sm text-zinc-400">
         Made with ❤️ by Jay and Claude
       </footer>
     </div>
+  );
+}
+
+function App() {
+  const { document, error } = useDocument();
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-white text-zinc-900 flex items-center justify-center">
+        <div className="text-red-600">{error}</div>
+      </div>
+    );
+  }
+
+  if (!document) {
+    return (
+      <div className="min-h-screen bg-white text-zinc-900 flex items-center justify-center">
+        <div className="text-zinc-500">Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <LayoutProvider filePath={document.filePath}>
+      <CommentProvider
+        filePath={document.filePath}
+        clean={document.clean}
+        documentContent={document.content}
+        fileName={document.fileName}
+        documentType={document.type}
+      >
+        <AppContent />
+      </CommentProvider>
+    </LayoutProvider>
   );
 }
 

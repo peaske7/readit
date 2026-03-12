@@ -1,6 +1,7 @@
 import type * as os from "node:os";
 import { describe, expect, it, vi } from "vitest";
 import type { CommentFile } from "../types";
+import { COMMENT_FILE_LARGE } from "./__fixtures__/bench-data";
 import {
   computeHash,
   createComment,
@@ -608,5 +609,16 @@ hash: abc
 version: 99
 ---`;
     expect(() => parseCommentFile(content)).toThrow(/supports format v1/);
+  });
+});
+
+describe("performance", () => {
+  it("parseCommentFile with 50 comments completes within 50ms (100 iterations)", () => {
+    const start = performance.now();
+    for (let i = 0; i < 100; i++) {
+      parseCommentFile(COMMENT_FILE_LARGE);
+    }
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeLessThan(50);
   });
 });

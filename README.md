@@ -13,12 +13,12 @@ Inspired by [difit](https://github.com/yoshiko-pg/difit).
 
 ## Requirements
 
-- Node.js >= 22.0.0
+- [Bun](https://bun.sh) >= 1.0
 
 ## Quick Start
 
 ```bash
-npx readit document.md
+bunx readit document.md
 ```
 
 ## Usage
@@ -39,11 +39,11 @@ Select text to add comments. Comments appear as margin notes. Copy all comments 
 ## Development
 
 ```bash
-pnpm install      # Install dependencies
-pnpm dev          # Start dev server
-pnpm build        # Build for production
-pnpm test         # Run tests
-pnpm check        # Lint and format (Biome)
+bun install       # Install dependencies
+bun dev           # Start dev server
+bun run build     # Build for production
+bun run test      # Run tests
+bun run check     # Lint and format (Biome)
 ```
 
 ## License

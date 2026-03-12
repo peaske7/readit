@@ -1,22 +1,18 @@
 import { cva } from "class-variance-authority";
 import { useState } from "react";
+import { useCommentContext } from "../contexts/CommentContext";
+import { useLayoutContext } from "../contexts/LayoutContext";
 import { cn } from "../lib/utils";
-import { type Comment, FontFamilies, type FontFamily } from "../types";
+import { type Comment, FontFamilies } from "../types";
+import { InlineEditor } from "./InlineEditor";
+import { ActionBar } from "./ui/action-bar";
+import { ActionLink } from "./ui/action-link";
+import { SeparatorDot } from "./ui/separator-dot";
 
 interface MarginNoteProps {
   comment: Comment;
   top: number;
-  isHovered?: boolean;
   commentIndex?: number;
-  onEdit: (id: string, newText: string) => void;
-  onDelete: (id: string) => void;
-  onCopyRaw: (comment: Comment) => void;
-  onCopyForLLM: (comment: Comment) => void;
-  /** Called when mouse enters/leaves the note */
-  onHover?: (commentId: string | undefined) => void;
-  /** Called when user clicks quoted text to scroll to highlight */
-  onScrollToHighlight?: (commentId: string) => void;
-  fontFamily?: FontFamily;
 }
 
 const selectedTextVariants = cva(
@@ -24,8 +20,8 @@ const selectedTextVariants = cva(
   {
     variants: {
       hovered: {
-        true: "text-gray-600",
-        false: "text-gray-400",
+        true: "text-zinc-600",
+        false: "text-zinc-400",
       },
     },
     defaultVariants: { hovered: false },
@@ -37,8 +33,8 @@ const commentTextVariants = cva(
   {
     variants: {
       hovered: {
-        true: "text-gray-800",
-        false: "text-gray-500",
+        true: "text-zinc-800",
+        false: "text-zinc-500",
       },
     },
     defaultVariants: { hovered: false },
@@ -50,8 +46,8 @@ const badgeVariants = cva(
   {
     variants: {
       hovered: {
-        true: "text-gray-600",
-        false: "text-gray-400",
+        true: "text-zinc-600",
+        false: "text-zinc-400",
       },
     },
     defaultVariants: { hovered: false },
@@ -61,30 +57,28 @@ const badgeVariants = cva(
 export function MarginNote({
   comment,
   top,
-  isHovered = false,
   commentIndex = 0,
-  onEdit,
-  onDelete,
-  onCopyRaw,
-  onCopyForLLM,
-  onHover,
-  onScrollToHighlight,
-  fontFamily = FontFamilies.SERIF,
 }: MarginNoteProps) {
+  const { fontFamily } = useLayoutContext();
+  const {
+    editComment,
+    deleteComment,
+    copyCommentRaw,
+    copyCommentForLLM,
+    hoveredCommentId,
+    setHoveredCommentId,
+    scrollToHighlight,
+  } = useCommentContext();
+
+  const isHovered = hoveredCommentId === comment.id;
   const fontClass =
     fontFamily === FontFamilies.SANS_SERIF ? "font-sans" : "font-serif";
   const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState(comment.comment);
 
   const hasNote = comment.comment.trim().length > 0;
 
-  const handleSave = () => {
-    onEdit(comment.id, editText);
-    setIsEditing(false);
-  };
-
   const handleCopy = () => {
-    onCopyRaw(comment);
+    copyCommentRaw(comment);
   };
 
   const createdAtFormatted = new Date(comment.createdAt).toLocaleString();
@@ -97,34 +91,24 @@ export function MarginNote({
         style={{ top }}
         title={`Added: ${createdAtFormatted}`}
         data-comment-id={comment.id}
-        onMouseEnter={() => onHover?.(comment.id)}
-        onMouseLeave={() => onHover?.(undefined)}
+        onMouseEnter={() => setHoveredCommentId(comment.id)}
+        onMouseLeave={() => setHoveredCommentId(undefined)}
       >
         <span className={badgeVariants({ hovered: isHovered })}>—</span>
 
         <div className="pt-2 pb-2 pl-3">
-          <div
-            className={cn(
-              "flex items-center gap-1.5 text-xs text-gray-400 transition-opacity duration-150",
-              isHovered ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-            )}
+          <ActionBar
+            className={cn("gap-1.5 duration-150", isHovered && "opacity-100")}
           >
-            <button
-              type="button"
-              onClick={() => setIsEditing(true)}
-              className="hover:text-gray-600"
-            >
-              Add note
-            </button>
-            <span>·</span>
-            <button
-              type="button"
-              onClick={() => onDelete(comment.id)}
-              className="hover:text-red-500"
+            <ActionLink onClick={() => setIsEditing(true)}>Add note</ActionLink>
+            <SeparatorDot />
+            <ActionLink
+              variant="destructive"
+              onClick={() => deleteComment(comment.id)}
             >
               Delete
-            </button>
-          </div>
+            </ActionLink>
+          </ActionBar>
         </div>
       </article>
     );
@@ -136,8 +120,8 @@ export function MarginNote({
       style={{ top }}
       title={`Added: ${createdAtFormatted}`}
       data-comment-id={comment.id}
-      onMouseEnter={() => onHover?.(comment.id)}
-      onMouseLeave={() => onHover?.(undefined)}
+      onMouseEnter={() => setHoveredCommentId(comment.id)}
+      onMouseLeave={() => setHoveredCommentId(undefined)}
     >
       <span className={badgeVariants({ hovered: isHovered })}>
         {commentIndex + 1}
@@ -145,7 +129,7 @@ export function MarginNote({
 
       <div
         className={cn(
-          "relative border-t border-gray-100 pt-3 pb-2 pl-3 transition-all duration-200",
+          "relative border-t border-zinc-100 pt-3 pb-2 pl-3 transition-colors duration-150",
           comment.anchorConfidence === "unresolved" && "opacity-60",
         )}
       >
@@ -158,7 +142,7 @@ export function MarginNote({
           >
             <button
               type="button"
-              onClick={() => onScrollToHighlight?.(comment.id)}
+              onClick={() => scrollToHighlight(comment.id)}
               className="cursor-pointer hover:underline text-left"
             >
               "{comment.selectedText}"
@@ -167,42 +151,14 @@ export function MarginNote({
         )}
 
         {isEditing ? (
-          <div className="space-y-2">
-            <textarea
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              className="w-full px-2 py-1.5 text-sm border border-gray-200 resize-none focus:outline-none focus:border-gray-400"
-              rows={2}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && e.metaKey) {
-                  handleSave();
-                }
-                if (e.key === "Escape") {
-                  setIsEditing(false);
-                  setEditText(comment.comment);
-                }
-              }}
-            />
-            <div className="flex gap-3 text-sm">
-              <button
-                type="button"
-                onClick={handleSave}
-                className="text-gray-600 underline hover:text-gray-900"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditing(false);
-                  setEditText(comment.comment);
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
+          <InlineEditor
+            initialText={comment.comment}
+            onSave={(text) => {
+              editComment(comment.id, text);
+              setIsEditing(false);
+            }}
+            onCancel={() => setIsEditing(false)}
+          />
         ) : (
           <>
             <p
@@ -213,41 +169,27 @@ export function MarginNote({
             >
               {comment.comment}
             </p>
-            <div className="flex items-center gap-1.5 mt-2 opacity-0 group-hover:opacity-100 transition-opacity text-xs text-gray-400">
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                className="hover:text-gray-600"
-              >
-                Edit
-              </button>
-              <span>·</span>
-              <button
-                type="button"
-                onClick={() => onDelete(comment.id)}
-                className="hover:text-red-500"
+            <ActionBar className="gap-1.5 mt-2">
+              <ActionLink onClick={() => setIsEditing(true)}>Edit</ActionLink>
+              <SeparatorDot />
+              <ActionLink
+                variant="destructive"
+                onClick={() => deleteComment(comment.id)}
               >
                 Delete
-              </button>
-              <span>·</span>
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="hover:text-gray-600"
-                title="Copy raw text (⌘C)"
-              >
+              </ActionLink>
+              <SeparatorDot />
+              <ActionLink onClick={handleCopy} title="Copy raw text (⌘C)">
                 Copy
-              </button>
-              <span>·</span>
-              <button
-                type="button"
-                onClick={() => onCopyForLLM(comment)}
-                className="hover:text-gray-600"
+              </ActionLink>
+              <SeparatorDot />
+              <ActionLink
+                onClick={() => copyCommentForLLM(comment)}
                 title="Copy with context for LLM (⌘⇧C)"
               >
                 LLM
-              </button>
-            </div>
+              </ActionLink>
+            </ActionBar>
           </>
         )}
       </div>

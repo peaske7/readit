@@ -7,6 +7,14 @@ export function cn(...inputs: ReadonlyArray<ClassValue>) {
 }
 
 /**
+ * Truncate text with ellipsis for toast notifications.
+ */
+export function truncate(text: string, maxLength = 30): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}…`;
+}
+
+/**
  * Recursively extract text content from React children.
  * Handles strings, numbers, arrays, and React elements.
  */

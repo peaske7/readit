@@ -13,7 +13,7 @@ export function TableOfContents({
   onHeadingClick,
 }: TableOfContentsProps) {
   // Track which h2s are expanded (default: all collapsed)
-  const [expandedH2s, setExpandedH2s] = useState<Set<string>>(new Set());
+  const [expandedH2s, setExpandedH2s] = useState<Set<string>>(() => new Set());
 
   // Find h2s that have h3+ children
   const h2sWithChildren = useMemo(() => {

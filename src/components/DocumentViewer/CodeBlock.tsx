@@ -43,6 +43,12 @@ SyntaxHighlighter.registerLanguage("ts", typescript);
 SyntaxHighlighter.registerLanguage("yaml", yaml);
 SyntaxHighlighter.registerLanguage("yml", yaml);
 
+const CODE_BLOCK_STYLE = {
+  margin: "1.5em 0",
+  borderRadius: "0.5em",
+  fontSize: "0.875em",
+};
+
 interface CodeBlockProps {
   className?: string;
   children?: React.ReactNode;
@@ -69,11 +75,7 @@ export function CodeBlock({ className, children }: CodeBlockProps) {
       style={oneDark}
       language={language}
       PreTag="div"
-      customStyle={{
-        margin: "1.5em 0",
-        borderRadius: "0.5em",
-        fontSize: "0.875em",
-      }}
+      customStyle={CODE_BLOCK_STYLE}
     >
       {codeString}
     </SyntaxHighlighter>

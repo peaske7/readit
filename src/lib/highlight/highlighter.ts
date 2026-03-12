@@ -9,7 +9,6 @@ import {
 } from "./dom";
 import type { HighlightComment, HighlightPositions, TextRange } from "./types";
 
-// Callback types
 export type SelectionHandler = (
   text: string,
   startOffset: number,
@@ -20,7 +19,6 @@ export type HoverHandler = (commentId: string | undefined) => void;
 export type ClickHandler = (commentId: string) => void;
 export type ContentHeightHandler = (height: number) => void;
 
-// Highlighter interface
 export interface Highlighter {
   applyHighlights(
     comments: HighlightComment[],
@@ -35,7 +33,6 @@ export interface Highlighter {
   dispose(): void;
 }
 
-// Options for markdown documents (direct DOM)
 interface MarkdownOptions {
   type: "markdown";
   root: HTMLElement;
@@ -43,7 +40,6 @@ interface MarkdownOptions {
   onSelect: SelectionHandler;
 }
 
-// Options for HTML documents (iframe)
 interface IframeOptions {
   type: "iframe";
   getIframe: () => HTMLIFrameElement | null;
@@ -52,14 +48,12 @@ interface IframeOptions {
 
 export type HighlighterOptions = MarkdownOptions | IframeOptions;
 
-// Single factory function
 export function createHighlighter(options: HighlighterOptions): Highlighter {
   return options.type === "markdown"
     ? createMarkdownHighlighter(options)
     : createIframeHighlighter(options);
 }
 
-// Markdown highlighter implementation
 function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
   const { root, container, onSelect } = options;
 
@@ -138,7 +132,6 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
     positionCallback(positions);
   };
 
-  // Throttle scroll updates to once per animation frame to prevent scroll jank
   const handleScroll = () => {
     if (scrollRafId !== null) return;
     scrollRafId = requestAnimationFrame(() => {
@@ -256,7 +249,6 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
   };
 }
 
-// Iframe highlighter implementation
 function createIframeHighlighter(options: IframeOptions): Highlighter {
   const { getIframe, onSelect } = options;
 

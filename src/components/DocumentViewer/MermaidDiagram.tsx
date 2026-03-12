@@ -29,57 +29,57 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
 
             // Primary colors - warm amber (matches app's comment colors)
             primaryColor: "rgba(245, 222, 160, 0.8)",
-            primaryTextColor: "#374151",
+            primaryTextColor: "#3f3f46",
             primaryBorderColor: "#c9a84a",
 
             // Secondary colors - slate blue
             secondaryColor: "rgba(168, 196, 228, 0.6)",
-            secondaryTextColor: "#374151",
+            secondaryTextColor: "#3f3f46",
             secondaryBorderColor: "#5b7fa8",
 
             // Tertiary colors - sage green
             tertiaryColor: "rgba(170, 210, 170, 0.6)",
-            tertiaryTextColor: "#374151",
+            tertiaryTextColor: "#3f3f46",
             tertiaryBorderColor: "#5a9a62",
 
             // Background and text
             background: "#ffffff",
             mainBkg: "#ffffff",
-            textColor: "#374151",
-            lineColor: "#9ca3af",
+            textColor: "#3f3f46",
+            lineColor: "#a1a1aa",
 
             // Gantt-specific
             taskBkgColor: "rgba(245, 222, 160, 0.7)",
-            taskTextColor: "#374151",
-            taskTextDarkColor: "#374151",
-            taskTextOutsideColor: "#374151",
+            taskTextColor: "#3f3f46",
+            taskTextDarkColor: "#3f3f46",
+            taskTextOutsideColor: "#3f3f46",
             activeTaskBkgColor: "rgba(228, 195, 110, 0.8)",
             activeTaskBorderColor: "#c9a84a",
             doneTaskBkgColor: "rgba(170, 210, 170, 0.6)",
             doneTaskBorderColor: "#5a9a62",
             critTaskBkgColor: "rgba(225, 180, 185, 0.7)",
             critBorderColor: "#b86b78",
-            gridColor: "#e5e7eb",
+            gridColor: "#e4e4e7",
             todayLineColor: "#b86b78",
-            sectionBkgColor: "rgba(249, 250, 251, 0.5)",
-            altSectionBkgColor: "rgba(243, 244, 246, 0.5)",
-            sectionBkgColor2: "rgba(249, 250, 251, 0.5)",
+            sectionBkgColor: "rgba(250, 250, 250, 0.5)",
+            altSectionBkgColor: "rgba(244, 244, 245, 0.5)",
+            sectionBkgColor2: "rgba(250, 250, 250, 0.5)",
 
             // Flowchart/general diagram
             nodeBkg: "rgba(245, 222, 160, 0.6)",
             nodeBorder: "#c9a84a",
-            clusterBkg: "rgba(249, 250, 251, 0.8)",
-            clusterBorder: "#e5e7eb",
+            clusterBkg: "rgba(250, 250, 250, 0.8)",
+            clusterBorder: "#e4e4e7",
 
             // Sequence diagram
             actorBkg: "rgba(168, 196, 228, 0.5)",
             actorBorder: "#5b7fa8",
-            actorTextColor: "#374151",
-            signalColor: "#374151",
-            signalTextColor: "#374151",
+            actorTextColor: "#3f3f46",
+            signalColor: "#3f3f46",
+            signalTextColor: "#3f3f46",
             noteBkgColor: "rgba(245, 222, 160, 0.5)",
             noteBorderColor: "#c9a84a",
-            noteTextColor: "#374151",
+            noteTextColor: "#3f3f46",
           },
         });
 

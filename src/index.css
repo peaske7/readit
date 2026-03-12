@@ -28,7 +28,7 @@ html {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f5f5f5;
+  background: #f4f4f5;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -78,8 +78,8 @@ mark[data-comment-id] {
   background-color: var(--highlight-bg, var(--comment-color-0-bg));
   cursor: pointer;
   transition:
-    background-color 200ms ease,
-    opacity 200ms ease;
+    background-color 150ms ease,
+    opacity 150ms ease;
 }
 
 /* Color variants based on data-color-index */
@@ -156,7 +156,7 @@ mark[data-comment-id][data-bracket-mode="true"]:hover {
   background-color: var(--bracket-color, var(--comment-color-0-border));
   border-radius: 1px;
   opacity: 0.6;
-  transition: opacity 200ms ease;
+  transition: opacity 150ms ease;
   pointer-events: none;
 }
 
@@ -174,7 +174,7 @@ mark[data-comment-id][data-bracket-mode="true"]:hover {
   color: var(--bracket-color, var(--comment-color-0-border));
   opacity: 0.6;
   pointer-events: none;
-  transition: opacity 200ms ease;
+  transition: opacity 150ms ease;
 }
 
 .bracket-marker-start {
@@ -198,7 +198,7 @@ mark[data-comment-id][data-bracket-mode="true"]:hover {
   stroke: var(--anchor-color, var(--comment-color-0-border));
   stroke-width: 1.5;
   opacity: 0;
-  transition: opacity 200ms ease;
+  transition: opacity 150ms ease;
   pointer-events: none;
 }
 
@@ -209,7 +209,7 @@ mark[data-comment-id][data-bracket-mode="true"]:hover {
 .anchor-line-dot {
   fill: var(--anchor-color, var(--comment-color-0-border));
   opacity: 0;
-  transition: opacity 200ms ease;
+  transition: opacity 150ms ease;
 }
 
 .anchor-line-dot[data-visible="true"] {
@@ -382,7 +382,7 @@ mark[data-pending] {
   margin-left: auto;
   margin-right: auto;
   line-height: 1.75;
-  color: #374151;
+  color: #3f3f46;
 }
 
 /* Headings */
@@ -396,7 +396,7 @@ mark[data-pending] {
   line-height: 1.25;
   margin-top: 2em;
   margin-bottom: 0.75em;
-  color: #111827;
+  color: #18181b;
 }
 
 .prose h1 {
@@ -456,7 +456,7 @@ mark[data-pending] {
 
 /* Code */
 .prose code {
-  background: #f3f4f6;
+  background: #f4f4f5;
   padding: 0.2em 0.4em;
   border-radius: 0.25em;
   font-size: 0.875em;
@@ -483,26 +483,26 @@ mark[data-pending] {
 
 .prose th,
 .prose td {
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e4e4e7;
   padding: 0.75em 1em;
   text-align: left;
 }
 
 .prose th {
-  background: #f9fafb;
+  background: #fafafa;
   font-weight: 600;
 }
 
 .prose tr:nth-child(even) {
-  background: #f9fafb;
+  background: #fafafa;
 }
 
 /* Blockquotes */
 .prose blockquote {
-  border-left: 4px solid #e5e7eb;
+  border-left: 4px solid #e4e4e7;
   padding-left: 1em;
   margin: 1.5em 0;
-  color: #6b7280;
+  color: #71717a;
   font-style: italic;
 }
 
@@ -523,7 +523,7 @@ mark[data-pending] {
 /* Horizontal rules */
 .prose hr {
   border: none;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid #e4e4e7;
   margin: 2em 0;
 }
 
@@ -543,7 +543,7 @@ mark[data-pending] {
 /* Strong and emphasis */
 .prose strong {
   font-weight: 600;
-  color: #111827;
+  color: #18181b;
 }
 
 .prose em {
@@ -583,7 +583,7 @@ mark[data-pending] {
 /* Collapsible details/summary */
 .prose details {
   margin: 1.25em 0;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e4e4e7;
   border-radius: 0.5em;
   padding: 0 1em;
 }
@@ -602,7 +602,7 @@ mark[data-pending] {
 .prose summary::before {
   content: "▸";
   margin-right: 0.5em;
-  color: #9ca3af;
+  color: #a1a1aa;
   transition: transform 0.15s ease;
   display: inline-block;
 }
@@ -612,7 +612,7 @@ mark[data-pending] {
 }
 
 .prose details[open] summary {
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e4e4e7;
   margin-bottom: 0.75em;
 }
 
@@ -689,7 +689,7 @@ mark[data-pending] {
 
 /* Grid lines - subtle */
 .mermaid-container .grid path {
-  stroke: #e5e7eb !important;
+  stroke: #e4e4e7 !important;
   stroke-width: 1px;
 }
 

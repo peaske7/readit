@@ -26,7 +26,7 @@ export async function spawnCli(
     args.push("--clean");
   }
 
-  const cliProcess = spawn("node", args, {
+  const cliProcess = spawn("bun", args, {
     cwd: resolve(import.meta.dirname, "../.."),
     stdio: ["pipe", "pipe", "pipe"],
   });

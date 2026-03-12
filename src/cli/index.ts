@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import * as fs from "node:fs/promises";
@@ -224,7 +224,7 @@ readit - Document Review Tool
         // Graceful shutdown on Ctrl+C
         process.on("SIGINT", () => {
           console.log("\n\nShutting down...");
-          server.close();
+          server.stop();
           process.exit(0);
         });
       } catch (error) {

@@ -1,3 +1,5 @@
+export { useClickOutside } from "./useClickOutside";
+export { useClipboard } from "./useClipboard";
 export { useCommentNavigation } from "./useCommentNavigation";
 export { useComments } from "./useComments";
 export { useDocument } from "./useDocument";
