@@ -14,6 +14,6 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
-    emptyOutDir: false, // Don't delete CLI output
+    emptyOutDir: true,
   },
 });
