@@ -401,15 +401,19 @@ async function updateSettings(
   req: Request,
 ): Promise<Response> {
   try {
-    const { fontFamily } = await req.json();
+    const body = await req.json();
+    const { fontFamily, keybindings } = body;
 
-    if (!isValidFontFamily(fontFamily)) {
+    if (fontFamily !== undefined && !isValidFontFamily(fontFamily)) {
       return errorResponse("Invalid font family", 400);
     }
 
+    // Read current settings and merge
+    const current = await readSettingsFromFile(ctx.filePath);
     const settings: DocumentSettings = {
-      version: 1,
-      fontFamily,
+      ...current,
+      ...(fontFamily !== undefined && { fontFamily }),
+      ...(keybindings !== undefined && { keybindings }),
     };
 
     await writeSettingsToFile(ctx.filePath, settings);
