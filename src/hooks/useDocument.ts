@@ -90,6 +90,16 @@ export function useDocument(): UseDocumentResult {
     eventSource.onmessage = async (e) => {
       try {
         const data = JSON.parse(e.data);
+        if (data.type === "file-added" && data.path) {
+          appStore.getState().openDocument({
+            content: "", // Lazy-loaded when tab activated
+            type: data.fileType,
+            filePath: data.path,
+            fileName: data.fileName,
+            clean: false,
+          });
+          return;
+        }
         if (data.type === "update" && data.path) {
           // Only reload if content was previously loaded
           const state = appStore.getState().documents.get(data.path);
