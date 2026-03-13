@@ -1,6 +1,6 @@
-import { useCommentContext } from "../contexts/CommentContext";
-import { MINIMAP_HEADER_OFFSET_PX } from "../lib/layout-constants";
-import { cn } from "../lib/utils";
+import { useCommentContext } from "../../contexts/CommentContext";
+import { MINIMAP_HEADER_OFFSET_PX } from "../../lib/layout-constants";
+import { cn } from "../../lib/utils";
 
 interface CommentMinimapProps {
   /** Absolute Y-positions from document top for each comment */

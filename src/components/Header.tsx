@@ -2,8 +2,8 @@ import { useCommentContext } from "../contexts/CommentContext";
 import { useLayoutContext } from "../contexts/LayoutContext";
 import { cn } from "../lib/utils";
 import { ActionsMenu } from "./ActionsMenu";
-import { CommentBadge } from "./CommentBadge";
-import { Text } from "./ui/text";
+import { CommentBadge } from "./comments/CommentBadge";
+import { Text } from "./ui/Text";
 
 interface HeaderProps {
   fileName: string;

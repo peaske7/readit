@@ -1,6 +1,6 @@
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { cn } from "../../lib/utils";
-import { textVariants } from "./text";
+import { textVariants } from "./Text";
 
 function DropdownMenu({
   ...props

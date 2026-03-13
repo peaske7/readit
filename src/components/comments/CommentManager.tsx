@@ -1,6 +1,6 @@
-import { useCommentContext } from "../contexts/CommentContext";
+import { useCommentContext } from "../../contexts/CommentContext";
+import { Text } from "../ui/Text";
 import { CommentListItem } from "./CommentListItem";
-import { Text } from "./ui/text";
 
 interface CommentManagerProps {
   onClose: () => void;

@@ -1,27 +1,23 @@
 import { use, useCallback, useEffect } from "react";
 import { Toaster } from "sonner";
-import {
-  CommentInput,
-  CommentMinimap,
-  CommentNav,
-  DocumentViewer,
-  FloatingTOC,
-  Header,
-  MarginNotes,
-  ReanchorConfirm,
-  TableOfContents,
-  textVariants,
-} from "./components";
+import { CommentInput } from "./components/comments/CommentInput";
+import { CommentMinimap } from "./components/comments/CommentMinimap";
+import { CommentNav } from "./components/comments/CommentNav";
+import { DocumentViewer } from "./components/DocumentViewer";
+import { FloatingTOC } from "./components/FloatingTOC";
+import { Header } from "./components/Header";
+import { MarginNotes } from "./components/MarginNotes";
+import { ReanchorConfirm } from "./components/ReanchorConfirm";
+import { TableOfContents } from "./components/TableOfContents";
+import { textVariants } from "./components/ui/Text";
 import { CommentContext, CommentProvider } from "./contexts/CommentContext";
 import { LayoutContext, LayoutProvider } from "./contexts/LayoutContext";
-import {
-  useClipboard,
-  useDocument,
-  useHeadings,
-  useScrollMetrics,
-  useScrollSpy,
-  useTextSelection,
-} from "./hooks";
+import { useClipboard } from "./hooks/useClipboard";
+import { useDocument } from "./hooks/useDocument";
+import { useHeadings } from "./hooks/useHeadings";
+import { useScrollMetrics } from "./hooks/useScrollMetrics";
+import { useScrollSpy } from "./hooks/useScrollSpy";
+import { useTextSelection } from "./hooks/useTextSelection";
 import { calculateScrollTarget, getElementTopInDocument } from "./lib/scroll";
 import { cn } from "./lib/utils";
 

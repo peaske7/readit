@@ -1,39 +1,7 @@
+import { BotMessageSquare, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "./ui/button";
-import { Text } from "./ui/text";
-
-const CopyIcon = (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-  </svg>
-);
-
-const CopyForLLMIcon = (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    <circle cx="18" cy="5" r="3" fill="currentColor" />
-  </svg>
-);
+import { Button } from "../ui/Button";
+import { Text } from "../ui/Text";
 
 interface CommentInputProps {
   selectedText: string | null;
@@ -114,7 +82,7 @@ export function CommentInput({
             title="Copy raw text (⌘C)"
             aria-label="Copy raw text"
           >
-            {CopyIcon}
+            <Copy size={14} />
           </Button>
           <Button
             variant="ghost"
@@ -124,7 +92,7 @@ export function CommentInput({
             title="Copy with context for LLM (⌘⇧C)"
             aria-label="Copy for LLM"
           >
-            {CopyForLLMIcon}
+            <BotMessageSquare size={14} />
           </Button>
         </div>
         <Button variant="ghost" size="sm" onClick={onCancel}>

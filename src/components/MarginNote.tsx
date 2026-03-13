@@ -5,9 +5,9 @@ import { useLayoutContext } from "../contexts/LayoutContext";
 import { cn } from "../lib/utils";
 import { type Comment, FontFamilies } from "../types";
 import { InlineEditor } from "./InlineEditor";
-import { ActionBar } from "./ui/action-bar";
-import { ActionLink } from "./ui/action-link";
-import { SeparatorDot } from "./ui/separator-dot";
+import { ActionBar } from "./ui/ActionBar";
+import { ActionLink } from "./ui/ActionLink";
+import { SeparatorDot } from "./ui/SeparatorDot";
 
 interface MarginNoteProps {
   comment: Comment;

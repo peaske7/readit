@@ -1,5 +1,6 @@
 import { createContext, type ReactNode, use, useMemo } from "react";
-import { useFontPreference, useLayoutMode } from "../hooks";
+import { useFontPreference } from "../hooks/useFontPreference";
+import { useLayoutMode } from "../hooks/useLayoutMode";
 import type { FontFamily } from "../types";
 
 interface LayoutContextValue {

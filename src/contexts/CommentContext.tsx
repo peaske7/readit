@@ -7,7 +7,9 @@ import {
   useMemo,
 } from "react";
 import { toast } from "sonner";
-import { useCommentNavigation, useComments, useReanchorMode } from "../hooks";
+import { useCommentNavigation } from "../hooks/useCommentNavigation";
+import { useComments } from "../hooks/useComments";
+import { useReanchorMode } from "../hooks/useReanchorMode";
 import { extractContext, formatForLLM } from "../lib/context";
 import { truncate } from "../lib/utils";
 import type { Comment, DocumentType } from "../types";

@@ -7,8 +7,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "./ui/dialog";
-import { Text, textVariants } from "./ui/text";
+} from "./ui/Dialog";
+import { Text, textVariants } from "./ui/Text";
 
 interface SettingsModalProps {
   isOpen: boolean;

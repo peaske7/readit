@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useCommentContext } from "../contexts/CommentContext";
-import { cn } from "../lib/utils";
-import { CommentManager } from "./CommentManager";
+import { useCommentContext } from "../../contexts/CommentContext";
+import { cn } from "../../lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
+} from "../ui/DropdownMenu";
+import { CommentManager } from "./CommentManager";
 
 export function CommentBadge() {
   const { commentCount } = useCommentContext();

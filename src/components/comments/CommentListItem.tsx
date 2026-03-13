@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useCommentContext } from "../contexts/CommentContext";
-import { cn } from "../lib/utils";
-import type { Comment } from "../types";
-import { InlineEditor } from "./InlineEditor";
-import { ActionBar } from "./ui/action-bar";
-import { ActionLink } from "./ui/action-link";
-import { Text } from "./ui/text";
+import { useCommentContext } from "../../contexts/CommentContext";
+import { cn } from "../../lib/utils";
+import type { Comment } from "../../types";
+import { InlineEditor } from "../InlineEditor";
+import { ActionBar } from "../ui/ActionBar";
+import { ActionLink } from "../ui/ActionLink";
+import { Text } from "../ui/Text";
 
 interface CommentListItemProps {
   comment: Comment;

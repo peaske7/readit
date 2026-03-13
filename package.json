@@ -2,7 +2,8 @@
   "name": "@peaske7/readit",
   "version": "0.1.4",
   "description": "A CLI tool to review Markdown documents with inline comments",
-  "type": "module",
+  "author": "Jay Shimada <peaske@pm.me>",
+  "license": "MIT",
   "keywords": [
     "markdown",
     "review",
@@ -10,26 +11,8 @@
     "comments",
     "documentation"
   ],
-  "author": "Jay Shimada <peaske@pm.me>",
-  "license": "MIT",
-  "bin": {
-    "readit": "dist/index.js"
-  },
+  "type": "module",
   "main": "./dist/index.js",
-  "directories": {
-    "doc": "docs"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/peaske7/readit.git"
-  },
-  "bugs": {
-    "url": "https://github.com/peaske7/readit/issues"
-  },
-  "homepage": "https://github.com/peaske7/readit#readme",
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "dev": "NODE_ENV=development bun --watch src/cli/index.ts -- test.md & bunx vite",
     "build": "bunx vite build && bun run build:cli",

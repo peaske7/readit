@@ -1,7 +1,7 @@
 import { Copy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "./ui/button";
+import { Button } from "./ui/Button";
 import {
   Dialog,
   DialogBody,
@@ -9,8 +9,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "./ui/dialog";
-import { Text } from "./ui/text";
+} from "./ui/Dialog";
+import { Text } from "./ui/Text";
 
 interface RawModalProps {
   isOpen: boolean;

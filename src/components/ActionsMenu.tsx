@@ -4,14 +4,14 @@ import { useCommentContext } from "../contexts/CommentContext";
 import { useLayoutContext } from "../contexts/LayoutContext";
 import { RawModal } from "./RawModal";
 import { SettingsModal } from "./SettingsModal";
-import { Button } from "./ui/button";
+import { Button } from "./ui/Button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
+} from "./ui/DropdownMenu";
 
 interface ActionsMenuProps {
   onCopyAll: () => void;

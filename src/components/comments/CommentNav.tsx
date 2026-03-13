@@ -1,9 +1,9 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useCommentContext } from "../contexts/CommentContext";
-import { cn } from "../lib/utils";
-import { Button } from "./ui/button";
-import { Text } from "./ui/text";
+import { useCommentContext } from "../../contexts/CommentContext";
+import { cn } from "../../lib/utils";
+import { Button } from "../ui/Button";
+import { Text } from "../ui/Text";
 
 const ANIMATION_DURATION_MS = 200;
 
