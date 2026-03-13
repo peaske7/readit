@@ -378,7 +378,7 @@ function App() {
   return (
     <>
       <TabBar />
-      <LayoutProvider filePath={document.filePath}>
+      <LayoutProvider>
         <CommentProvider
           filePath={document.filePath}
           clean={document.clean}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   resolveShortcuts,
@@ -14,24 +14,14 @@ interface UseKeybindingsResult {
   isLoading: boolean;
 }
 
-export function useKeybindings(filePath: string | null): UseKeybindingsResult {
+export function useKeybindings(): UseKeybindingsResult {
   const [overrides, setOverrides] = useState<KeybindingOverride[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const filePathRef = useRef(filePath);
-  filePathRef.current = filePath;
-
-  // Fetch keybindings from settings on mount
   useEffect(() => {
-    if (!filePath) {
-      setIsLoading(false);
-      return;
-    }
-
     const fetchKeybindings = async () => {
       try {
-        const query = `?path=${encodeURIComponent(filePath)}`;
-        const response = await fetch(`/api/settings${query}`);
+        const response = await fetch("/api/settings");
         if (response.ok) {
           const settings = await response.json();
           setOverrides(settings.keybindings ?? []);
@@ -44,20 +34,18 @@ export function useKeybindings(filePath: string | null): UseKeybindingsResult {
     };
 
     fetchKeybindings();
-  }, [filePath]);
+  }, []);
 
   const persistOverrides = useCallback(
     async (newOverrides: KeybindingOverride[]) => {
       try {
-        const fp = filePathRef.current;
-        const query = fp ? `?path=${encodeURIComponent(fp)}` : "";
-        const response = await fetch(`/api/settings${query}`);
+        const response = await fetch("/api/settings");
         if (!response.ok) return;
 
         const currentSettings = await response.json();
         const updated = { ...currentSettings, keybindings: newOverrides };
 
-        const putResponse = await fetch(`/api/settings${query}`, {
+        const putResponse = await fetch("/api/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updated),

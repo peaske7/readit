@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FontFamilies, type FontFamily } from "../types";
 
@@ -8,30 +8,16 @@ interface UseFontPreferenceResult {
   isLoading: boolean;
 }
 
-export function useFontPreference(
-  filePath: string | null,
-): UseFontPreferenceResult {
+export function useFontPreference(): UseFontPreferenceResult {
   const [fontFamily, setFontFamilyState] = useState<FontFamily>(
     FontFamilies.SERIF,
   );
   const [isLoading, setIsLoading] = useState(true);
 
-  const filePathRef = useRef(filePath);
-  filePathRef.current = filePath;
-
-  // Fetch settings when filePath changes
   useEffect(() => {
-    if (!filePath) {
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-
     const fetchSettings = async () => {
       try {
-        const query = `?path=${encodeURIComponent(filePath)}`;
-        const response = await fetch(`/api/settings${query}`);
+        const response = await fetch("/api/settings");
         if (response.ok) {
           const settings = await response.json();
           setFontFamilyState(settings.fontFamily || FontFamilies.SERIF);
@@ -44,16 +30,13 @@ export function useFontPreference(
     };
 
     fetchSettings();
-  }, [filePath]);
+  }, []);
 
   const setFontFamily = useCallback(async (font: FontFamily) => {
-    // Optimistic update
     setFontFamilyState(font);
 
     try {
-      const fp = filePathRef.current;
-      const query = fp ? `?path=${encodeURIComponent(fp)}` : "";
-      const response = await fetch(`/api/settings${query}`, {
+      const response = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fontFamily: font }),

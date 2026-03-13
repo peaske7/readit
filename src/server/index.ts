@@ -123,28 +123,16 @@ async function deleteCommentFile(filePath: string): Promise<void> {
   }
 }
 
-function getSettingsPath(sourcePath: string): string {
-  const absolute = path.resolve(sourcePath);
-  const normalized = absolute.replace(/^\//, "").replace(/^[A-Z]:[\\/]/, "");
-  return path.join(
-    os.homedir(),
-    ".readit",
-    "settings",
-    `${normalized}.settings.json`,
-  );
-}
+const SETTINGS_PATH = path.join(os.homedir(), ".readit", "settings.json");
 
 const DEFAULT_SETTINGS: DocumentSettings = {
   version: 1,
   fontFamily: FontFamilies.SERIF,
 };
 
-async function readSettingsFromFile(
-  filePath: string,
-): Promise<DocumentSettings> {
-  const settingsPath = getSettingsPath(filePath);
+async function readSettings(): Promise<DocumentSettings> {
   try {
-    const content = await fs.readFile(settingsPath, "utf-8");
+    const content = await fs.readFile(SETTINGS_PATH, "utf-8");
     return JSON.parse(content) as DocumentSettings;
   } catch (err) {
     if (isErrnoException(err) && err.code === "ENOENT") {
@@ -154,18 +142,13 @@ async function readSettingsFromFile(
   }
 }
 
-async function writeSettingsToFile(
-  filePath: string,
-  settings: DocumentSettings,
-): Promise<void> {
-  const settingsPath = getSettingsPath(filePath);
-  const settingsDir = dirname(settingsPath);
-
+async function writeSettings(settings: DocumentSettings): Promise<void> {
+  const settingsDir = dirname(SETTINGS_PATH);
   await fs.mkdir(settingsDir, { recursive: true });
 
-  const tempPath = `${settingsPath}.tmp`;
+  const tempPath = `${SETTINGS_PATH}.tmp`;
   await fs.writeFile(tempPath, JSON.stringify(settings, null, 2), "utf-8");
-  await fs.rename(tempPath, settingsPath);
+  await fs.rename(tempPath, SETTINGS_PATH);
 }
 
 function isValidFontFamily(value: unknown): value is FontFamily {
@@ -409,9 +392,9 @@ async function reanchorComment(
   }
 }
 
-async function getSettings(ctx: RouteContext): Promise<Response> {
+async function getSettingsRoute(): Promise<Response> {
   try {
-    const settings = await readSettingsFromFile(ctx.filePath);
+    const settings = await readSettings();
     return json(settings);
   } catch (err) {
     console.error("Failed to read settings:", err);
@@ -419,10 +402,7 @@ async function getSettings(ctx: RouteContext): Promise<Response> {
   }
 }
 
-async function updateSettings(
-  ctx: RouteContext,
-  req: Request,
-): Promise<Response> {
+async function updateSettingsRoute(req: Request): Promise<Response> {
   try {
     const body = await req.json();
     const { fontFamily, keybindings } = body;
@@ -431,15 +411,14 @@ async function updateSettings(
       return errorResponse("Invalid font family", 400);
     }
 
-    // Read current settings and merge
-    const current = await readSettingsFromFile(ctx.filePath);
+    const current = await readSettings();
     const settings: DocumentSettings = {
       ...current,
       ...(fontFamily !== undefined && { fontFamily }),
       ...(keybindings !== undefined && { keybindings }),
     };
 
-    await writeSettingsToFile(ctx.filePath, settings);
+    await writeSettings(settings);
     return json(settings);
   } catch (err) {
     console.error("Failed to save settings:", err);
@@ -798,17 +777,13 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         }
       }
 
-      // Settings routes
+      // Settings routes (global, not per-document)
       if (pathname === "/api/settings" && method === "GET") {
-        const ctxOrRes = requireContext(url);
-        if (ctxOrRes instanceof Response) return ctxOrRes;
-        return getSettings(ctxOrRes);
+        return getSettingsRoute();
       }
 
       if (pathname === "/api/settings" && method === "PUT") {
-        const ctxOrRes = requireContext(url);
-        if (ctxOrRes instanceof Response) return ctxOrRes;
-        return updateSettings(ctxOrRes, req);
+        return updateSettingsRoute(req);
       }
 
       // ── Static / SPA serving ────────────────────────────────

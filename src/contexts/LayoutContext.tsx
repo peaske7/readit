@@ -30,20 +30,19 @@ export function useLayoutContext(): LayoutContextValue {
 }
 
 interface LayoutProviderProps {
-  filePath: string;
   children: ReactNode;
 }
 
-export function LayoutProvider({ filePath, children }: LayoutProviderProps) {
+export function LayoutProvider({ children }: LayoutProviderProps) {
   const { isFullscreen, toggleLayoutMode } = useLayoutMode();
-  const { fontFamily, setFontFamily } = useFontPreference(filePath);
+  const { fontFamily, setFontFamily } = useFontPreference();
   const { themeMode, setThemeMode } = useThemePreference();
   const {
     shortcuts,
     updateBinding,
     toggleEnabled: toggleShortcutEnabled,
     resetToDefaults: resetShortcutsToDefaults,
-  } = useKeybindings(filePath);
+  } = useKeybindings();
 
   const value = useMemo<LayoutContextValue>(
     () => ({
