@@ -1,13 +1,22 @@
 import { createContext, type ReactNode, use, useMemo } from "react";
 import { useFontPreference } from "../hooks/useFontPreference";
+import { useKeybindings } from "../hooks/useKeybindings";
 import { useLayoutMode } from "../hooks/useLayoutMode";
-import type { FontFamily } from "../types";
+import { useThemePreference } from "../hooks/useThemePreference";
+import type { ShortcutDefinition } from "../lib/shortcut-registry";
+import type { FontFamily, ShortcutBinding, ThemeMode } from "../types";
 
 interface LayoutContextValue {
   isFullscreen: boolean;
   toggleLayoutMode: () => void;
   fontFamily: FontFamily;
   setFontFamily: (font: FontFamily) => Promise<void>;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
+  shortcuts: ShortcutDefinition[];
+  updateBinding: (id: string, binding: ShortcutBinding) => Promise<void>;
+  toggleShortcutEnabled: (id: string) => Promise<void>;
+  resetShortcutsToDefaults: () => Promise<void>;
 }
 
 export const LayoutContext = createContext<LayoutContextValue | null>(null);
@@ -28,10 +37,39 @@ interface LayoutProviderProps {
 export function LayoutProvider({ filePath, children }: LayoutProviderProps) {
   const { isFullscreen, toggleLayoutMode } = useLayoutMode();
   const { fontFamily, setFontFamily } = useFontPreference(filePath);
+  const { themeMode, setThemeMode } = useThemePreference();
+  const {
+    shortcuts,
+    updateBinding,
+    toggleEnabled: toggleShortcutEnabled,
+    resetToDefaults: resetShortcutsToDefaults,
+  } = useKeybindings(filePath);
 
   const value = useMemo<LayoutContextValue>(
-    () => ({ isFullscreen, toggleLayoutMode, fontFamily, setFontFamily }),
-    [isFullscreen, toggleLayoutMode, fontFamily, setFontFamily],
+    () => ({
+      isFullscreen,
+      toggleLayoutMode,
+      fontFamily,
+      setFontFamily,
+      themeMode,
+      setThemeMode,
+      shortcuts,
+      updateBinding,
+      toggleShortcutEnabled,
+      resetShortcutsToDefaults,
+    }),
+    [
+      isFullscreen,
+      toggleLayoutMode,
+      fontFamily,
+      setFontFamily,
+      themeMode,
+      setThemeMode,
+      shortcuts,
+      updateBinding,
+      toggleShortcutEnabled,
+      resetShortcutsToDefaults,
+    ],
   );
 
   return <LayoutContext value={value}>{children}</LayoutContext>;

@@ -1,4 +1,4 @@
-import { use, useCallback, useEffect } from "react";
+import { use, useCallback, useEffect, useRef } from "react";
 import { Toaster } from "sonner";
 import { CommentInput } from "./components/comments/CommentInput";
 import { CommentMinimap } from "./components/comments/CommentMinimap";
@@ -8,6 +8,7 @@ import { FloatingTOC } from "./components/FloatingTOC";
 import { Header } from "./components/Header";
 import { MarginNotes } from "./components/MarginNotes";
 import { ReanchorConfirm } from "./components/ReanchorConfirm";
+import { TabBar } from "./components/TabBar";
 import { TableOfContents } from "./components/TableOfContents";
 import { textVariants } from "./components/ui/Text";
 import { CommentContext, CommentProvider } from "./contexts/CommentContext";
@@ -15,7 +16,6 @@ import { LayoutContext, LayoutProvider } from "./contexts/LayoutContext";
 import { useClipboard } from "./hooks/useClipboard";
 import { useDocument } from "./hooks/useDocument";
 import { useHeadings } from "./hooks/useHeadings";
-import { useKeybindings } from "./hooks/useKeybindings";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useScrollMetrics } from "./hooks/useScrollMetrics";
 import { useScrollSpy } from "./hooks/useScrollSpy";
@@ -23,6 +23,7 @@ import { useTextSelection } from "./hooks/useTextSelection";
 import { calculateScrollTarget, getElementTopInDocument } from "./lib/scroll";
 import { ShortcutActions } from "./lib/shortcut-registry";
 import { cn } from "./lib/utils";
+import { appStore, useAppStore } from "./store";
 
 const TOASTER_ICONS = { success: null, error: null, info: null, warning: null };
 const TOASTER_OPTIONS = {
@@ -75,7 +76,7 @@ function AppContent() {
     clearSelection,
   });
 
-  const { shortcuts } = useKeybindings(document?.filePath ?? null);
+  const { shortcuts, isFullscreen } = use(LayoutContext)!;
 
   useKeyboardShortcuts(shortcuts, {
     [ShortcutActions.COPY_ALL]: copyAll,
@@ -94,8 +95,6 @@ function AppContent() {
     document?.type ?? null,
   );
   const activeHeadingId = useScrollSpy(headings.map((h) => h.id));
-
-  const { isFullscreen } = use(LayoutContext)!;
 
   const scrollToHeading = useCallback(
     (id: string) => {
@@ -142,6 +141,31 @@ function AppContent() {
     const eventSource = new EventSource("/api/heartbeat");
     return () => eventSource.close();
   }, []);
+
+  // Scroll save/restore for tab switching
+  const setScrollY = useAppStore((s) => s.setScrollY);
+  const savedScrollY = useAppStore(
+    (s) => s.getActiveDocumentState()?.scrollY ?? 0,
+  );
+  const scrollRestored = useRef(false);
+
+  // Save scroll position on unmount
+  useEffect(() => {
+    return () => {
+      setScrollY(window.scrollY);
+    };
+  }, [setScrollY]);
+
+  // Restore scroll position on mount (after highlights paint)
+  useEffect(() => {
+    if (savedScrollY === 0 || scrollRestored.current) return;
+    scrollRestored.current = true;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, savedScrollY);
+      });
+    });
+  }, [savedScrollY]);
 
   const handleAddComment = useCallback(
     (commentText: string) => {
@@ -287,6 +311,13 @@ function AppContent() {
 function App() {
   const { document, error } = useDocument();
 
+  // Populate store when document loads
+  useEffect(() => {
+    if (document) {
+      appStore.getState().openDocument(document);
+    }
+  }, [document]);
+
   if (error) {
     return (
       <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
@@ -304,17 +335,20 @@ function App() {
   }
 
   return (
-    <LayoutProvider filePath={document.filePath}>
-      <CommentProvider
-        filePath={document.filePath}
-        clean={document.clean}
-        documentContent={document.content}
-        fileName={document.fileName}
-        documentType={document.type}
-      >
-        <AppContent />
-      </CommentProvider>
-    </LayoutProvider>
+    <>
+      <TabBar />
+      <LayoutProvider filePath={document.filePath}>
+        <CommentProvider
+          filePath={document.filePath}
+          clean={document.clean}
+          documentContent={document.content}
+          fileName={document.fileName}
+          documentType={document.type}
+        >
+          <AppContent />
+        </CommentProvider>
+      </LayoutProvider>
+    </>
   );
 }
 
