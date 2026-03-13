@@ -39,7 +39,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/20 backdrop-blur-sm",
+        "fixed inset-0 z-50 bg-black/20 dark:bg-black/40 backdrop-blur-sm",
         className,
       )}
       {...props}
@@ -62,7 +62,7 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           "fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2",
-          "bg-white/95 backdrop-blur-sm shadow-lg border border-zinc-200/40 rounded-xl",
+          "bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm shadow-lg border border-zinc-200/40 dark:border-zinc-700/40 rounded-xl",
           "flex flex-col animate-in",
           className,
         )}
@@ -91,7 +91,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="dialog-header"
       className={cn(
-        "flex items-center justify-between pl-4 pr-12 py-3 border-b border-zinc-100",
+        "flex items-center justify-between pl-4 pr-12 py-3 border-b border-zinc-100 dark:border-zinc-800",
         className,
       )}
       {...props}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   resolveShortcuts,
@@ -18,6 +18,9 @@ export function useKeybindings(filePath: string | null): UseKeybindingsResult {
   const [overrides, setOverrides] = useState<KeybindingOverride[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const filePathRef = useRef(filePath);
+  filePathRef.current = filePath;
+
   // Fetch keybindings from settings on mount
   useEffect(() => {
     if (!filePath) {
@@ -27,7 +30,8 @@ export function useKeybindings(filePath: string | null): UseKeybindingsResult {
 
     const fetchKeybindings = async () => {
       try {
-        const response = await fetch("/api/settings");
+        const query = `?path=${encodeURIComponent(filePath)}`;
+        const response = await fetch(`/api/settings${query}`);
         if (response.ok) {
           const settings = await response.json();
           setOverrides(settings.keybindings ?? []);
@@ -45,13 +49,15 @@ export function useKeybindings(filePath: string | null): UseKeybindingsResult {
   const persistOverrides = useCallback(
     async (newOverrides: KeybindingOverride[]) => {
       try {
-        const response = await fetch("/api/settings");
+        const fp = filePathRef.current;
+        const query = fp ? `?path=${encodeURIComponent(fp)}` : "";
+        const response = await fetch(`/api/settings${query}`);
         if (!response.ok) return;
 
         const currentSettings = await response.json();
         const updated = { ...currentSettings, keybindings: newOverrides };
 
-        const putResponse = await fetch("/api/settings", {
+        const putResponse = await fetch(`/api/settings${query}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updated),

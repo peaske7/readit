@@ -7,6 +7,7 @@ import { join, resolve } from "node:path";
 import { Command } from "commander";
 import open from "open";
 import { getCommentPath, parseCommentFile } from "../lib/comment-storage.js";
+import type { FileEntry } from "../server/index.js";
 import { startServer } from "../server/index.js";
 import type { DocumentType } from "../types/index.js";
 
@@ -51,17 +52,105 @@ function findCommentFiles(dir: string): string[] {
         if (isPermissionError(err)) {
           console.warn(`Warning: Permission denied: ${fullPath}`);
         }
-        // Skip other inaccessible files
       }
     }
   } catch (err) {
     if (isPermissionError(err)) {
       console.warn(`Warning: Permission denied: ${dir}`);
     }
-    // Skip other inaccessible directories
   }
 
   return results;
+}
+
+/**
+ * Recursively find reviewable files (.md, .markdown, .html, .htm) in a directory.
+ */
+function findReviewableFiles(dir: string): FileEntry[] {
+  const results: FileEntry[] = [];
+
+  try {
+    const entries = readdirSync(dir);
+    for (const entry of entries) {
+      // Skip hidden directories and node_modules
+      if (entry.startsWith(".") || entry === "node_modules") continue;
+
+      const fullPath = join(dir, entry);
+      try {
+        const stat = statSync(fullPath);
+        if (stat.isDirectory()) {
+          results.push(...findReviewableFiles(fullPath));
+        } else {
+          const type = getFileType(entry);
+          if (type) {
+            results.push({
+              content: readFileSync(fullPath, "utf-8"),
+              type,
+              filePath: fullPath,
+            });
+          }
+        }
+      } catch (err) {
+        if (isPermissionError(err)) {
+          console.warn(`Warning: Permission denied: ${fullPath}`);
+        }
+      }
+    }
+  } catch (err) {
+    if (isPermissionError(err)) {
+      console.warn(`Warning: Permission denied: ${dir}`);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Resolve CLI arguments into a deduplicated list of FileEntry objects.
+ */
+function resolveFiles(args: string[]): FileEntry[] {
+  const seen = new Set<string>();
+  const files: FileEntry[] = [];
+
+  for (const arg of args) {
+    const filePath = resolve(process.cwd(), arg);
+
+    if (!existsSync(filePath)) {
+      console.error(`error: not found: ${filePath}`);
+      process.exit(1);
+    }
+
+    const stat = statSync(filePath);
+
+    if (stat.isDirectory()) {
+      const found = findReviewableFiles(filePath);
+      for (const entry of found) {
+        if (!seen.has(entry.filePath)) {
+          seen.add(entry.filePath);
+          files.push(entry);
+        }
+      }
+    } else {
+      if (seen.has(filePath)) continue;
+
+      const type = getFileType(filePath);
+      if (!type) {
+        console.error(
+          `error: unsupported file type: ${arg} (expected .md, .markdown, .html, or .htm)`,
+        );
+        process.exit(1);
+      }
+
+      seen.add(filePath);
+      files.push({
+        content: readFileSync(filePath, "utf-8"),
+        type,
+        filePath,
+      });
+    }
+  }
+
+  return files;
 }
 
 program
@@ -152,16 +241,16 @@ program
     }
   });
 
-// Main review command (default)
+// Main review command (default) — accepts one or more files/directories
 program
-  .argument("<file>", "Markdown or HTML file to review")
+  .argument("<files...>", "Markdown or HTML files/directories to review")
   .option("-p, --port <number>", "Port to run server on", "4567")
   .option("--host <address>", "Host address to bind to", "127.0.0.1")
   .option("--no-open", "Don't automatically open browser")
   .option("--clean", "Clear all existing comments on startup")
   .action(
     async (
-      file: string,
+      fileArgs: string[],
       options: {
         port: string;
         host: string;
@@ -169,22 +258,13 @@ program
         clean: boolean;
       },
     ) => {
-      const filePath = resolve(process.cwd(), file);
+      const files = resolveFiles(fileArgs);
 
-      if (!existsSync(filePath)) {
-        console.error(`error: file not found: ${filePath}`);
+      if (files.length === 0) {
+        console.error("error: no reviewable files found");
         process.exit(1);
       }
 
-      const fileType = getFileType(file);
-      if (!fileType) {
-        console.error(
-          "error: file must be a Markdown (.md, .markdown) or HTML (.html, .htm) file",
-        );
-        process.exit(1);
-      }
-
-      const content = readFileSync(filePath, "utf-8");
       const preferredPort = Number.parseInt(options.port, 10);
 
       if (
@@ -198,19 +278,19 @@ program
 
       try {
         const { url, server } = await startServer({
-          content,
-          type: fileType,
-          filePath,
+          files,
           port: preferredPort,
           host: options.host,
           clean: options.clean,
         });
 
+        const fileList = files.map((f) => `  ${f.filePath} (${f.type})`);
+
         console.log(`
 readit - Document Review Tool
 
-  File: ${filePath}
-  Type: ${fileType}
+  ${files.length === 1 ? "File:" : "Files:"}
+${fileList.join("\n")}
   URL:  ${url}
 
   Server running. Close browser tab to stop.

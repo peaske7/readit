@@ -46,7 +46,7 @@ export function InlineEditor({
         onChange={(e) => setEditText(e.target.value)}
         className={cn(
           fontClass,
-          "w-full px-2 py-1.5 text-sm border border-zinc-200 resize-none focus:outline-none focus:border-zinc-400",
+          "w-full px-2 py-1.5 text-sm border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 resize-none focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500",
           className,
         )}
         rows={rows}

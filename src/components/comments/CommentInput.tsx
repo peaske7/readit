@@ -65,7 +65,10 @@ export function CommentInput({
   }
 
   return (
-    <div data-comment-input className="border-t border-zinc-200 pt-3 pb-2">
+    <div
+      data-comment-input
+      className="border-t border-zinc-200 dark:border-zinc-700 pt-3 pb-2"
+    >
       <Text variant="caption" asChild>
         <div className="italic mb-2 line-clamp-2">"{selectedText}"</div>
       </Text>
@@ -76,7 +79,7 @@ export function CommentInput({
         placeholder="Add your comment..."
         className={cn(
           fontClass,
-          "w-full px-2 py-1.5 text-sm border border-zinc-200 resize-none focus:outline-none focus:border-zinc-400",
+          "w-full px-2 py-1.5 text-sm border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 resize-none focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500",
         )}
         rows={2}
         onKeyDown={handleKeyDown}
@@ -86,7 +89,7 @@ export function CommentInput({
           <Button
             variant="ghost"
             size="icon"
-            className="size-7 text-zinc-300 hover:text-zinc-500"
+            className="size-7 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400"
             onClick={onCopyRaw}
             title="Copy raw text (⌘C)"
             aria-label="Copy raw text"
@@ -96,7 +99,7 @@ export function CommentInput({
           <Button
             variant="ghost"
             size="icon"
-            className="size-7 text-zinc-300 hover:text-zinc-500"
+            className="size-7 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400"
             onClick={onCopyForLLM}
             title="Copy with context for LLM (⌘⇧C)"
             aria-label="Copy for LLM"

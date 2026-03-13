@@ -308,20 +308,61 @@ function AppContent() {
   );
 }
 
-function App() {
-  const { document, error } = useDocument();
-
-  // Populate store when document loads
+function useTabKeyboardShortcuts() {
   useEffect(() => {
-    if (document) {
-      appStore.getState().openDocument(document);
-    }
-  }, [document]);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!event.metaKey) return;
+
+      // Cmd+1-9: switch to tab by index
+      const digit = Number.parseInt(event.key, 10);
+      if (digit >= 1 && digit <= 9) {
+        const { documentOrder } = appStore.getState();
+        if (documentOrder.length <= 1) return;
+        const targetIndex = Math.min(digit - 1, documentOrder.length - 1);
+        const targetPath = documentOrder[targetIndex];
+        if (targetPath) {
+          event.preventDefault();
+          appStore.getState().setActiveDocument(targetPath);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+}
+
+function App() {
+  const { document, error, isInitialized } = useDocument();
+  const documentOrder = useAppStore((s) => s.documentOrder);
+
+  useTabKeyboardShortcuts();
 
   if (error) {
     return (
       <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
         <div className="text-red-600">{error}</div>
+      </div>
+    );
+  }
+
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
+        <div className="text-zinc-500 dark:text-zinc-400">Loading...</div>
+      </div>
+    );
+  }
+
+  if (documentOrder.length === 0) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col">
+        <TabBar />
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-zinc-400 dark:text-zinc-500 text-sm">
+            No documents open.
+          </p>
+        </div>
       </div>
     );
   }

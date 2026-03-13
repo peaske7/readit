@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FontFamilies, type FontFamily } from "../types";
 
@@ -16,6 +16,9 @@ export function useFontPreference(
   );
   const [isLoading, setIsLoading] = useState(true);
 
+  const filePathRef = useRef(filePath);
+  filePathRef.current = filePath;
+
   // Fetch settings when filePath changes
   useEffect(() => {
     if (!filePath) {
@@ -27,7 +30,8 @@ export function useFontPreference(
 
     const fetchSettings = async () => {
       try {
-        const response = await fetch("/api/settings");
+        const query = `?path=${encodeURIComponent(filePath)}`;
+        const response = await fetch(`/api/settings${query}`);
         if (response.ok) {
           const settings = await response.json();
           setFontFamilyState(settings.fontFamily || FontFamilies.SERIF);
@@ -47,7 +51,9 @@ export function useFontPreference(
     setFontFamilyState(font);
 
     try {
-      const response = await fetch("/api/settings", {
+      const fp = filePathRef.current;
+      const query = fp ? `?path=${encodeURIComponent(fp)}` : "";
+      const response = await fetch(`/api/settings${query}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fontFamily: font }),

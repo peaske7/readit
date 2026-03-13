@@ -1,12 +1,28 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
+import { appStore, useAppStore } from "../store";
 import type { Selection } from "../types";
+
+/** Remove pending highlight marks from the DOM without triggering a full clear/reapply cycle. */
+function clearPendingMarks() {
+  for (const mark of document.querySelectorAll("mark[data-pending]")) {
+    const parent = mark.parentNode;
+    if (!parent) continue;
+    while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+    parent.removeChild(mark);
+  }
+}
 
 interface UseTextSelectionResult {
   selection: Selection | null;
   highlightPositions: Record<string, number>;
   documentPositions: Record<string, number>;
   pendingSelectionTop: number | undefined;
-  onTextSelect: (text: string, startOffset: number, endOffset: number) => void;
+  onTextSelect: (
+    text: string,
+    startOffset: number,
+    endOffset: number,
+    selectionTop: number,
+  ) => void;
   onPositionsChange: (
     positions: Record<string, number>,
     docPositions: Record<string, number>,
@@ -17,18 +33,21 @@ interface UseTextSelectionResult {
 
 /**
  * Manage text selection state, highlight positions, and click-outside dismissal.
+ * State lives in the Zustand store for tab-switch preservation.
  */
 export function useTextSelection(): UseTextSelectionResult {
-  const [selection, setSelection] = useState<Selection | null>(null);
-  const [highlightPositions, setHighlightPositions] = useState<
-    Record<string, number>
-  >({});
-  const [documentPositions, setDocumentPositions] = useState<
-    Record<string, number>
-  >({});
-  const [pendingSelectionTop, setPendingSelectionTop] = useState<
-    number | undefined
-  >();
+  const selection = useAppStore(
+    (s) => s.getActiveDocumentState()?.selection ?? null,
+  );
+  const highlightPositions = useAppStore(
+    (s) => s.getActiveDocumentState()?.highlightPositions ?? {},
+  );
+  const documentPositions = useAppStore(
+    (s) => s.getActiveDocumentState()?.documentPositions ?? {},
+  );
+  const pendingSelectionTop = useAppStore(
+    (s) => s.getActiveDocumentState()?.pendingSelectionTop,
+  );
 
   useEffect(() => {
     if (!selection) return;
@@ -43,9 +62,10 @@ export function useTextSelection(): UseTextSelectionResult {
       if (target.closest("mark[data-pending]")) return;
       if (target.closest("mark[data-comment-id]")) return;
 
-      // Clear selection state, but defer removeAllRanges to avoid
-      // interfering with double-click word selection
-      setSelection(null);
+      // Clear selection state and pending marks
+      appStore.getState().setSelection(null);
+      appStore.getState().setPendingSelectionTop(undefined);
+      clearPendingMarks();
       requestAnimationFrame(() => {
         const sel = window.getSelection();
         if (sel?.isCollapsed) {
@@ -60,8 +80,14 @@ export function useTextSelection(): UseTextSelectionResult {
   }, [selection]);
 
   const onTextSelect = useCallback(
-    (text: string, startOffset: number, endOffset: number) => {
-      setSelection({ text, startOffset, endOffset });
+    (
+      text: string,
+      startOffset: number,
+      endOffset: number,
+      selectionTop: number,
+    ) => {
+      appStore.getState().setSelection({ text, startOffset, endOffset });
+      appStore.getState().setPendingSelectionTop(selectionTop);
     },
     [],
   );
@@ -70,17 +96,18 @@ export function useTextSelection(): UseTextSelectionResult {
     (
       positions: Record<string, number>,
       docPositions: Record<string, number>,
-      pendingTop?: number,
+      _pendingTop?: number,
     ) => {
-      setHighlightPositions(positions);
-      setDocumentPositions(docPositions);
-      setPendingSelectionTop(pendingTop);
+      appStore.getState().setHighlightPositions(positions);
+      appStore.getState().setDocumentPositions(docPositions);
     },
     [],
   );
 
   const clearSelection = useCallback(() => {
-    setSelection(null);
+    appStore.getState().setSelection(null);
+    appStore.getState().setPendingSelectionTop(undefined);
+    clearPendingMarks();
     window.getSelection()?.removeAllRanges();
   }, []);
 

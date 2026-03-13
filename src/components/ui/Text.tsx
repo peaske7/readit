@@ -8,13 +8,15 @@ import { FontFamilies } from "../../types";
 const textVariants = cva("", {
   variants: {
     variant: {
-      title: "text-lg font-semibold tracking-tight text-zinc-900",
-      section: "text-sm font-medium text-zinc-900",
-      subsection: "text-xs font-medium text-zinc-700",
-      overline: "text-xs font-medium text-zinc-500 uppercase tracking-wider",
-      body: "text-sm text-zinc-600",
-      caption: "text-xs text-zinc-500",
-      micro: "text-[10px] text-zinc-400",
+      title:
+        "text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100",
+      section: "text-sm font-medium text-zinc-900 dark:text-zinc-100",
+      subsection: "text-xs font-medium text-zinc-700 dark:text-zinc-300",
+      overline:
+        "text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider",
+      body: "text-sm text-zinc-600 dark:text-zinc-400",
+      caption: "text-xs text-zinc-500 dark:text-zinc-400",
+      micro: "text-[10px] text-zinc-400 dark:text-zinc-500",
     },
   },
   defaultVariants: {

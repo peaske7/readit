@@ -75,7 +75,12 @@ interface DocumentViewerProps {
   comments: Comment[];
   headings: Heading[];
   pendingSelection?: SelectionRange;
-  onTextSelect: (text: string, startOffset: number, endOffset: number) => void;
+  onTextSelect: (
+    text: string,
+    startOffset: number,
+    endOffset: number,
+    selectionTop: number,
+  ) => void;
   onHighlightPositionsChange?: (
     positions: Record<string, number>,
     documentPositions: Record<string, number>,
@@ -171,10 +176,7 @@ export function DocumentViewer({
             endOffset: c.endOffset,
           }));
 
-        adapter.applyHighlights(
-          highlightComments,
-          pendingSelection ?? undefined,
-        );
+        adapter.applyHighlights(highlightComments);
       });
     });
 
@@ -182,14 +184,14 @@ export function DocumentViewer({
       cancelAnimationFrame(outerFrameId);
       cancelAnimationFrame(innerFrameId);
     };
-  }, [comments, content, type, pendingSelection]);
+  }, [comments, content, type]);
 
   useEffect(() => {
     if (type !== "markdown") return;
 
     const handleTestSelect = (e: Event) => {
       const { text, startOffset, endOffset } = (e as CustomEvent).detail;
-      onTextSelect(text, startOffset, endOffset);
+      onTextSelect(text, startOffset, endOffset, 0);
     };
 
     window.addEventListener("test:select-text", handleTestSelect);

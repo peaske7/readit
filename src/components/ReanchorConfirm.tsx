@@ -13,7 +13,7 @@ export function ReanchorConfirm({
   onCancel,
 }: ReanchorConfirmProps) {
   return (
-    <div className="border-t border-zinc-200 pt-2 pb-3 pl-6">
+    <div className="border-t border-zinc-200 dark:border-zinc-700 pt-2 pb-3 pl-6">
       <Text variant="body" className="mb-2">
         Re-anchor to this selection?
       </Text>

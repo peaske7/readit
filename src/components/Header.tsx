@@ -24,7 +24,7 @@ export function Header({
   const { isFullscreen } = useLayoutContext();
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-zinc-100">
+    <header className="sticky top-0 z-50 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm border-b border-zinc-100 dark:border-zinc-800">
       <div
         className={cn(
           "px-6 py-3 flex items-center justify-between",
@@ -35,7 +35,7 @@ export function Header({
           <Text variant="title" asChild>
             <h1>readit</h1>
           </Text>
-          <span className="text-zinc-200 font-light">—</span>
+          <span className="text-zinc-200 dark:text-zinc-700 font-light">—</span>
           <Text variant="caption" asChild>
             <span className="truncate max-w-[200px]">{fileName}</span>
           </Text>

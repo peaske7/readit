@@ -22,19 +22,20 @@ import {
   type FontFamily,
 } from "../types/index.js";
 
-// ─── Helpers (unchanged from Express version) ───────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────
 
-/**
- * Type predicate for NodeJS file system errors.
- */
 function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err;
 }
 
-export interface ServerOptions {
+export interface FileEntry {
   content: string;
   type: DocumentType;
   filePath: string;
+}
+
+export interface ServerOptions {
+  files: FileEntry[];
   port: number;
   host: string;
   clean?: boolean;
@@ -46,9 +47,6 @@ export interface ServerResult {
   server: { stop(): void };
 }
 
-/**
- * Read comments from file, resolving anchors against source content.
- */
 async function readCommentsFromFile(
   filePath: string,
   sourceContent: string,
@@ -124,9 +122,6 @@ async function deleteCommentFile(filePath: string): Promise<void> {
   }
 }
 
-/**
- * Compute settings file path for a source file.
- */
 function getSettingsPath(sourcePath: string): string {
   const absolute = path.resolve(sourcePath);
   const normalized = absolute.replace(/^\//, "").replace(/^[A-Z]:[\\/]/, "");
@@ -487,7 +482,6 @@ async function serveStaticFile(
   distPath: string,
   pathname: string,
 ): Promise<Response> {
-  // Try the exact file path first
   const filePath = join(distPath, pathname);
   const file = Bun.file(filePath);
 
@@ -507,59 +501,102 @@ async function serveStaticFile(
 // ─── Extract route param ────────────────────────────────────────────
 
 function extractCommentId(pathname: string): string | undefined {
-  // Match /api/comments/:id or /api/comments/:id/reanchor
   const match = pathname.match(/^\/api\/comments\/([^/]+)/);
   return match?.[1];
 }
 
-// ─── Server creation ────────────────────────────────────────────────
+// ─── Multi-file state ───────────────────────────────────────────────
 
-interface ServerWithWatcher {
-  server: ReturnType<typeof Bun.serve>;
-  watcher: FSWatcher | null;
+interface FileState {
+  content: string;
+  type: DocumentType;
+  debounceTimer: ReturnType<typeof setTimeout> | null;
 }
 
-function createServer(options: ServerOptions): ServerWithWatcher {
-  let currentContent = options.content;
+// ─── Server creation ────────────────────────────────────────────────
+
+interface ServerWithWatchers {
+  server: ReturnType<typeof Bun.serve>;
+  watchers: FSWatcher[];
+}
+
+function createServer(options: ServerOptions): ServerWithWatchers {
+  // Map of absolute path → mutable file state
+  const fileMap = new Map<string, FileState>();
+  // Ordered list of file paths (insertion order for tab display)
+  const fileOrder: string[] = [];
+
+  for (const entry of options.files) {
+    fileMap.set(entry.filePath, {
+      content: entry.content,
+      type: entry.type,
+      debounceTimer: null,
+    });
+    fileOrder.push(entry.filePath);
+  }
+
+  const defaultPath = fileOrder[0];
   const sseClients = new Set<ReadableStreamDefaultController>();
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  let watcher: FSWatcher | null = null;
-  try {
-    watcher = watch(options.filePath, async (eventType) => {
-      if (eventType !== "change") return;
+  // Resolve the target file from ?path= query param, falling back to first file
+  function resolveContext(url: URL): RouteContext | null {
+    const requestedPath = url.searchParams.get("path") ?? defaultPath;
+    const state = fileMap.get(requestedPath);
+    if (!state) return null;
+    return {
+      filePath: requestedPath,
+      getCurrentContent: () => state.content,
+    };
+  }
 
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(async () => {
-        try {
-          const newContent = await fs.readFile(options.filePath, "utf-8");
-          if (newContent !== currentContent) {
-            currentContent = newContent;
-            console.log("File changed, notifying clients...");
-            for (const controller of sseClients) {
-              try {
-                controller.enqueue("data: update\n\n");
-              } catch {
-                sseClients.delete(controller);
+  function requireContext(url: URL): RouteContext | Response {
+    const ctx = resolveContext(url);
+    if (!ctx) {
+      return errorResponse("File not found", 404);
+    }
+    return ctx;
+  }
+
+  // Set up per-file watchers
+  const watchers: FSWatcher[] = [];
+  for (const filePath of fileOrder) {
+    try {
+      const watcher = watch(filePath, async (eventType) => {
+        if (eventType !== "change") return;
+
+        const state = fileMap.get(filePath);
+        if (!state) return;
+
+        if (state.debounceTimer) clearTimeout(state.debounceTimer);
+        state.debounceTimer = setTimeout(async () => {
+          try {
+            const newContent = await fs.readFile(filePath, "utf-8");
+            if (newContent !== state.content) {
+              state.content = newContent;
+              console.log(`File changed: ${basename(filePath)}`);
+
+              const message = `data: ${JSON.stringify({ type: "update", path: filePath })}\n\n`;
+              for (const controller of sseClients) {
+                try {
+                  controller.enqueue(message);
+                } catch {
+                  sseClients.delete(controller);
+                }
               }
             }
+          } catch (err) {
+            console.error(`Failed to read updated file ${filePath}:`, err);
           }
-        } catch (err) {
-          console.error("Failed to read updated file:", err);
-        }
-      }, 100);
-    });
-  } catch (err) {
-    console.warn("File watching not available:", err);
+        }, 100);
+      });
+      watchers.push(watcher);
+    } catch (err) {
+      console.warn(`File watching not available for ${filePath}:`, err);
+    }
   }
 
   const isDev = process.env.NODE_ENV === "development";
   const distPath = import.meta.dir;
-
-  const ctx: RouteContext = {
-    filePath: options.filePath,
-    getCurrentContent: () => currentContent,
-  };
 
   const server = Bun.serve({
     port: options.port,
@@ -572,12 +609,29 @@ function createServer(options: ServerOptions): ServerWithWatcher {
 
       // ── API routes ──────────────────────────────────────────
 
+      // Document list (multi-file)
+      if (pathname === "/api/documents" && method === "GET") {
+        const files = fileOrder.map((fp) => {
+          const state = fileMap.get(fp)!;
+          return {
+            path: fp,
+            fileName: basename(fp),
+            type: state.type,
+          };
+        });
+        return json({ files, clean: options.clean || false });
+      }
+
+      // Single document (backward compat + path-aware)
       if (pathname === "/api/document" && method === "GET") {
+        const ctxOrRes = requireContext(url);
+        if (ctxOrRes instanceof Response) return ctxOrRes;
+        const state = fileMap.get(ctxOrRes.filePath)!;
         return json({
-          content: currentContent,
-          type: options.type,
-          filePath: options.filePath,
-          fileName: basename(options.filePath),
+          content: state.content,
+          type: state.type,
+          filePath: ctxOrRes.filePath,
+          fileName: basename(ctxOrRes.filePath),
           clean: options.clean || false,
         });
       }
@@ -596,42 +650,57 @@ function createServer(options: ServerOptions): ServerWithWatcher {
 
       // Comments routes
       if (pathname === "/api/comments" && method === "GET") {
-        return getComments(ctx);
+        const ctxOrRes = requireContext(url);
+        if (ctxOrRes instanceof Response) return ctxOrRes;
+        return getComments(ctxOrRes);
       }
 
       if (pathname === "/api/comments/raw" && method === "GET") {
-        return getRawComments(ctx);
+        const ctxOrRes = requireContext(url);
+        if (ctxOrRes instanceof Response) return ctxOrRes;
+        return getRawComments(ctxOrRes);
       }
 
       if (pathname === "/api/comments" && method === "POST") {
-        return addComment(ctx, req);
+        const ctxOrRes = requireContext(url);
+        if (ctxOrRes instanceof Response) return ctxOrRes;
+        return addComment(ctxOrRes, req);
       }
 
       if (pathname === "/api/comments" && method === "DELETE") {
-        return clearComments(ctx);
+        const ctxOrRes = requireContext(url);
+        if (ctxOrRes instanceof Response) return ctxOrRes;
+        return clearComments(ctxOrRes);
       }
 
       // Parameterized comment routes
       const commentId = extractCommentId(pathname);
       if (commentId) {
+        const ctxOrRes = requireContext(url);
+        if (ctxOrRes instanceof Response) return ctxOrRes;
+
         if (pathname.endsWith("/reanchor") && method === "PUT") {
-          return reanchorComment(ctx, req, commentId);
+          return reanchorComment(ctxOrRes, req, commentId);
         }
         if (method === "PUT") {
-          return updateComment(ctx, req, commentId);
+          return updateComment(ctxOrRes, req, commentId);
         }
         if (method === "DELETE") {
-          return deleteComment(ctx, commentId);
+          return deleteComment(ctxOrRes, commentId);
         }
       }
 
       // Settings routes
       if (pathname === "/api/settings" && method === "GET") {
-        return getSettings(ctx);
+        const ctxOrRes = requireContext(url);
+        if (ctxOrRes instanceof Response) return ctxOrRes;
+        return getSettings(ctxOrRes);
       }
 
       if (pathname === "/api/settings" && method === "PUT") {
-        return updateSettings(ctx, req);
+        const ctxOrRes = requireContext(url);
+        if (ctxOrRes instanceof Response) return ctxOrRes;
+        return updateSettings(ctxOrRes, req);
       }
 
       // ── Static / SPA serving ────────────────────────────────
@@ -648,7 +717,7 @@ function createServer(options: ServerOptions): ServerWithWatcher {
     },
   });
 
-  return { server, watcher };
+  return { server, watchers };
 }
 
 // ─── Port fallback + start ──────────────────────────────────────────
@@ -660,16 +729,15 @@ export async function startServer(
 
   for (let port = options.port; port <= MAX_PORT; port++) {
     try {
-      const { server, watcher } = createServer({ ...options, port });
+      const { server, watchers } = createServer({ ...options, port });
 
       const displayHost =
         options.host === "0.0.0.0" ? "localhost" : options.host;
 
-      // Clean up watcher when server stops
       const originalStop = server.stop.bind(server);
       const wrappedServer = {
         stop() {
-          watcher?.close();
+          for (const w of watchers) w.close();
           originalStop();
         },
       };

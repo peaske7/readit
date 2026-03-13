@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/DropdownMenu";
-import { Text, textVariants } from "./ui/Text";
+import { Text } from "./ui/Text";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -202,23 +202,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
           <div>
             <Text variant="overline" asChild>
-              <h3 className="mb-3">Preview</h3>
+              <h3 className="mb-1">Keyboard Shortcuts</h3>
             </Text>
-            <div
-              className={cn(
-                textVariants({ variant: "body" }),
-                "p-3 rounded-md border border-zinc-100 dark:border-zinc-700 leading-relaxed",
-                fontFamily === FontFamilies.SERIF ? "font-serif" : "font-sans",
-              )}
-            >
-              The quick brown fox jumps over the lazy dog. 1234567890
-            </div>
-          </div>
-
-          <div>
-            <Text variant="overline" asChild>
-              <h3 className="mb-3">Keyboard Shortcuts</h3>
-            </Text>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-3">
+              Click a key to rebind
+            </p>
             <ShortcutList
               shortcuts={shortcuts}
               onUpdateBinding={updateBinding}

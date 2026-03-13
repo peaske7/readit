@@ -11,7 +11,9 @@ import { useCommentNavigation } from "../hooks/useCommentNavigation";
 import { useComments } from "../hooks/useComments";
 import { useReanchorMode } from "../hooks/useReanchorMode";
 import { extractContext, formatForLLM } from "../lib/context";
+import { generatePrompt } from "../lib/export";
 import { truncate } from "../lib/utils";
+import { useAppStore } from "../store";
 import type { Comment, DocumentType } from "../types";
 
 interface CommentContextValue {
@@ -26,6 +28,7 @@ interface CommentContextValue {
   ) => void;
   editComment: (id: string, newText: string) => void;
   deleteComment: (id: string) => void;
+  deleteAll: () => void;
   reanchorComment: (
     id: string,
     selectedText: string,
@@ -48,6 +51,7 @@ interface CommentContextValue {
   // Copy operations
   copyCommentRaw: (comment: Comment) => void;
   copyCommentForLLM: (comment: Comment) => void;
+  copyAllForLLM: () => void;
   // Scroll to highlight
   scrollToHighlight: (commentId: string) => void;
 }
@@ -84,13 +88,14 @@ export function CommentProvider({
     error: commentsError,
     addComment,
     deleteComment,
+    deleteAll,
     editComment,
     reanchorComment,
   } = useComments(filePath, { clean });
 
-  const sortedComments = useMemo(
-    () => [...comments].sort((a, b) => a.startOffset - b.startOffset),
-    [comments],
+  // sortedComments from store (already sorted by setComments)
+  const sortedComments = useAppStore(
+    (s) => s.documents.get(filePath)?.sortedComments ?? [],
   );
 
   const {
@@ -136,6 +141,12 @@ export function CommentProvider({
     [documentContent, fileName],
   );
 
+  const copyAllForLLM = useCallback(() => {
+    const prompt = generatePrompt(comments, fileName);
+    navigator.clipboard.writeText(prompt);
+    toast.success("Copied all comments");
+  }, [comments, fileName]);
+
   const scrollToHighlight = useCallback(
     (commentId: string) => {
       if (documentType === "html") {
@@ -165,6 +176,7 @@ export function CommentProvider({
       addComment,
       editComment,
       deleteComment,
+      deleteAll,
       reanchorComment,
       sortedComments,
       currentIndex,
@@ -178,6 +190,7 @@ export function CommentProvider({
       cancelReanchor,
       copyCommentRaw,
       copyCommentForLLM,
+      copyAllForLLM,
       scrollToHighlight,
     }),
     [
@@ -186,6 +199,7 @@ export function CommentProvider({
       addComment,
       editComment,
       deleteComment,
+      deleteAll,
       reanchorComment,
       sortedComments,
       currentIndex,
@@ -199,6 +213,7 @@ export function CommentProvider({
       cancelReanchor,
       copyCommentRaw,
       copyCommentForLLM,
+      copyAllForLLM,
       scrollToHighlight,
     ],
   );

@@ -14,6 +14,15 @@ interface ShortcutListProps {
   onResetToDefaults: () => Promise<void>;
 }
 
+const SHORTCUT_GROUPS = [
+  {
+    label: "Copy",
+    ids: ["copyAll", "copyAllRaw", "copySelectionRaw", "copySelectionLLM"],
+  },
+  { label: "Navigate", ids: ["navigateNext", "navigatePrevious"] },
+  { label: "Other", ids: ["clearSelection"] },
+] as const;
+
 const isMac =
   typeof navigator !== "undefined" &&
   /Mac|iPod|iPhone|iPad/.test(navigator.platform);
@@ -34,15 +43,18 @@ export function ShortcutList({
     [shortcuts],
   );
 
+  const shortcutMap = useMemo(
+    () => new Map(shortcuts.map((s) => [s.id, s])),
+    [shortcuts],
+  );
+
   const handleCapture = useCallback(
     async (id: string, binding: ShortcutBinding) => {
-      // Check for conflicts
       const conflict = shortcuts.find(
         (s) => s.id !== id && s.enabled && bindingsEqual(s.binding, binding),
       );
 
       if (conflict) {
-        // Swap bindings
         const currentShortcut = shortcuts.find((s) => s.id === id);
         if (currentShortcut) {
           await onUpdateBinding(conflict.id, currentShortcut.binding);
@@ -56,71 +68,90 @@ export function ShortcutList({
   );
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-1">
-        {shortcuts.map((shortcut) => (
-          <div
-            key={shortcut.id}
-            className="flex items-center gap-3 py-1.5 group"
-          >
-            <input
-              type="checkbox"
-              checked={shortcut.enabled}
-              onChange={() => onToggleEnabled(shortcut.id)}
-              className="w-3.5 h-3.5 rounded border-zinc-300 text-zinc-600 focus:ring-zinc-500 cursor-pointer"
-            />
+    <div className="space-y-4">
+      {SHORTCUT_GROUPS.map((group) => {
+        const groupShortcuts = group.ids
+          .map((id) => shortcutMap.get(id))
+          .filter((s): s is ShortcutDefinition => s !== undefined);
 
-            <span className="flex-1 text-sm text-zinc-700 truncate">
-              {shortcut.label}
+        if (groupShortcuts.length === 0) return null;
+
+        return (
+          <div key={group.label}>
+            <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+              {group.label}
             </span>
-
-            <div className="flex items-center gap-1.5 min-w-[100px] justify-end">
-              {capturingId === shortcut.id ? (
-                <ShortcutCapture
-                  onCapture={(binding) => handleCapture(shortcut.id, binding)}
-                  onCancel={() => setCapturingId(undefined)}
-                />
-              ) : (
-                <>
-                  <kbd className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-100 border border-zinc-200 text-zinc-600 text-xs font-mono">
-                    {formatBinding(shortcut.binding, isMac)}
-                  </kbd>
-                  <button
-                    type="button"
-                    onClick={() => setCapturingId(shortcut.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-zinc-400 hover:text-zinc-600"
-                    title="Edit shortcut"
+            <div className="mt-1 space-y-0.5">
+              {groupShortcuts.map((shortcut) => (
+                <div
+                  key={shortcut.id}
+                  className="flex items-center gap-3 py-1.5"
+                >
+                  <span
+                    className="flex-1 text-sm text-zinc-700 dark:text-zinc-300 truncate"
+                    title={shortcut.description}
                   >
-                    <svg
-                      className="w-3 h-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
+                    {shortcut.label}
+                  </span>
+
+                  <div className="flex items-center gap-2.5">
+                    {capturingId === shortcut.id ? (
+                      <ShortcutCapture
+                        onCapture={(binding) =>
+                          handleCapture(shortcut.id, binding)
+                        }
+                        onCancel={() => setCapturingId(undefined)}
                       />
-                    </svg>
-                  </button>
-                </>
-              )}
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setCapturingId(shortcut.id)}
+                        className="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 text-xs font-mono cursor-pointer hover:bg-zinc-200 hover:border-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-600 transition-colors"
+                      >
+                        {formatBinding(shortcut.binding, isMac)}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={shortcut.enabled}
+                      onClick={() => onToggleEnabled(shortcut.id)}
+                      title="Enable/disable shortcut"
+                      className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
+                        shortcut.enabled
+                          ? "bg-zinc-600 dark:bg-zinc-400"
+                          : "bg-zinc-300 dark:bg-zinc-700"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block size-3 rounded-full bg-white dark:bg-zinc-900 shadow-sm transition-transform ${
+                          shortcut.enabled
+                            ? "translate-x-3.5"
+                            : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
 
-      {hasOverrides && (
-        <button
-          type="button"
-          onClick={onResetToDefaults}
-          className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
-        >
-          Reset to defaults
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={hasOverrides ? onResetToDefaults : undefined}
+        disabled={!hasOverrides}
+        className={
+          hasOverrides
+            ? "text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors cursor-pointer"
+            : "text-xs text-zinc-300 dark:text-zinc-600 cursor-default"
+        }
+      >
+        Reset to defaults
+      </button>
     </div>
   );
 }

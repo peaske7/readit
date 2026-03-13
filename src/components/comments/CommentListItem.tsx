@@ -35,7 +35,7 @@ export function CommentListItem({ comment, onAction }: CommentListItemProps) {
   return (
     <div
       className={cn(
-        "group px-3 py-2 border-b border-zinc-100 last:border-b-0",
+        "group px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 last:border-b-0",
         isUnresolved && "opacity-50",
       )}
     >
