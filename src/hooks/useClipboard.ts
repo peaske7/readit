@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback } from "react";
 import { toast } from "sonner";
 import { extractContext, formatForLLM } from "../lib/context";
 import {
@@ -68,39 +68,6 @@ export function useClipboard({
     toast.success(`Copied for LLM: "${truncate(selection.text)}"`);
     clearSelection();
   }, [selection, document, clearSelection]);
-
-  // Keyboard shortcuts: Cmd+C for raw copy, Cmd+Shift+C for LLM copy, Escape to cancel
-  // Use refs to avoid re-attaching listeners on every selection/callback change
-  const selectionRef = useRef(selection);
-  const copyRawRef = useRef(copySelectionRaw);
-  const copyLLMRef = useRef(copySelectionForLLM);
-  const clearRef = useRef(clearSelection);
-
-  selectionRef.current = selection;
-  copyRawRef.current = copySelectionRaw;
-  copyLLMRef.current = copySelectionForLLM;
-  clearRef.current = clearSelection;
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!selectionRef.current) return;
-
-      if (e.key === "c" && e.metaKey) {
-        e.preventDefault();
-        if (e.shiftKey) {
-          copyLLMRef.current();
-        } else {
-          copyRawRef.current();
-        }
-      }
-      if (e.key === "Escape") {
-        clearRef.current();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   return {
     copyAll,

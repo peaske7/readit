@@ -15,10 +15,13 @@ import { LayoutContext, LayoutProvider } from "./contexts/LayoutContext";
 import { useClipboard } from "./hooks/useClipboard";
 import { useDocument } from "./hooks/useDocument";
 import { useHeadings } from "./hooks/useHeadings";
+import { useKeybindings } from "./hooks/useKeybindings";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useScrollMetrics } from "./hooks/useScrollMetrics";
 import { useScrollSpy } from "./hooks/useScrollSpy";
 import { useTextSelection } from "./hooks/useTextSelection";
 import { calculateScrollTarget, getElementTopInDocument } from "./lib/scroll";
+import { ShortcutActions } from "./lib/shortcut-registry";
 import { cn } from "./lib/utils";
 
 const TOASTER_ICONS = { success: null, error: null, info: null, warning: null };
@@ -27,7 +30,7 @@ const TOASTER_OPTIONS = {
   duration: 2000,
   classNames: {
     toast: cn(
-      "backdrop-blur-sm bg-white/90 border border-zinc-100 px-3 py-2 shadow-sm rounded-md",
+      "backdrop-blur-sm bg-white/90 dark:bg-zinc-900/90 border border-zinc-100 dark:border-zinc-800 px-3 py-2 shadow-sm rounded-md",
       textVariants({ variant: "caption" }),
     ),
   },
@@ -43,6 +46,8 @@ function AppContent() {
     cancelReanchor,
     hoveredCommentId,
     setHoveredCommentId,
+    navigatePrevious,
+    navigateNext,
   } = use(CommentContext)!;
 
   const { document, reload } = useDocument();
@@ -68,6 +73,18 @@ function AppContent() {
     document: document ?? undefined,
     selection: selection ?? undefined,
     clearSelection,
+  });
+
+  const { shortcuts } = useKeybindings(document?.filePath ?? null);
+
+  useKeyboardShortcuts(shortcuts, {
+    [ShortcutActions.COPY_ALL]: copyAll,
+    [ShortcutActions.COPY_ALL_RAW]: copyAllRaw,
+    [ShortcutActions.NAVIGATE_NEXT]: navigateNext,
+    [ShortcutActions.NAVIGATE_PREVIOUS]: navigatePrevious,
+    [ShortcutActions.COPY_SELECTION_RAW]: copySelectionRaw,
+    [ShortcutActions.COPY_SELECTION_LLM]: copySelectionForLLM,
+    [ShortcutActions.CLEAR_SELECTION]: clearSelection,
   });
 
   const scrollMetrics = useScrollMetrics();
@@ -170,7 +187,7 @@ function AppContent() {
   if (!document) return null;
 
   return (
-    <div className="min-h-screen bg-white text-zinc-900 flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col">
       <Toaster
         position="bottom-right"
         icons={TOASTER_ICONS}
@@ -223,7 +240,7 @@ function AppContent() {
         <div className="w-72 flex-shrink-0 py-6 pr-4 relative">
           {selection && pendingSelectionTop !== undefined && (
             <div
-              className="absolute left-0 right-0 z-10 bg-white"
+              className="absolute left-0 right-0 z-10 bg-white dark:bg-zinc-900"
               style={{ top: pendingSelectionTop }}
             >
               {reanchorTarget !== null ? (
@@ -260,7 +277,7 @@ function AppContent() {
 
       <CommentNav />
 
-      <footer className="py-4 text-center text-sm text-zinc-400">
+      <footer className="py-4 text-center text-sm text-zinc-400 dark:text-zinc-500">
         Made with ❤️ by Jay and Claude
       </footer>
     </div>
@@ -272,7 +289,7 @@ function App() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white text-zinc-900 flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
         <div className="text-red-600">{error}</div>
       </div>
     );
@@ -280,8 +297,8 @@ function App() {
 
   if (!document) {
     return (
-      <div className="min-h-screen bg-white text-zinc-900 flex items-center justify-center">
-        <div className="text-zinc-500">Loading...</div>
+      <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
+        <div className="text-zinc-500 dark:text-zinc-400">Loading...</div>
       </div>
     );
   }

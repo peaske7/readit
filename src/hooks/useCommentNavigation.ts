@@ -116,25 +116,6 @@ export function useCommentNavigation(
     });
   }, [navigateToComment]);
 
-  // Keyboard navigation: Alt+↑/↓
-  useEffect(() => {
-    if (sortedComments.length <= 1) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowUp" && e.altKey) {
-        e.preventDefault();
-        navigatePrevious();
-      }
-      if (e.key === "ArrowDown" && e.altKey) {
-        e.preventDefault();
-        navigateNext();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [sortedComments.length, navigatePrevious, navigateNext]);
-
   return {
     currentIndex: clampedIndex,
     hoveredCommentId,
