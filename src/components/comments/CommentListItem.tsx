@@ -41,9 +41,7 @@ export function CommentListItem({ comment, onAction }: CommentListItemProps) {
     >
       <div className="flex items-center gap-1.5 mb-1">
         <Text variant="caption" asChild>
-          <span className="font-serif italic line-clamp-1">
-            "{comment.selectedText}"
-          </span>
+          <span className="italic line-clamp-1">"{comment.selectedText}"</span>
         </Text>
         {isUnresolved && (
           <Text variant="caption" asChild>
@@ -60,12 +58,11 @@ export function CommentListItem({ comment, onAction }: CommentListItemProps) {
             setIsEditing(false);
           }}
           onCancel={() => setIsEditing(false)}
-          className="font-serif"
         />
       ) : (
         <>
           <Text variant="body" asChild>
-            <p className="font-serif line-clamp-2">{comment.comment}</p>
+            <p className="line-clamp-2">{comment.comment}</p>
           </Text>
 
           <ActionBar className="gap-3 mt-1.5">

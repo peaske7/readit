@@ -73,6 +73,17 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
     if (text.length === 0) return;
 
     const range = selection.getRangeAt(0);
+
+    // Reject erroneous whole-document selections (caused by DOM mutation during interaction)
+    if (
+      range.startContainer === root &&
+      range.startOffset === 0 &&
+      range.endContainer === root &&
+      range.endOffset === root.childNodes.length
+    ) {
+      return;
+    }
+
     const startOffset = getTextOffset(
       root,
       range.startContainer,

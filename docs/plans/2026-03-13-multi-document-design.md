@@ -71,7 +71,12 @@ interface AppStore {
   setActiveDocument: (filePath: string) => void;
 
   // Per-document actions (default to active document)
-  addComment: (text: string, comment: string, start: number, end: number) => void;
+  addComment: (
+    text: string,
+    comment: string,
+    start: number,
+    end: number,
+  ) => void;
   editComment: (id: string, newText: string) => void;
   deleteComment: (id: string) => void;
   setSelection: (selection: SelectionRange | null) => void;
@@ -115,13 +120,13 @@ Per-document actions take an optional `filePath` parameter but default to `activ
 
 ## Server API Changes
 
-| Endpoint | Before | After |
-|---|---|---|
-| `GET /api/document` | Returns single document | Requires `?path=` query param |
-| `GET /api/documents` | (new) | Returns list of open file paths + metadata |
-| `POST /api/documents` | (new, deferred) | Add document at runtime (add-from-browser) |
-| `GET /api/comments` | Single file scoped | Requires `?path=` query param |
-| `POST /api/comments` | Single file scoped | Requires `path` in body |
+| Endpoint              | Before                  | After                                      |
+| --------------------- | ----------------------- | ------------------------------------------ |
+| `GET /api/document`   | Returns single document | Requires `?path=` query param              |
+| `GET /api/documents`  | (new)                   | Returns list of open file paths + metadata |
+| `POST /api/documents` | (new, deferred)         | Add document at runtime (add-from-browser) |
+| `GET /api/comments`   | Single file scoped      | Requires `?path=` query param              |
+| `POST /api/comments`  | Single file scoped      | Requires `path` in body                    |
 
 `GET /api/documents` returns only metadata (path, fileName, type) — lightweight enough to populate the tab bar immediately. Content loads lazily via `GET /api/document?path=`.
 
@@ -146,23 +151,23 @@ Scroll restoration uses the existing double-rAF pattern extended with scrollTo a
 
 ### Edge cases
 
-| Scenario | Behavior |
-|---|---|
-| Close active tab | Activate nearest tab (right, then left). Last tab shows empty state |
-| Close tab with unsaved comment text | Close immediately — ephemeral state, expected behavior |
+| Scenario                                      | Behavior                                                                     |
+| --------------------------------------------- | ---------------------------------------------------------------------------- |
+| Close active tab                              | Activate nearest tab (right, then left). Last tab shows empty state          |
+| Close tab with unsaved comment text           | Close immediately — ephemeral state, expected behavior                       |
 | Document changes on disk while on another tab | SSE live-reload updates store for that path; content is fresh on switch-back |
-| Same file via different paths | Deduplicate by resolved absolute path in CLI |
+| Same file via different paths                 | Deduplicate by resolved absolute path in CLI                                 |
 
 ## Deferrals
 
-| Feature | Reason |
-|---|---|
-| Split view | Separate feature; tabs are the foundation |
-| Add-from-browser | CLI + directory mode covers primary use cases first |
-| Tab reordering | Polish, not essential |
-| Cross-document comment search | No current demand |
-| Tab persistence across server restarts | Overkill for a dev tool |
-| Bulk export across documents | Per-document export works; bulk is convenience |
+| Feature                                | Reason                                              |
+| -------------------------------------- | --------------------------------------------------- |
+| Split view                             | Separate feature; tabs are the foundation           |
+| Add-from-browser                       | CLI + directory mode covers primary use cases first |
+| Tab reordering                         | Polish, not essential                               |
+| Cross-document comment search          | No current demand                                   |
+| Tab persistence across server restarts | Overkill for a dev tool                             |
+| Bulk export across documents           | Per-document export works; bulk is convenience      |
 
 ## Migration Path
 

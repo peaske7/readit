@@ -88,14 +88,18 @@ GitHub Actions runs `pnpm bench` after tests pass. Vitest bench outputs timing s
 For hard CI gating, each benchmark file includes a companion assertion in the existing test file:
 
 ```ts
-test('anchor resolution completes under 50ms', () => {
-  const start = performance.now()
+test("anchor resolution completes under 50ms", () => {
+  const start = performance.now();
   for (let i = 0; i < 100; i++) {
-    findAnchorWithFallback({ source: doc, selectedText: text, lineHint: 'L150' })
+    findAnchorWithFallback({
+      source: doc,
+      selectedText: text,
+      lineHint: "L150",
+    });
   }
-  const elapsed = (performance.now() - start) / 100
-  expect(elapsed).toBeLessThan(50)
-})
+  const elapsed = (performance.now() - start) / 100;
+  expect(elapsed).toBeLessThan(50);
+});
 ```
 
 This gives both:
@@ -105,9 +109,9 @@ This gives both:
 
 ## Performance target
 
-| Operation | Target |
-|-----------|--------|
-| All benchmarked operations | < 50ms |
+| Operation                                             | Target              |
+| ----------------------------------------------------- | ------------------- |
+| All benchmarked operations                            | < 50ms              |
 | Exceptions: process spawn, browser open, port binding | As fast as possible |
 
 ## Future work

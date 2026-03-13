@@ -1,6 +1,9 @@
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
+import { use } from "react";
+import { LayoutContext } from "../../contexts/LayoutContext";
 import { cn } from "../../lib/utils";
+import { FontFamilies } from "../../types";
 
 const textVariants = cva("", {
   variants: {
@@ -28,12 +31,19 @@ function Text({
   VariantProps<typeof textVariants> & {
     asChild?: boolean;
   }) {
+  const layout = use(LayoutContext);
+  const fontClass = layout
+    ? layout.fontFamily === FontFamilies.SANS_SERIF
+      ? "font-sans"
+      : "font-serif"
+    : undefined;
+
   const Comp = asChild ? Slot : "p";
 
   return (
     <Comp
       data-slot="text"
-      className={cn(textVariants({ variant, className }))}
+      className={cn(fontClass, textVariants({ variant }), className)}
       {...props}
     />
   );

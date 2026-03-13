@@ -1,6 +1,9 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
+import { use } from "react";
+import { LayoutContext } from "../../contexts/LayoutContext";
 import { cn } from "../../lib/utils";
+import { FontFamilies } from "../../types";
 import { buttonVariants } from "./Button";
 import { textVariants } from "./Text";
 
@@ -88,7 +91,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="dialog-header"
       className={cn(
-        "flex items-center justify-between px-4 py-3 border-b border-zinc-100",
+        "flex items-center justify-between pl-4 pr-12 py-3 border-b border-zinc-100",
         className,
       )}
       {...props}
@@ -100,14 +103,17 @@ function DialogTitle({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
+  const layout = use(LayoutContext);
+  const fontClass = layout
+    ? layout.fontFamily === FontFamilies.SANS_SERIF
+      ? "font-sans"
+      : "font-serif"
+    : undefined;
+
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn(
-        textVariants({ variant: "section" }),
-        "font-serif",
-        className,
-      )}
+      className={cn(textVariants({ variant: "section" }), fontClass, className)}
       {...props}
     />
   );

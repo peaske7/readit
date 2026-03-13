@@ -18,7 +18,7 @@ export function ReanchorConfirm({
         Re-anchor to this selection?
       </Text>
       <Text variant="caption" asChild>
-        <p className="font-serif italic line-clamp-2 mb-2">"{selectionText}"</p>
+        <p className="italic line-clamp-2 mb-2">"{selectionText}"</p>
       </Text>
       <div className="flex gap-3 text-sm">
         <Button variant="link" size="sm" onClick={onConfirm}>

@@ -1,4 +1,14 @@
-import { Maximize2, Minimize2, MoreHorizontal, Settings } from "lucide-react";
+import {
+  BotMessageSquare,
+  FileDown,
+  FileText,
+  Maximize2,
+  Minimize2,
+  MoreHorizontal,
+  RefreshCw,
+  Settings,
+  TextQuote,
+} from "lucide-react";
 import { useState } from "react";
 import { useCommentContext } from "../contexts/CommentContext";
 import { useLayoutContext } from "../contexts/LayoutContext";
@@ -57,6 +67,7 @@ export function ActionsMenu({
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => onReload()}>
+            <RefreshCw />
             Reload
           </DropdownMenuItem>
           {commentCount > 0 && (
@@ -65,18 +76,22 @@ export function ActionsMenu({
                 onSelect={() => onCopyAll()}
                 title="Copy in prompt format for AI assistants"
               >
+                <BotMessageSquare />
                 Copy All (AI)
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => onCopyAllRaw()}
                 title="Copy as plain text"
               >
+                <TextQuote />
                 Copy All (Raw)
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => onExportJson()}>
+                <FileDown />
                 Export JSON
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setRawModalOpen(true)}>
+                <FileText />
                 View Raw
               </DropdownMenuItem>
             </>

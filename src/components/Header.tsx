@@ -33,13 +33,11 @@ export function Header({
       >
         <div className="flex items-center gap-3">
           <Text variant="title" asChild>
-            <h1 className="font-serif">readit</h1>
+            <h1>readit</h1>
           </Text>
           <span className="text-zinc-200 font-light">—</span>
           <Text variant="caption" asChild>
-            <span className="font-serif truncate max-w-[200px]">
-              {fileName}
-            </span>
+            <span className="truncate max-w-[200px]">{fileName}</span>
           </Text>
         </div>
 

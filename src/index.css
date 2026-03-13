@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* Font family system */
 .font-serif {
   font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
 }
@@ -11,17 +10,14 @@
     Roboto, sans-serif;
 }
 
-/* Selection highlight */
 ::selection {
   background: rgba(59, 130, 246, 0.3);
 }
 
-/* Smooth scrolling */
 html {
   scroll-behavior: smooth;
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -82,7 +78,6 @@ mark[data-comment-id] {
     opacity 150ms ease;
 }
 
-/* Color variants based on data-color-index */
 mark[data-comment-id][data-color-index="0"] {
   --highlight-bg: var(--comment-color-0-bg);
   --highlight-bg-focused: var(--comment-color-0-bg-focused);
@@ -107,7 +102,6 @@ mark[data-comment-id][data-color-index="3"] {
   --highlight-border: var(--comment-color-3-border);
 }
 
-/* Focused state - this highlight is hovered */
 mark[data-comment-id][data-focused="true"] {
   background-color: var(
     --highlight-bg-focused,
@@ -115,7 +109,6 @@ mark[data-comment-id][data-focused="true"] {
   );
 }
 
-/* Hover on highlight itself */
 mark[data-comment-id]:hover {
   background-color: var(
     --highlight-bg-focused,
@@ -127,7 +120,6 @@ mark[data-comment-id]:hover {
    Bracket Mode for Long Selections
    ======================================== */
 
-/* Container for bracket-mode highlights */
 mark[data-comment-id][data-bracket-mode="true"] {
   background-color: transparent;
   position: relative;
@@ -139,7 +131,6 @@ mark[data-comment-id][data-bracket-start="true"] {
   border-radius: 2px 2px 0 0;
 }
 
-/* Focused bracket mode shows full highlight */
 mark[data-comment-id][data-bracket-mode="true"][data-focused="true"],
 mark[data-comment-id][data-bracket-mode="true"]:hover {
   background-color: var(
@@ -148,7 +139,6 @@ mark[data-comment-id][data-bracket-mode="true"]:hover {
   );
 }
 
-/* Gutter line for bracket mode */
 .bracket-gutter-line {
   position: absolute;
   left: -20px;
@@ -165,7 +155,6 @@ mark[data-comment-id][data-bracket-mode="true"]:hover {
   opacity: 1;
 }
 
-/* Bracket markers */
 .bracket-marker {
   position: absolute;
   left: -24px;
@@ -216,7 +205,6 @@ mark[data-comment-id][data-bracket-mode="true"]:hover {
   opacity: 0.7;
 }
 
-/* Pending selection highlight - neutral gray */
 mark[data-pending] {
   background-color: var(--pending-bg);
   cursor: text;
@@ -274,7 +262,6 @@ mark[data-pending] {
   ) !important;
 }
 
-/* Toast animation */
 [data-sonner-toast] {
   animation: toast-in 0.2s ease-out;
 }
@@ -290,7 +277,6 @@ mark[data-pending] {
   }
 }
 
-/* Dropdown menu animation */
 .animate-in {
   animation: menu-in 0.15s ease-out;
 }
@@ -308,7 +294,6 @@ mark[data-pending] {
 
 /* Table of Contents - Whisper aesthetic */
 .toc {
-  font-family: serif;
   font-size: 14px;
   line-height: 1.7;
 }
@@ -362,7 +347,6 @@ mark[data-pending] {
   font-weight: 500;
 }
 
-/* Toggle indicator for collapsible sections */
 .toc-toggle {
   font-size: 10px;
   vertical-align: middle;
@@ -383,9 +367,10 @@ mark[data-pending] {
   margin-right: auto;
   line-height: 1.75;
   color: #3f3f46;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
-/* Headings */
 .prose h1,
 .prose h2,
 .prose h3,
@@ -416,7 +401,6 @@ mark[data-pending] {
   font-size: 1.125em;
 }
 
-/* Paragraphs and spacing */
 .prose p {
   margin: 1.25em 0;
 }
@@ -429,7 +413,6 @@ mark[data-pending] {
   margin-bottom: 0;
 }
 
-/* Lists */
 .prose ul,
 .prose ol {
   padding-left: 1.5em;
@@ -448,13 +431,11 @@ mark[data-pending] {
   list-style-type: decimal;
 }
 
-/* Nested lists */
 .prose li > ul,
 .prose li > ol {
   margin: 0.5em 0;
 }
 
-/* Code */
 .prose code {
   background: #f4f4f5;
   padding: 0.2em 0.4em;
@@ -473,7 +454,6 @@ mark[data-pending] {
   color: inherit;
 }
 
-/* Tables */
 .prose table {
   width: 100%;
   border-collapse: collapse;
@@ -497,7 +477,6 @@ mark[data-pending] {
   background: #fafafa;
 }
 
-/* Blockquotes */
 .prose blockquote {
   border-left: 4px solid #e4e4e7;
   padding-left: 1em;
@@ -510,7 +489,6 @@ mark[data-pending] {
   margin: 0.5em 0;
 }
 
-/* Links */
 .prose a {
   color: #2563eb;
   text-decoration: underline;
@@ -520,19 +498,16 @@ mark[data-pending] {
   color: #1d4ed8;
 }
 
-/* Horizontal rules */
 .prose hr {
   border: none;
   border-top: 1px solid #e4e4e7;
   margin: 2em 0;
 }
 
-/* Task lists (checkboxes) */
 .prose input[type="checkbox"] {
   margin-right: 0.5em;
 }
 
-/* Images */
 .prose img {
   max-width: 100%;
   height: auto;
@@ -540,7 +515,6 @@ mark[data-pending] {
   border-radius: 0.5em;
 }
 
-/* Strong and emphasis */
 .prose strong {
   font-weight: 600;
   color: #18181b;
@@ -557,7 +531,6 @@ mark[data-pending] {
   margin-right: 0;
 }
 
-/* Prose font family variants */
 .prose.prose-serif,
 .prose.prose-serif h1,
 .prose.prose-serif h2,
@@ -580,7 +553,6 @@ mark[data-pending] {
     Roboto, sans-serif;
 }
 
-/* Collapsible details/summary */
 .prose details {
   margin: 1.25em 0;
   border: 1px solid #e4e4e7;
@@ -660,7 +632,6 @@ mark[data-pending] {
   font-weight: 600;
 }
 
-/* Flowchart specific */
 .mermaid-container .nodeLabel {
   font-size: 14px !important;
 }
@@ -674,7 +645,6 @@ mark[data-pending] {
   font-weight: 500;
 }
 
-/* Sequence diagram specific */
 .mermaid-container .actor {
   font-size: 14px !important;
 }
@@ -704,7 +674,6 @@ mark[data-pending] {
   stroke-width: 1.5px;
 }
 
-/* Responsive breakout margins */
 @media (max-width: 768px) {
   .mermaid-container {
     margin-left: -1rem;

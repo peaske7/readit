@@ -30,7 +30,6 @@ export function useTextSelection(): UseTextSelectionResult {
     number | undefined
   >();
 
-  // Clear selection when clicking outside
   useEffect(() => {
     if (!selection) return;
 
@@ -44,9 +43,15 @@ export function useTextSelection(): UseTextSelectionResult {
       if (target.closest("mark[data-pending]")) return;
       if (target.closest("mark[data-comment-id]")) return;
 
-      // Clear selection
+      // Clear selection state, but defer removeAllRanges to avoid
+      // interfering with double-click word selection
       setSelection(null);
-      window.getSelection()?.removeAllRanges();
+      requestAnimationFrame(() => {
+        const sel = window.getSelection();
+        if (sel?.isCollapsed) {
+          sel.removeAllRanges();
+        }
+      });
     };
 
     // Use mousedown to catch clicks before text selection

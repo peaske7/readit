@@ -1,5 +1,8 @@
 import { BotMessageSquare, Copy } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
+import { LayoutContext } from "../../contexts/LayoutContext";
+import { cn } from "../../lib/utils";
+import { FontFamilies } from "../../types";
 import { Button } from "../ui/Button";
 import { Text } from "../ui/Text";
 
@@ -18,10 +21,16 @@ export function CommentInput({
   onCopyRaw,
   onCopyForLLM,
 }: CommentInputProps) {
+  const layout = use(LayoutContext);
+  const fontClass = layout
+    ? layout.fontFamily === FontFamilies.SANS_SERIF
+      ? "font-sans"
+      : "font-serif"
+    : undefined;
+
   const [commentText, setCommentText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-focus textarea when selection becomes active
   useEffect(() => {
     if (selectedText && textareaRef.current) {
       // Only auto-focus on devices with precise pointing (desktop)
@@ -31,7 +40,6 @@ export function CommentInput({
     }
   }, [selectedText]);
 
-  // Clear input when selection changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset when selection changes
   useEffect(() => {
     setCommentText("");
@@ -59,16 +67,17 @@ export function CommentInput({
   return (
     <div data-comment-input className="border-t border-zinc-200 pt-3 pb-2">
       <Text variant="caption" asChild>
-        <div className="font-serif italic mb-2 line-clamp-2">
-          "{selectedText}"
-        </div>
+        <div className="italic mb-2 line-clamp-2">"{selectedText}"</div>
       </Text>
       <textarea
         ref={textareaRef}
         value={commentText}
         onChange={(e) => setCommentText(e.target.value)}
         placeholder="Add your comment..."
-        className="w-full px-2 py-1.5 text-sm border border-zinc-200 resize-none focus:outline-none focus:border-zinc-400"
+        className={cn(
+          fontClass,
+          "w-full px-2 py-1.5 text-sm border border-zinc-200 resize-none focus:outline-none focus:border-zinc-400",
+        )}
         rows={2}
         onKeyDown={handleKeyDown}
       />
