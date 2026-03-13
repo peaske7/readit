@@ -13,21 +13,11 @@ import { join, resolve } from "node:path";
 import { Command } from "commander";
 import open from "open";
 import { getCommentPath, parseCommentFile } from "../lib/comment-storage.js";
+import { getFileType } from "../lib/utils.js";
 import type { FileEntry } from "../server/index.js";
 import { startServer } from "../server/index.js";
-import type { DocumentType } from "../types/index.js";
 
 const program = new Command();
-
-function getFileType(filePath: string): DocumentType | null {
-  if (filePath.endsWith(".md") || filePath.endsWith(".markdown")) {
-    return "markdown";
-  }
-  if (filePath.endsWith(".html") || filePath.endsWith(".htm")) {
-    return "html";
-  }
-  return null;
-}
 
 function isPermissionError(err: unknown): boolean {
   return (
