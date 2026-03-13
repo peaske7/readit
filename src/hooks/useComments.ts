@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { appStore, useAppStore } from "../store";
 import { AnchorConfidences, type Comment } from "../types";
 
 interface UseCommentsOptions {
@@ -15,6 +16,7 @@ interface UseCommentsResult {
     endOffset: number,
   ) => void;
   deleteComment: (id: string) => void;
+  deleteAll: () => void;
   editComment: (id: string, newText: string) => void;
   reanchorComment: (
     id: string,
@@ -26,7 +28,7 @@ interface UseCommentsResult {
 
 /**
  * Hook for managing comments with optimistic updates.
- * Comments are persisted to markdown files via the server API.
+ * State lives in the Zustand store; this hook coordinates API mutations.
  */
 export function useComments(
   filePath: string | null,
@@ -34,28 +36,24 @@ export function useComments(
 ): UseCommentsResult {
   const { clean = false } = options;
 
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [error, setError] = useState<string | undefined>(undefined);
-
-  // Track current comments for stable rollback (avoids callback recreation on every change)
-  const commentsRef = useRef<Comment[]>(comments);
-  commentsRef.current = comments;
+  // Read comments and error from the store
+  const comments = useAppStore(
+    (s) => s.documents.get(filePath ?? "")?.comments ?? [],
+  );
+  const error = useAppStore(
+    (s) => s.documents.get(filePath ?? "")?.commentsError ?? undefined,
+  );
 
   // Track pending operations for rollback on error
   const pendingOperations = useRef<Map<string, Comment[]>>(new Map());
 
+  // Capture filePath at call time for stable closures
+  const filePathRef = useRef(filePath);
+  filePathRef.current = filePath;
+
   /**
    * Execute an optimistic mutation with automatic rollback on error.
-   *
-   * Pattern:
-   * 1. Save current state for rollback
-   * 2. Apply optimistic update immediately
-   * 3. Execute API call
-   * 4. On success: optionally transform state with server response
-   * 5. On error: rollback to previous state
-   * 6. Cleanup pending operation tracking
    */
-  // Uses commentsRef to capture current state for rollback, avoiding callback recreation.
   const executeMutation = useCallback(
     async <T>({
       operationId,
@@ -70,29 +68,39 @@ export function useComments(
       onSuccess?: (result: T, prev: Comment[]) => Comment[];
       errorMessage: string;
     }) => {
-      // Save previous state for rollback (read from ref for current value)
-      const previousComments = [...commentsRef.current];
+      const fp = filePathRef.current;
+      if (!fp) return;
+
+      // Read current comments from store for rollback
+      const currentDocState = appStore.getState().documents.get(fp);
+      const previousComments = [...(currentDocState?.comments ?? [])];
       pendingOperations.current.set(operationId, previousComments);
 
       // Apply optimistic update
-      setComments(optimisticUpdate);
-      setError(undefined);
+      appStore.getState().setComments(optimisticUpdate(previousComments), fp);
+      appStore.getState().setCommentsError(null, fp);
 
       try {
         const result = await apiCall();
 
         // Apply server response transformation if provided
         if (onSuccess) {
-          setComments((prev) => onSuccess(result, prev));
+          const current = appStore.getState().documents.get(fp)?.comments ?? [];
+          appStore.getState().setComments(onSuccess(result, current), fp);
         }
       } catch (err) {
         console.error(`${errorMessage}:`, err);
-        setError(err instanceof Error ? err.message : errorMessage);
+        appStore
+          .getState()
+          .setCommentsError(
+            err instanceof Error ? err.message : errorMessage,
+            fp,
+          );
 
         // Rollback on error
         const rollback = pendingOperations.current.get(operationId);
         if (rollback) {
-          setComments(rollback);
+          appStore.getState().setComments(rollback, fp);
         }
       } finally {
         pendingOperations.current.delete(operationId);
@@ -101,43 +109,51 @@ export function useComments(
     [],
   );
 
+  // Build path-scoped API URL
+  const pathQuery = useCallback((base: string) => {
+    const fp = filePathRef.current;
+    if (!fp) return base;
+    return `${base}?path=${encodeURIComponent(fp)}`;
+  }, []);
+
   // Load comments from API
   useEffect(() => {
     if (!filePath) return;
 
     const loadComments = async () => {
-      setError(undefined);
+      appStore.getState().setCommentsError(null, filePath);
+      const query = `?path=${encodeURIComponent(filePath)}`;
 
       try {
         // If clean flag is set, clear comments first
         if (clean) {
-          await fetch("/api/comments", { method: "DELETE" });
-          setComments([]);
+          await fetch(`/api/comments${query}`, { method: "DELETE" });
+          appStore.getState().setComments([], filePath);
           return;
         }
 
-        const response = await fetch("/api/comments");
+        const response = await fetch(`/api/comments${query}`);
         if (!response.ok) {
           throw new Error(`Failed to load comments: ${response.statusText}`);
         }
 
         const data = await response.json();
-        setComments(data.comments || []);
+        appStore.getState().setComments(data.comments || [], filePath);
       } catch (err) {
         console.error("Failed to load comments:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to load comments",
-        );
-        setComments([]);
+        appStore
+          .getState()
+          .setCommentsError(
+            err instanceof Error ? err.message : "Failed to load comments",
+            filePath,
+          );
+        appStore.getState().setComments([], filePath);
       }
     };
 
     loadComments();
   }, [filePath, clean]);
 
-  /**
-   * Add a new comment with optimistic update.
-   */
   const addComment = useCallback(
     (
       selectedText: string,
@@ -159,7 +175,7 @@ export function useComments(
         operationId: tempId,
         optimisticUpdate: (prev) => [...prev, optimisticComment],
         apiCall: async () => {
-          const response = await fetch("/api/comments", {
+          const response = await fetch(pathQuery("/api/comments"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -181,19 +197,16 @@ export function useComments(
         errorMessage: "Failed to add comment",
       });
     },
-    [executeMutation],
+    [executeMutation, pathQuery],
   );
 
-  /**
-   * Delete a comment with optimistic update.
-   */
   const deleteComment = useCallback(
     (id: string) => {
       executeMutation({
         operationId: `delete-${id}`,
         optimisticUpdate: (prev) => prev.filter((c) => c.id !== id),
         apiCall: async () => {
-          const response = await fetch(`/api/comments/${id}`, {
+          const response = await fetch(pathQuery(`/api/comments/${id}`), {
             method: "DELETE",
           });
 
@@ -204,12 +217,27 @@ export function useComments(
         errorMessage: "Failed to delete comment",
       });
     },
-    [executeMutation],
+    [executeMutation, pathQuery],
   );
 
-  /**
-   * Edit a comment with optimistic update.
-   */
+  const deleteAll = useCallback(() => {
+    executeMutation({
+      operationId: "delete-all",
+      optimisticUpdate: () => [],
+      apiCall: async () => {
+        const response = await fetch(pathQuery("/api/comments"), {
+          method: "DELETE",
+        });
+        if (!response.ok) {
+          throw new Error(
+            `Failed to delete all comments: ${response.statusText}`,
+          );
+        }
+      },
+      errorMessage: "Failed to delete all comments",
+    });
+  }, [executeMutation, pathQuery]);
+
   const editComment = useCallback(
     (id: string, newText: string) => {
       const trimmed = newText.trim();
@@ -220,7 +248,7 @@ export function useComments(
         optimisticUpdate: (prev) =>
           prev.map((c) => (c.id === id ? { ...c, comment: trimmed } : c)),
         apiCall: async () => {
-          const response = await fetch(`/api/comments/${id}`, {
+          const response = await fetch(pathQuery(`/api/comments/${id}`), {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ comment: trimmed }),
@@ -233,12 +261,9 @@ export function useComments(
         errorMessage: "Failed to edit comment",
       });
     },
-    [executeMutation],
+    [executeMutation, pathQuery],
   );
 
-  /**
-   * Re-anchor a comment to new text with optimistic update.
-   */
   const reanchorComment = useCallback(
     (
       id: string,
@@ -261,11 +286,14 @@ export function useComments(
               : c,
           ),
         apiCall: async () => {
-          const response = await fetch(`/api/comments/${id}/reanchor`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ selectedText, startOffset, endOffset }),
-          });
+          const response = await fetch(
+            pathQuery(`/api/comments/${id}/reanchor`),
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ selectedText, startOffset, endOffset }),
+            },
+          );
 
           if (!response.ok) {
             throw new Error(
@@ -280,7 +308,7 @@ export function useComments(
         errorMessage: "Failed to re-anchor comment",
       });
     },
-    [executeMutation],
+    [executeMutation, pathQuery],
   );
 
   return {
@@ -288,6 +316,7 @@ export function useComments(
     error,
     addComment,
     deleteComment,
+    deleteAll,
     editComment,
     reanchorComment,
   };

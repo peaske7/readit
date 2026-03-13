@@ -31,7 +31,7 @@ export function FloatingTOC({
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className={cn(
-          "w-10 h-10 rounded-full bg-white shadow-lg border border-zinc-100 flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors duration-150",
+          "w-10 h-10 rounded-full bg-white dark:bg-zinc-900 shadow-lg border border-zinc-100 dark:border-zinc-800 flex items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors duration-150",
           isExpanded && "opacity-0 pointer-events-none",
         )}
         aria-label="Table of Contents"
@@ -41,7 +41,7 @@ export function FloatingTOC({
 
       {/* Expanded state: panel */}
       {isExpanded && (
-        <div className="absolute left-0 top-0 w-56 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-zinc-200/40 p-4 floating-toc-panel">
+        <div className="absolute left-0 top-0 w-56 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm rounded-lg shadow-lg border border-zinc-200/40 dark:border-zinc-700/40 p-4 floating-toc-panel">
           <div className="max-h-[calc(100vh-8rem)] overflow-y-auto">
             <TableOfContents
               headings={headings}

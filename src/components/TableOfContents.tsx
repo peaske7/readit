@@ -1,5 +1,8 @@
-import { useMemo, useState } from "react";
+import { use, useMemo, useState } from "react";
+import { LayoutContext } from "../contexts/LayoutContext";
 import type { Heading } from "../hooks/useHeadings";
+import { cn } from "../lib/utils";
+import { FontFamilies } from "../types";
 
 interface TableOfContentsProps {
   headings: Heading[];
@@ -12,10 +15,15 @@ export function TableOfContents({
   activeId,
   onHeadingClick,
 }: TableOfContentsProps) {
-  // Track which h2s are expanded (default: all collapsed)
+  const layout = use(LayoutContext);
+  const fontClass = layout
+    ? layout.fontFamily === FontFamilies.SANS_SERIF
+      ? "font-sans"
+      : "font-serif"
+    : undefined;
+
   const [expandedH2s, setExpandedH2s] = useState<Set<string>>(() => new Set());
 
-  // Find h2s that have h3+ children
   const h2sWithChildren = useMemo(() => {
     const result = new Set<string>();
     let currentH2: string | null = null;
@@ -26,13 +34,12 @@ export function TableOfContents({
       } else if (heading.level > 2 && currentH2) {
         result.add(currentH2);
       } else if (heading.level === 1) {
-        currentH2 = null; // Reset when we hit h1
+        currentH2 = null;
       }
     }
     return result;
   }, [headings]);
 
-  // Determine which headings to show
   const visibleHeadings = useMemo(() => {
     let currentH2: string | null = null;
 
@@ -43,10 +50,9 @@ export function TableOfContents({
         } else {
           currentH2 = null;
         }
-        return true; // h1, h2 always visible
+        return true;
       }
 
-      // h3+ only visible if parent h2 is expanded
       return currentH2 && expandedH2s.has(currentH2);
     });
   }, [headings, expandedH2s]);
@@ -68,7 +74,7 @@ export function TableOfContents({
   }
 
   return (
-    <nav className="toc" aria-label="Table of contents">
+    <nav className={cn("toc", fontClass)} aria-label="Table of contents">
       {visibleHeadings.map((heading) => {
         const hasChildren =
           heading.level === 2 && h2sWithChildren.has(heading.id);

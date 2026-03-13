@@ -338,13 +338,5 @@ export function collectHighlightPositions(
     }
   }
 
-  // Get pending highlight position
-  let pendingTop: number | undefined;
-  const pendingMark = root.querySelector("mark[data-pending]");
-  if (pendingMark) {
-    const pendingRect = pendingMark.getBoundingClientRect();
-    pendingTop = pendingRect.top - containerRect.top;
-  }
-
-  return { positions, documentPositions, pendingTop };
+  return { positions, documentPositions };
 }

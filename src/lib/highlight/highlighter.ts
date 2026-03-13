@@ -13,6 +13,7 @@ export type SelectionHandler = (
   text: string,
   startOffset: number,
   endOffset: number,
+  selectionTop: number,
 ) => void;
 export type PositionChangeHandler = (positions: HighlightPositions) => void;
 export type HoverHandler = (commentId: string | undefined) => void;
@@ -73,6 +74,17 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
     if (text.length === 0) return;
 
     const range = selection.getRangeAt(0);
+
+    // Reject erroneous whole-document selections (caused by DOM mutation during interaction)
+    if (
+      range.startContainer === root &&
+      range.startOffset === 0 &&
+      range.endContainer === root &&
+      range.endOffset === root.childNodes.length
+    ) {
+      return;
+    }
+
     const startOffset = getTextOffset(
       root,
       range.startContainer,
@@ -80,7 +92,19 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
     );
     const endOffset = getTextOffset(root, range.endContainer, range.endOffset);
 
-    onSelect(text, startOffset, endOffset);
+    const rangeRect = range.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const selectionTop = rangeRect.top - containerRect.top;
+
+    onSelect(text, startOffset, endOffset, selectionTop);
+
+    // Apply pending highlight directly (not through applyHighlights cycle)
+    // so it persists when native ::selection clears on textarea focus
+    clearHighlights(root, "mark[data-pending]");
+    applyHighlightToRange(root, startOffset, endOffset, {
+      attribute: "data-pending",
+      attributeValue: "true",
+    });
   };
 
   const handleMouseOver = (e: Event) => {
@@ -150,7 +174,7 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
   return {
     applyHighlights(
       comments: HighlightComment[],
-      pendingSelection?: TextRange,
+      _pendingSelection?: TextRange,
     ) {
       clearHighlights(root);
 
@@ -181,18 +205,6 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
             attribute: "data-comment-id",
             attributeValue: comment.id,
             colorIndex: 0,
-          },
-        );
-      }
-
-      if (pendingSelection) {
-        applyHighlightToRange(
-          root,
-          pendingSelection.startOffset,
-          pendingSelection.endOffset,
-          {
-            attribute: "data-pending",
-            attributeValue: "true",
           },
         );
       }
@@ -275,7 +287,12 @@ function createIframeHighlighter(options: IframeOptions): Highlighter {
         break;
 
       case "textSelection":
-        onSelect(event.data.text, event.data.startOffset, event.data.endOffset);
+        onSelect(
+          event.data.text,
+          event.data.startOffset,
+          event.data.endOffset,
+          event.data.selectionTop ?? 0,
+        );
         break;
 
       case "highlightPositions":

@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
+import { LayoutContext } from "../contexts/LayoutContext";
 import { cn } from "../lib/utils";
+import { FontFamilies } from "../types";
 import { Button } from "./ui/Button";
 
 interface InlineEditorProps {
@@ -17,6 +19,12 @@ export function InlineEditor({
   rows = 2,
   className,
 }: InlineEditorProps) {
+  const layout = use(LayoutContext);
+  const fontClass = layout
+    ? layout.fontFamily === FontFamilies.SANS_SERIF
+      ? "font-sans"
+      : "font-serif"
+    : undefined;
   const [editText, setEditText] = useState(initialText);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -37,7 +45,8 @@ export function InlineEditor({
         value={editText}
         onChange={(e) => setEditText(e.target.value)}
         className={cn(
-          "w-full px-2 py-1.5 text-sm border border-zinc-200 resize-none focus:outline-none focus:border-zinc-400",
+          fontClass,
+          "w-full px-2 py-1.5 text-sm border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 resize-none focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500",
           className,
         )}
         rows={rows}

@@ -1,6 +1,7 @@
 import { Copy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useAppStore } from "../store";
 import { Button } from "./ui/Button";
 import {
   Dialog,
@@ -26,6 +27,7 @@ type ModalState =
 
 export function RawModal({ isOpen, onClose }: RawModalProps) {
   const [state, setState] = useState<ModalState>({ status: "idle" });
+  const activeDocumentPath = useAppStore((s) => s.activeDocumentPath);
 
   // Fetch raw comments when modal opens
   useEffect(() => {
@@ -38,7 +40,10 @@ export function RawModal({ isOpen, onClose }: RawModalProps) {
 
     const fetchRawComments = async () => {
       try {
-        const response = await fetch("/api/comments/raw");
+        const query = activeDocumentPath
+          ? `?path=${encodeURIComponent(activeDocumentPath)}`
+          : "";
+        const response = await fetch(`/api/comments/raw${query}`);
         if (!response.ok) {
           throw new Error("Failed to fetch raw comments");
         }
@@ -61,7 +66,7 @@ export function RawModal({ isOpen, onClose }: RawModalProps) {
     };
 
     fetchRawComments();
-  }, [isOpen]);
+  }, [isOpen, activeDocumentPath]);
 
   const handleCopy = useCallback(async () => {
     if (state.status !== "success") return;
@@ -98,7 +103,7 @@ export function RawModal({ isOpen, onClose }: RawModalProps) {
         </DialogHeader>
 
         {(state.status === "success" || state.status === "empty") && (
-          <DialogDescription className="px-4 py-2 border-b border-zinc-50 text-xs text-zinc-400 font-mono truncate">
+          <DialogDescription className="px-4 py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs text-zinc-400 dark:text-zinc-500 font-mono truncate">
             {state.path}
           </DialogDescription>
         )}

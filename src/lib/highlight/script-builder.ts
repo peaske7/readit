@@ -285,11 +285,15 @@ export function buildIframeScript(parentOrigin: string): string {
     const startOffset = getTextOffset(root, range.startContainer, range.startOffset);
     const endOffset = getTextOffset(root, range.endContainer, range.endOffset);
 
+    const rangeRect = range.getBoundingClientRect();
+    const selectionTop = rangeRect.top + document.documentElement.scrollTop;
+
     parent.postMessage({
       type: 'textSelection',
       text: text,
       startOffset: startOffset,
-      endOffset: endOffset
+      endOffset: endOffset,
+      selectionTop: selectionTop
     }, parentOrigin);
   });
 

@@ -1,11 +1,8 @@
-import { useCallback, useState } from "react";
-
-interface ReanchorTarget {
-  commentId: string;
-}
+import { useCallback } from "react";
+import { appStore, useAppStore } from "../store";
 
 interface UseReanchorModeResult {
-  reanchorTarget: ReanchorTarget | null;
+  reanchorTarget: { commentId: string } | null;
   startReanchor: (commentId: string) => void;
   cancelReanchor: () => void;
 }
@@ -13,18 +10,19 @@ interface UseReanchorModeResult {
 /**
  * Hook for managing re-anchor mode state.
  * When active, the user can select new text to re-anchor an unresolved comment.
+ * State lives in the Zustand store for tab-switch preservation.
  */
 export function useReanchorMode(): UseReanchorModeResult {
-  const [reanchorTarget, setReanchorTarget] = useState<ReanchorTarget | null>(
-    null,
+  const reanchorTarget = useAppStore(
+    (s) => s.getActiveDocumentState()?.reanchorTarget ?? null,
   );
 
   const startReanchor = useCallback((commentId: string) => {
-    setReanchorTarget({ commentId });
+    appStore.getState().setReanchorTarget({ commentId });
   }, []);
 
   const cancelReanchor = useCallback(() => {
-    setReanchorTarget(null);
+    appStore.getState().setReanchorTarget(null);
   }, []);
 
   return {

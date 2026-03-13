@@ -18,7 +18,12 @@ interface IframeContainerProps {
   html: string;
   comments: Comment[];
   pendingSelection?: SelectionRange;
-  onTextSelect: (text: string, startOffset: number, endOffset: number) => void;
+  onTextSelect: (
+    text: string,
+    startOffset: number,
+    endOffset: number,
+    selectionTop: number,
+  ) => void;
   onHighlightPositionsChange?: (
     positions: Record<string, number>,
     documentPositions: Record<string, number>,
@@ -225,7 +230,7 @@ export function IframeContainer({
   useEffect(() => {
     const handleTestSelect = (e: Event) => {
       const { text, startOffset, endOffset } = (e as CustomEvent).detail;
-      onTextSelect(text, startOffset, endOffset);
+      onTextSelect(text, startOffset, endOffset, 0);
     };
 
     window.addEventListener("test:select-text", handleTestSelect);

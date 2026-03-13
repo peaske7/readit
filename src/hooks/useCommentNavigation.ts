@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { appStore, useAppStore } from "../store";
 import type { Comment } from "../types";
 
 interface UseCommentNavigationResult {
@@ -18,7 +19,9 @@ export function useCommentNavigation(
   sortedComments: Comment[],
 ): UseCommentNavigationResult {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [hoveredCommentId, setHoveredState] = useState<string | undefined>();
+  const hoveredCommentId = useAppStore(
+    (s) => s.getActiveDocumentState()?.hoveredCommentId,
+  );
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -56,7 +59,7 @@ export function useCommentNavigation(
 
   const setHoveredCommentId = useCallback(
     (id: string | undefined) => {
-      setHoveredState(id);
+      appStore.getState().setHoveredCommentId(id);
       updateFocusedMarks(id);
     },
     [updateFocusedMarks],
@@ -115,25 +118,6 @@ export function useCommentNavigation(
       return newIndex;
     });
   }, [navigateToComment]);
-
-  // Keyboard navigation: Alt+↑/↓
-  useEffect(() => {
-    if (sortedComments.length <= 1) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowUp" && e.altKey) {
-        e.preventDefault();
-        navigatePrevious();
-      }
-      if (e.key === "ArrowDown" && e.altKey) {
-        e.preventDefault();
-        navigateNext();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [sortedComments.length, navigatePrevious, navigateNext]);
 
   return {
     currentIndex: clampedIndex,
