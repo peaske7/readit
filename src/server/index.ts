@@ -13,6 +13,7 @@ import {
   serializeComments,
   truncateSelection,
 } from "../lib/comment-storage.js";
+import { getFileType } from "../lib/utils.js";
 import {
   AnchorConfidences,
   type Comment,
@@ -587,6 +588,43 @@ function createServer(options: ServerOptions): ServerWithWatchers {
   const isDev = process.env.NODE_ENV === "development";
   const distPath = import.meta.dir;
 
+  function watchFile(targetPath: string): FSWatcher | null {
+    try {
+      const watcher = watch(targetPath, async (eventType) => {
+        if (eventType !== "change") return;
+
+        const state = fileMap.get(targetPath);
+        if (!state) return;
+
+        if (state.debounceTimer) clearTimeout(state.debounceTimer);
+        state.debounceTimer = setTimeout(async () => {
+          try {
+            const newContent = await fs.readFile(targetPath, "utf-8");
+            if (newContent !== state.content) {
+              state.content = newContent;
+              console.log(`File changed: ${basename(targetPath)}`);
+
+              const message = `data: ${JSON.stringify({ type: "update", path: targetPath })}\n\n`;
+              for (const controller of sseClients) {
+                try {
+                  controller.enqueue(message);
+                } catch {
+                  sseClients.delete(controller);
+                }
+              }
+            }
+          } catch (err) {
+            console.error(`Failed to read updated file ${targetPath}:`, err);
+          }
+        }, 100);
+      });
+      return watcher;
+    } catch (err) {
+      console.warn(`File watching not available for ${targetPath}:`, err);
+      return null;
+    }
+  }
+
   const server = Bun.serve({
     port: options.port,
     hostname: options.host,
@@ -609,6 +647,87 @@ function createServer(options: ServerOptions): ServerWithWatchers {
           };
         });
         return json({ files, clean: options.clean || false });
+      }
+
+      // Hot-add or refresh a file
+      if (pathname === "/api/files" && method === "POST") {
+        try {
+          const { path: requestedPath } = await req.json();
+
+          if (!requestedPath || typeof requestedPath !== "string") {
+            return errorResponse("Missing 'path' field", 400);
+          }
+
+          const filePath = path.resolve(requestedPath);
+          const fileType = getFileType(filePath);
+
+          if (!fileType) {
+            return errorResponse(
+              `Unsupported file type: ${filePath} (expected .md, .markdown, .html, or .htm)`,
+              400,
+            );
+          }
+
+          let content: string;
+          try {
+            content = await fs.readFile(filePath, "utf-8");
+          } catch (err) {
+            if (isErrnoException(err) && err.code === "ENOENT") {
+              return errorResponse(`File not found: ${filePath}`, 404);
+            }
+            throw err;
+          }
+
+          const existingState = fileMap.get(filePath);
+
+          if (existingState) {
+            // File already loaded — refresh content
+            existingState.content = content;
+            const message = `data: ${JSON.stringify({ type: "update", path: filePath })}\n\n`;
+            for (const controller of sseClients) {
+              try {
+                controller.enqueue(message);
+              } catch {
+                sseClients.delete(controller);
+              }
+            }
+          } else {
+            // New file — add to server
+            fileMap.set(filePath, {
+              content,
+              type: fileType,
+              debounceTimer: null,
+            });
+            fileOrder.push(filePath);
+
+            // Set up file watcher for the new file
+            const watcher = watchFile(filePath);
+            if (watcher) watchers.push(watcher);
+
+            const message = `data: ${JSON.stringify({
+              type: "file-added",
+              path: filePath,
+              fileName: basename(filePath),
+              fileType,
+            })}\n\n`;
+            for (const controller of sseClients) {
+              try {
+                controller.enqueue(message);
+              } catch {
+                sseClients.delete(controller);
+              }
+            }
+          }
+
+          return json({
+            path: filePath,
+            fileName: basename(filePath),
+            type: fileType,
+          });
+        } catch (err) {
+          console.error("Failed to add file:", err);
+          return errorResponse("Failed to add file", 500);
+        }
       }
 
       // Single document (backward compat + path-aware)
@@ -709,40 +828,9 @@ function createServer(options: ServerOptions): ServerWithWatchers {
   // Set up per-file watchers after Bun.serve() succeeds to avoid
   // leaking FSWatcher handles if the server fails to bind.
   const watchers: FSWatcher[] = [];
-  for (const filePath of fileOrder) {
-    try {
-      const watcher = watch(filePath, async (eventType) => {
-        if (eventType !== "change") return;
-
-        const state = fileMap.get(filePath);
-        if (!state) return;
-
-        if (state.debounceTimer) clearTimeout(state.debounceTimer);
-        state.debounceTimer = setTimeout(async () => {
-          try {
-            const newContent = await fs.readFile(filePath, "utf-8");
-            if (newContent !== state.content) {
-              state.content = newContent;
-              console.log(`File changed: ${basename(filePath)}`);
-
-              const message = `data: ${JSON.stringify({ type: "update", path: filePath })}\n\n`;
-              for (const controller of sseClients) {
-                try {
-                  controller.enqueue(message);
-                } catch {
-                  sseClients.delete(controller);
-                }
-              }
-            }
-          } catch (err) {
-            console.error(`Failed to read updated file ${filePath}:`, err);
-          }
-        }, 100);
-      });
-      watchers.push(watcher);
-    } catch (err) {
-      console.warn(`File watching not available for ${filePath}:`, err);
-    }
+  for (const fp of fileOrder) {
+    const watcher = watchFile(fp);
+    if (watcher) watchers.push(watcher);
   }
 
   return { server, watchers };
