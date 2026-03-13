@@ -91,7 +91,7 @@ export function matchesBinding(
   event: KeyboardEvent,
   binding: ShortcutBinding,
 ): boolean {
-  if (event.key !== binding.key) return false;
+  if (event.key.toLowerCase() !== binding.key.toLowerCase()) return false;
   if (event.altKey !== (binding.alt ?? false)) return false;
   if (event.metaKey !== (binding.meta ?? false)) return false;
   if (event.shiftKey !== (binding.shift ?? false)) return false;
@@ -172,7 +172,7 @@ export const RESERVED_BINDINGS: ShortcutBinding[] = [
 export function isReservedBinding(binding: ShortcutBinding): boolean {
   return RESERVED_BINDINGS.some(
     (reserved) =>
-      reserved.key === binding.key &&
+      reserved.key.toLowerCase() === binding.key.toLowerCase() &&
       (reserved.meta ?? false) === (binding.meta ?? false) &&
       (reserved.alt ?? false) === (binding.alt ?? false) &&
       (reserved.shift ?? false) === (binding.shift ?? false),
@@ -201,7 +201,7 @@ export function eventToBinding(
  */
 export function bindingsEqual(a: ShortcutBinding, b: ShortcutBinding): boolean {
   return (
-    a.key === b.key &&
+    a.key.toLowerCase() === b.key.toLowerCase() &&
     (a.alt ?? false) === (b.alt ?? false) &&
     (a.meta ?? false) === (b.meta ?? false) &&
     (a.shift ?? false) === (b.shift ?? false)

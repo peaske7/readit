@@ -1,6 +1,12 @@
 #!/usr/bin/env bun
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+} from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import { join, resolve } from "node:path";
@@ -42,8 +48,9 @@ function findCommentFiles(dir: string): string[] {
     for (const entry of entries) {
       const fullPath = join(dir, entry);
       try {
-        const stat = statSync(fullPath);
-        if (stat.isDirectory()) {
+        const lstat = lstatSync(fullPath);
+        if (lstat.isSymbolicLink()) continue;
+        if (lstat.isDirectory()) {
           results.push(...findCommentFiles(fullPath));
         } else if (entry.endsWith(".comments.md")) {
           results.push(fullPath);
@@ -77,8 +84,9 @@ function findReviewableFiles(dir: string): FileEntry[] {
 
       const fullPath = join(dir, entry);
       try {
-        const stat = statSync(fullPath);
-        if (stat.isDirectory()) {
+        const lstat = lstatSync(fullPath);
+        if (lstat.isSymbolicLink()) continue;
+        if (lstat.isDirectory()) {
           results.push(...findReviewableFiles(fullPath));
         } else {
           const type = getFileType(entry);

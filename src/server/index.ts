@@ -557,44 +557,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     return ctx;
   }
 
-  // Set up per-file watchers
-  const watchers: FSWatcher[] = [];
-  for (const filePath of fileOrder) {
-    try {
-      const watcher = watch(filePath, async (eventType) => {
-        if (eventType !== "change") return;
-
-        const state = fileMap.get(filePath);
-        if (!state) return;
-
-        if (state.debounceTimer) clearTimeout(state.debounceTimer);
-        state.debounceTimer = setTimeout(async () => {
-          try {
-            const newContent = await fs.readFile(filePath, "utf-8");
-            if (newContent !== state.content) {
-              state.content = newContent;
-              console.log(`File changed: ${basename(filePath)}`);
-
-              const message = `data: ${JSON.stringify({ type: "update", path: filePath })}\n\n`;
-              for (const controller of sseClients) {
-                try {
-                  controller.enqueue(message);
-                } catch {
-                  sseClients.delete(controller);
-                }
-              }
-            }
-          } catch (err) {
-            console.error(`Failed to read updated file ${filePath}:`, err);
-          }
-        }, 100);
-      });
-      watchers.push(watcher);
-    } catch (err) {
-      console.warn(`File watching not available for ${filePath}:`, err);
-    }
-  }
-
   const isDev = process.env.NODE_ENV === "development";
   const distPath = import.meta.dir;
 
@@ -716,6 +678,45 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       return new Response("Not Found", { status: 404 });
     },
   });
+
+  // Set up per-file watchers after Bun.serve() succeeds to avoid
+  // leaking FSWatcher handles if the server fails to bind.
+  const watchers: FSWatcher[] = [];
+  for (const filePath of fileOrder) {
+    try {
+      const watcher = watch(filePath, async (eventType) => {
+        if (eventType !== "change") return;
+
+        const state = fileMap.get(filePath);
+        if (!state) return;
+
+        if (state.debounceTimer) clearTimeout(state.debounceTimer);
+        state.debounceTimer = setTimeout(async () => {
+          try {
+            const newContent = await fs.readFile(filePath, "utf-8");
+            if (newContent !== state.content) {
+              state.content = newContent;
+              console.log(`File changed: ${basename(filePath)}`);
+
+              const message = `data: ${JSON.stringify({ type: "update", path: filePath })}\n\n`;
+              for (const controller of sseClients) {
+                try {
+                  controller.enqueue(message);
+                } catch {
+                  sseClients.delete(controller);
+                }
+              }
+            }
+          } catch (err) {
+            console.error(`Failed to read updated file ${filePath}:`, err);
+          }
+        }, 100);
+      });
+      watchers.push(watcher);
+    } catch (err) {
+      console.warn(`File watching not available for ${filePath}:`, err);
+    }
+  }
 
   return { server, watchers };
 }

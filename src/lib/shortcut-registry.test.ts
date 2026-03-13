@@ -66,6 +66,26 @@ describe("matchesBinding", () => {
     expect(matchesBinding(event, binding)).toBe(true);
   });
 
+  it("matches shifted letter key (browser reports uppercase)", () => {
+    const binding: ShortcutBinding = { key: "c", alt: true, shift: true };
+    const event = new KeyboardEvent("keydown", {
+      key: "C",
+      altKey: true,
+      shiftKey: true,
+    });
+    expect(matchesBinding(event, binding)).toBe(true);
+  });
+
+  it("matches meta+shift letter key (browser reports uppercase)", () => {
+    const binding: ShortcutBinding = { key: "c", meta: true, shift: true };
+    const event = new KeyboardEvent("keydown", {
+      key: "C",
+      metaKey: true,
+      shiftKey: true,
+    });
+    expect(matchesBinding(event, binding)).toBe(true);
+  });
+
   it("matches key-only binding (no modifiers)", () => {
     const binding: ShortcutBinding = { key: "Escape" };
     const event = new KeyboardEvent("keydown", { key: "Escape" });
