@@ -16,6 +16,7 @@ import { getCommentPath, parseCommentFile } from "../lib/comment-storage.js";
 import { getFileType } from "../lib/utils.js";
 import type { FileEntry } from "../server/index.js";
 import { removeServerInfo, startServer } from "../server/index.js";
+import type { DocumentType } from "../types/index.js";
 
 const program = new Command();
 
@@ -25,6 +26,39 @@ function isPermissionError(err: unknown): boolean {
     "code" in err &&
     (err as NodeJS.ErrnoException).code === "EACCES"
   );
+}
+
+interface ServerInfo {
+  port: number;
+  pid: number;
+}
+
+async function discoverServer(): Promise<ServerInfo | null> {
+  const serverInfoPath = join(os.homedir(), ".readit", "server.json");
+
+  try {
+    const content = readFileSync(serverInfoPath, "utf-8");
+    const info: ServerInfo = JSON.parse(content);
+
+    // Verify the process is alive
+    try {
+      process.kill(info.pid, 0);
+    } catch {
+      return null;
+    }
+
+    // Verify health endpoint responds
+    try {
+      const res = await fetch(`http://127.0.0.1:${info.port}/api/health`);
+      if (!res.ok) return null;
+    } catch {
+      return null;
+    }
+
+    return info;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -303,6 +337,120 @@ ${fileList.join("\n")}
         process.on("SIGINT", async () => {
           console.log("\n\nShutting down...");
           server.stop();
+          await removeServerInfo();
+          process.exit(0);
+        });
+      } catch (error) {
+        console.error(
+          "error: failed to start server:",
+          error instanceof Error ? error.message : error,
+        );
+        process.exit(1);
+      }
+    },
+  );
+
+// Open command: add files to running server or start new one
+program
+  .command("open")
+  .argument("<files...>", "Markdown or HTML files to add to running server")
+  .description("Add files to a running readit server, or start a new one")
+  .option("-p, --port <number>", "Port for new server (if starting)", "4567")
+  .option("--host <address>", "Host for new server (if starting)", "127.0.0.1")
+  .action(
+    async (fileArgs: string[], options: { port: string; host: string }) => {
+      // Resolve and validate files
+      const resolvedFiles: { path: string; type: DocumentType }[] = [];
+      for (const arg of fileArgs) {
+        const filePath = resolve(process.cwd(), arg);
+
+        if (!existsSync(filePath)) {
+          console.error(`error: not found: ${filePath}`);
+          process.exit(1);
+        }
+
+        const type = getFileType(filePath);
+        if (!type) {
+          console.error(
+            `error: unsupported file type: ${arg} (expected .md, .markdown, .html, or .htm)`,
+          );
+          process.exit(1);
+        }
+
+        resolvedFiles.push({ path: filePath, type });
+      }
+
+      // Try to find running server
+      const server = await discoverServer();
+
+      if (server) {
+        // Send files to running server
+        for (const file of resolvedFiles) {
+          try {
+            const res = await fetch(
+              `http://127.0.0.1:${server.port}/api/files`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ path: file.path }),
+              },
+            );
+
+            if (!res.ok) {
+              const data = await res.json();
+              console.error(`error: failed to add ${file.path}: ${data.error}`);
+              process.exit(1);
+            }
+
+            const data = await res.json();
+            console.log(`Added: ${data.fileName} (${data.type})`);
+          } catch (err) {
+            console.error(
+              "error: failed to connect to server:",
+              err instanceof Error ? err.message : err,
+            );
+            process.exit(1);
+          }
+        }
+
+        console.log(`\nServer: http://127.0.0.1:${server.port}`);
+        return;
+      }
+
+      // No running server — start one
+      console.log("No running server found, starting new one...\n");
+
+      const files = resolvedFiles.map((f) => ({
+        content: readFileSync(f.path, "utf-8"),
+        type: f.type,
+        filePath: f.path,
+      }));
+
+      const preferredPort = Number.parseInt(options.port, 10);
+      try {
+        const { url, server: newServer } = await startServer({
+          files,
+          port: preferredPort,
+          host: options.host,
+        });
+
+        const fileList = files.map((f) => `  ${f.filePath} (${f.type})`);
+        console.log(`
+readit - Document Review Tool
+
+  ${files.length === 1 ? "File:" : "Files:"}
+${fileList.join("\n")}
+  URL:  ${url}
+
+  Server running. Close browser tab to stop.
+  Press Ctrl+C to force stop.
+`);
+
+        open(url);
+
+        process.on("SIGINT", async () => {
+          console.log("\n\nShutting down...");
+          newServer.stop();
           await removeServerInfo();
           process.exit(0);
         });
