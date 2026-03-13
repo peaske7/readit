@@ -112,4 +112,5 @@ export interface DocumentSettings {
   version: number;
   fontFamily: FontFamily;
   keybindings?: KeybindingOverride[];
+  onboarded?: boolean;
 }

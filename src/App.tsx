@@ -358,9 +358,16 @@ function App() {
     return (
       <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col">
         <TabBar />
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex flex-col items-center justify-center gap-3">
           <p className="text-zinc-400 dark:text-zinc-500 text-sm">
             No documents open.
+          </p>
+          <p className="text-zinc-400 dark:text-zinc-500 text-xs">
+            Run{" "}
+            <code className="bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-xs">
+              readit open &lt;file.md&gt;
+            </code>{" "}
+            to add a file.
           </p>
         </div>
       </div>

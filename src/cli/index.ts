@@ -185,6 +185,114 @@ function resolveFiles(args: string[]): FileEntry[] {
   return files;
 }
 
+// ─── Onboarding ──────────────────────────────────────────────────────
+
+const SETTINGS_PATH = join(os.homedir(), ".readit", "settings.json");
+
+function isOnboarded(): boolean {
+  try {
+    const content = readFileSync(SETTINGS_PATH, "utf-8");
+    const settings = JSON.parse(content);
+    return settings.onboarded === true;
+  } catch {
+    return false;
+  }
+}
+
+async function markOnboarded(): Promise<void> {
+  let settings: Record<string, unknown> = {};
+  try {
+    const content = readFileSync(SETTINGS_PATH, "utf-8");
+    settings = JSON.parse(content);
+  } catch {
+    // No existing settings
+  }
+  settings.onboarded = true;
+  const dir = join(os.homedir(), ".readit");
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(SETTINGS_PATH, JSON.stringify(settings, null, 2), "utf-8");
+}
+
+const WELCOME_CONTENT = `# Welcome to readit
+
+A simple tool for reviewing markdown with inline comments.
+
+---
+
+## How It Works
+
+readit follows a simple loop: **read → comment → extract**.
+
+### 1. Read
+
+You're already doing this. Open any markdown file with \`readit <file.md>\` and it renders in your browser with a clean reading experience.
+
+### 2. Comment
+
+Select any text to add a comment. Try it now — **select this sentence** and type your first comment.
+
+Your comments appear as margin notes next to the highlighted text, just like reviewing a document in Google Docs. Add as many as you need.
+
+### 3. Extract
+
+When you're done reviewing, click the menu in the top-right and choose **Copy as Prompt**. This exports all your comments in a format ready for Claude, ChatGPT, or any AI assistant.
+
+You can also export as JSON if you prefer structured data.
+
+---
+
+## Everything is Plain Markdown
+
+Your comments are saved as \`.comments.md\` files in \`~/.readit/comments/\`. No database, no lock-in — just readable markdown files you can version control, search, or edit by hand.
+
+Each comment file looks something like this:
+
+\`\`\`markdown
+## Comment 1
+**Selected:** "select this sentence"
+**Comment:** This is my first comment!
+**Created:** 2024-01-15T10:30:00Z
+\`\`\`
+
+---
+
+## Navigating Comments
+
+Once you have multiple comments, use the navigation bar at the bottom of the screen to jump between them. You can also use keyboard shortcuts:
+
+| Shortcut | Action |
+|----------|--------|
+| \`Alt + ↑\` | Previous comment |
+| \`Alt + ↓\` | Next comment |
+| \`⌘ + C\` | Copy selected text (raw) |
+| \`⌘ + Shift + C\` | Copy selected text with context (for AI) |
+
+---
+
+## Quick Start
+
+\`\`\`bash
+# Review a markdown file
+readit document.md
+
+# Use a custom port
+readit document.md --port 3000
+
+# Start fresh (clear existing comments)
+readit document.md --clean
+\`\`\`
+
+---
+
+## Try It Now
+
+Go ahead and add a few comments to this document. When you're done, export them and see the output. That's the entire workflow — simple, transparent, and designed for reviewing AI-generated content.
+`;
+
+const WELCOME_PATH = join(os.homedir(), ".readit", "welcome.md");
+
+// ─── Program ─────────────────────────────────────────────────────────
+
 program
   .name("readit")
   .description("Review Markdown and HTML documents with inline comments")
@@ -273,9 +381,9 @@ program
     }
   });
 
-// Main review command (default) — accepts one or more files/directories
+// Main review command (default) — accepts zero or more files/directories
 program
-  .argument("<files...>", "Markdown or HTML files/directories to review")
+  .argument("[files...]", "Markdown or HTML files/directories to review")
   .option("-p, --port <number>", "Port to run server on", "4567")
   .option("--host <address>", "Host address to bind to", "127.0.0.1")
   .option("--no-open", "Don't automatically open browser")
@@ -290,11 +398,27 @@ program
         clean: boolean;
       },
     ) => {
-      const files = resolveFiles(fileArgs);
+      let files: FileEntry[];
 
-      if (files.length === 0) {
-        console.error("error: no reviewable files found");
-        process.exit(1);
+      if (fileArgs.length === 0) {
+        if (isOnboarded()) {
+          files = [];
+        } else {
+          files = [
+            {
+              content: WELCOME_CONTENT,
+              type: "markdown" as DocumentType,
+              filePath: WELCOME_PATH,
+            },
+          ];
+        }
+      } else {
+        files = resolveFiles(fileArgs);
+
+        if (files.length === 0) {
+          console.error("error: no reviewable files found");
+          process.exit(1);
+        }
       }
 
       const preferredPort = Number.parseInt(options.port, 10);
@@ -316,9 +440,21 @@ program
           clean: options.clean,
         });
 
-        const fileList = files.map((f) => `  ${f.filePath} (${f.type})`);
+        if (files.length === 0) {
+          console.log(`
+readit - Document Review Tool
 
-        console.log(`
+  URL:  ${url}
+
+  No files specified. Add files with:
+    readit open <file.md>
+
+  Server running. Press Ctrl+C to stop.
+`);
+        } else {
+          const fileList = files.map((f) => `  ${f.filePath} (${f.type})`);
+
+          console.log(`
 readit - Document Review Tool
 
   ${files.length === 1 ? "File:" : "Files:"}
@@ -328,9 +464,15 @@ ${fileList.join("\n")}
   Server running. Close browser tab to stop.
   Press Ctrl+C to force stop.
 `);
+        }
 
         if (options.open) {
           open(url);
+        }
+
+        // Mark onboarding complete on first server start
+        if (fileArgs.length === 0) {
+          await markOnboarded();
         }
 
         // Graceful shutdown on Ctrl+C
