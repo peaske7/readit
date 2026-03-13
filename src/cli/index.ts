@@ -15,7 +15,7 @@ import open from "open";
 import { getCommentPath, parseCommentFile } from "../lib/comment-storage.js";
 import { getFileType } from "../lib/utils.js";
 import type { FileEntry } from "../server/index.js";
-import { startServer } from "../server/index.js";
+import { removeServerInfo, startServer } from "../server/index.js";
 
 const program = new Command();
 
@@ -300,9 +300,10 @@ ${fileList.join("\n")}
         }
 
         // Graceful shutdown on Ctrl+C
-        process.on("SIGINT", () => {
+        process.on("SIGINT", async () => {
           console.log("\n\nShutting down...");
           server.stop();
+          await removeServerInfo();
           process.exit(0);
         });
       } catch (error) {

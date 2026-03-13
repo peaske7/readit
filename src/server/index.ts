@@ -171,6 +171,33 @@ function isValidFontFamily(value: unknown): value is FontFamily {
   return value === FontFamilies.SERIF || value === FontFamilies.SANS_SERIF;
 }
 
+// ─── PID file helpers ───────────────────────────────────────────────
+
+export const SERVER_INFO_PATH = path.join(
+  os.homedir(),
+  ".readit",
+  "server.json",
+);
+
+async function writeServerInfo(port: number): Promise<void> {
+  await fs.mkdir(path.dirname(SERVER_INFO_PATH), { recursive: true });
+  await fs.writeFile(
+    SERVER_INFO_PATH,
+    JSON.stringify({ port, pid: process.pid }),
+    "utf-8",
+  );
+}
+
+export async function removeServerInfo(): Promise<void> {
+  try {
+    await fs.unlink(SERVER_INFO_PATH);
+  } catch (err) {
+    if (!isErrnoException(err) || err.code !== "ENOENT") {
+      console.error("Failed to remove server info:", err);
+    }
+  }
+}
+
 // ─── Response helpers ───────────────────────────────────────────────
 
 function json(data: unknown, status = 200): Response {
@@ -744,6 +771,8 @@ export async function startServer(
       };
 
       const actualPort = server.port ?? port;
+
+      await writeServerInfo(actualPort);
 
       return {
         port: actualPort,
