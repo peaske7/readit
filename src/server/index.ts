@@ -509,27 +509,30 @@ function createDocumentStream(
   });
 }
 
-function createHeartbeat(isDev: boolean): Response {
+function createHeartbeat(
+  onOpen: (controller: ReadableStreamDefaultController) => void,
+  onClose: (controller: ReadableStreamDefaultController) => void,
+): Response {
   let interval: ReturnType<typeof setInterval>;
+  let captured: ReadableStreamDefaultController;
 
   const stream = new ReadableStream({
     start(controller) {
+      captured = controller;
       controller.enqueue("data: connected\n\n");
+      onOpen(controller);
       interval = setInterval(() => {
         try {
           controller.enqueue("data: ping\n\n");
         } catch {
           clearInterval(interval);
+          onClose(controller);
         }
       }, 5000);
     },
     cancel() {
       clearInterval(interval);
-      if (isDev) return;
-      setTimeout(() => {
-        console.log("\nBrowser disconnected, shutting down...");
-        process.exit(0);
-      }, 100);
+      onClose(captured);
     },
   });
 
@@ -605,6 +608,8 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 
   const defaultPath = fileOrder[0];
   const sseClients = new Set<ReadableStreamDefaultController>();
+  const heartbeatClients = new Set<ReadableStreamDefaultController>();
+  let shutdownTimer: ReturnType<typeof setTimeout> | null = null;
 
   function sendEvent(event: unknown): void {
     const message = `data: ${JSON.stringify(event)}\n\n`;
@@ -615,6 +620,31 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         sseClients.delete(controller);
       }
     }
+  }
+
+  function clearShutdownTimer(): void {
+    if (!shutdownTimer) return;
+    clearTimeout(shutdownTimer);
+    shutdownTimer = null;
+  }
+
+  function onHeartbeatOpen(controller: ReadableStreamDefaultController): void {
+    heartbeatClients.add(controller);
+    clearShutdownTimer();
+  }
+
+  function onHeartbeatClose(controller: ReadableStreamDefaultController): void {
+    heartbeatClients.delete(controller);
+    if (isDev || heartbeatClients.size > 0 || shutdownTimer) return;
+
+    shutdownTimer = setTimeout(() => {
+      if (heartbeatClients.size > 0) {
+        clearShutdownTimer();
+        return;
+      }
+      console.log("\nBrowser disconnected, shutting down...");
+      process.exit(0);
+    }, 1500);
   }
 
   async function ensureFileContent(filePath: string): Promise<string> {
@@ -808,7 +838,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       }
 
       if (pathname === "/api/heartbeat" && method === "GET") {
-        return createHeartbeat(isDev);
+        return createHeartbeat(onHeartbeatOpen, onHeartbeatClose);
       }
 
       // Comments routes

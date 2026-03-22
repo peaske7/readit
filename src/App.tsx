@@ -38,7 +38,12 @@ const TOASTER_OPTIONS = {
   },
 };
 
-function AppContent() {
+interface AppContentProps {
+  document: NonNullable<ReturnType<typeof useDocument>["document"]>;
+  reload: ReturnType<typeof useDocument>["reload"];
+}
+
+function AppContent({ document, reload }: AppContentProps) {
   const { t } = useLocale();
   const {
     comments,
@@ -52,8 +57,6 @@ function AppContent() {
     navigatePrevious,
     navigateNext,
   } = use(CommentContext)!;
-
-  const { document, reload } = useDocument();
 
   const {
     selection,
@@ -138,11 +141,6 @@ function AppContent() {
     if (marginNote) {
       marginNote.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-  }, []);
-
-  useEffect(() => {
-    const eventSource = new EventSource("/api/heartbeat");
-    return () => eventSource.close();
   }, []);
 
   // Scroll save/restore for tab switching
@@ -338,10 +336,15 @@ function useTabKeyboardShortcuts() {
 
 function App() {
   const { t } = useLocale();
-  const { document, error, isInitialized } = useDocument();
+  const { document, error, isInitialized, reload } = useDocument();
   const documentOrder = useAppStore((s) => s.documentOrder);
 
   useTabKeyboardShortcuts();
+
+  useEffect(() => {
+    const eventSource = new EventSource("/api/heartbeat");
+    return () => eventSource.close();
+  }, []);
 
   if (error) {
     return (
@@ -403,7 +406,7 @@ function App() {
           fileName={document.fileName}
           documentType={document.type}
         >
-          <AppContent />
+          <AppContent document={document} reload={reload} />
         </CommentProvider>
       </LayoutProvider>
     </>
