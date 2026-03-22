@@ -147,6 +147,21 @@ export function collectTextNodes(root: Node): TextNodeInfo[] {
 export interface ExtendedHighlightStyle extends HighlightStyle {
   colorIndex?: number;
   isBracketMode?: boolean;
+  isBracketStart?: boolean;
+  isBracketEnd?: boolean;
+}
+
+interface BatchedHighlightSegment {
+  startOffset: number;
+  endOffset: number;
+  style: ExtendedHighlightStyle;
+}
+
+interface NodeSegment {
+  start: number;
+  end: number;
+  style: ExtendedHighlightStyle;
+  order: number;
 }
 
 /**
@@ -289,6 +304,138 @@ export function applyHighlightWithStyle(
     }
 
     isFirst = false;
+  }
+}
+
+function createStyledMark(
+  text: string,
+  style: ExtendedHighlightStyle,
+): HTMLElement {
+  const mark = document.createElement("mark");
+  mark.setAttribute(style.attribute, style.attributeValue);
+
+  if (style.colorIndex !== undefined) {
+    mark.setAttribute("data-color-index", String(style.colorIndex % 4));
+  }
+
+  if (style.isBracketMode) {
+    mark.setAttribute("data-bracket-mode", "true");
+    if (style.isBracketStart) {
+      mark.setAttribute("data-bracket-start", "true");
+    }
+    if (style.isBracketEnd) {
+      mark.setAttribute("data-bracket-end", "true");
+    }
+  }
+
+  mark.textContent = text;
+  return mark;
+}
+
+function normalizeNodeSegments(segments: NodeSegment[]): NodeSegment[] {
+  const sorted = [...segments].sort((a, b) => {
+    if (a.start !== b.start) return a.start - b.start;
+    if (a.end !== b.end) return b.end - a.end;
+    return a.order - b.order;
+  });
+
+  const normalized: NodeSegment[] = [];
+  let coveredUntil = 0;
+
+  for (const segment of sorted) {
+    const start = Math.max(segment.start, coveredUntil);
+    if (start >= segment.end) continue;
+
+    normalized.push({ ...segment, start });
+    coveredUntil = segment.end;
+  }
+
+  return normalized;
+}
+
+export function applyHighlightBatch(
+  root: HTMLElement,
+  textContent: string,
+  highlights: BatchedHighlightSegment[],
+): void {
+  if (highlights.length === 0) return;
+
+  const textNodes = collectTextNodes(root);
+  const segmentsByNode = new Map<Text, NodeSegment[]>();
+
+  for (
+    let highlightIndex = 0;
+    highlightIndex < highlights.length;
+    highlightIndex++
+  ) {
+    const highlight = highlights[highlightIndex];
+    const overlappingNodes = textNodes.filter(
+      (n) => n.end > highlight.startOffset && n.start < highlight.endOffset,
+    );
+
+    if (overlappingNodes.length === 0) continue;
+
+    const lineCount = countLinesInRange(
+      textContent,
+      highlight.startOffset,
+      highlight.endOffset,
+    );
+    const useBracketMode =
+      highlight.style.isBracketMode ?? lineCount >= BRACKET_MODE_LINE_THRESHOLD;
+
+    for (let nodeIndex = 0; nodeIndex < overlappingNodes.length; nodeIndex++) {
+      const { node, start } = overlappingNodes[nodeIndex];
+      const localStart = Math.max(0, highlight.startOffset - start);
+      const localEnd = Math.min(node.length, highlight.endOffset - start);
+
+      if (localStart >= localEnd) continue;
+
+      const nodeSegments = segmentsByNode.get(node) ?? [];
+      nodeSegments.push({
+        start: localStart,
+        end: localEnd,
+        order: highlightIndex,
+        style: {
+          ...highlight.style,
+          isBracketMode: useBracketMode,
+          isBracketStart: useBracketMode && nodeIndex === 0,
+          isBracketEnd:
+            useBracketMode && nodeIndex === overlappingNodes.length - 1,
+        },
+      });
+      segmentsByNode.set(node, nodeSegments);
+    }
+  }
+
+  for (const { node } of textNodes) {
+    const segments = segmentsByNode.get(node);
+    if (!segments || segments.length === 0) continue;
+
+    const normalized = normalizeNodeSegments(segments);
+    if (normalized.length === 0) continue;
+
+    const text = node.textContent ?? "";
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+
+    for (const segment of normalized) {
+      if (cursor < segment.start) {
+        fragment.appendChild(
+          document.createTextNode(text.slice(cursor, segment.start)),
+        );
+      }
+
+      fragment.appendChild(
+        createStyledMark(text.slice(segment.start, segment.end), segment.style),
+      );
+      cursor = segment.end;
+    }
+
+    if (cursor < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(cursor)));
+    }
+
+    node.replaceWith(fragment);
   }
 }
 

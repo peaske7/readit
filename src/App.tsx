@@ -13,6 +13,7 @@ import { TableOfContents } from "./components/TableOfContents";
 import { textVariants } from "./components/ui/Text";
 import { CommentContext, CommentProvider } from "./contexts/CommentContext";
 import { LayoutContext, LayoutProvider } from "./contexts/LayoutContext";
+import { useLocale } from "./contexts/LocaleContext";
 import { useClipboard } from "./hooks/useClipboard";
 import { useDocument } from "./hooks/useDocument";
 import { useHeadings } from "./hooks/useHeadings";
@@ -38,6 +39,7 @@ const TOASTER_OPTIONS = {
 };
 
 function AppContent() {
+  const { t } = useLocale();
   const {
     comments,
     sortedComments,
@@ -74,6 +76,7 @@ function AppContent() {
     document: document ?? undefined,
     selection: selection ?? undefined,
     clearSelection,
+    t,
   });
 
   const { shortcuts, isFullscreen } = use(LayoutContext)!;
@@ -275,6 +278,7 @@ function AppContent() {
                 />
               ) : (
                 <CommentInput
+                  key={selection.text}
                   selectedText={selection.text}
                   onSubmit={handleAddComment}
                   onCancel={clearSelection}
@@ -302,7 +306,7 @@ function AppContent() {
       <CommentNav />
 
       <footer className="py-4 text-center text-sm text-zinc-400 dark:text-zinc-500">
-        Made with ❤️ by Jay and Claude
+        {t("app.footer")}
       </footer>
     </div>
   );
@@ -333,6 +337,7 @@ function useTabKeyboardShortcuts() {
 }
 
 function App() {
+  const { t } = useLocale();
   const { document, error, isInitialized } = useDocument();
   const documentOrder = useAppStore((s) => s.documentOrder);
 
@@ -349,7 +354,9 @@ function App() {
   if (!isInitialized) {
     return (
       <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
-        <div className="text-zinc-500 dark:text-zinc-400">Loading...</div>
+        <div className="text-zinc-500 dark:text-zinc-400">
+          {t("app.loading")}
+        </div>
       </div>
     );
   }
@@ -360,14 +367,15 @@ function App() {
         <TabBar />
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
           <p className="text-zinc-400 dark:text-zinc-500 text-sm">
-            No documents open.
+            {t("app.noDocuments")}
           </p>
           <p className="text-zinc-400 dark:text-zinc-500 text-xs">
-            Run{" "}
+            {t("app.noDocumentsHintPrefix")}
+            {t("app.noDocumentsHintPrefix") && " "}
             <code className="bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-xs">
               readit open &lt;file.md&gt;
             </code>{" "}
-            to add a file.
+            {t("app.noDocumentsHintSuffix")}
           </p>
         </div>
       </div>
@@ -377,7 +385,9 @@ function App() {
   if (!document) {
     return (
       <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
-        <div className="text-zinc-500 dark:text-zinc-400">Loading...</div>
+        <div className="text-zinc-500 dark:text-zinc-400">
+          {t("app.loading")}
+        </div>
       </div>
     );
   }

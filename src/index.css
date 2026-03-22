@@ -56,17 +56,19 @@ html {
   --scrollbar-thumb-hover: #aaaaaa;
 
   /* Prose */
-  --prose-body: #3f3f46;
-  --prose-headings: #18181b;
+  --prose-body: #374151;
+  --prose-headings: #111827;
   --prose-links: #2563eb;
   --prose-links-hover: #1d4ed8;
-  --prose-bold: #18181b;
-  --prose-code-bg: #f4f4f5;
-  --prose-border: #e4e4e7;
-  --prose-table-header-bg: #fafafa;
-  --prose-table-even-bg: #fafafa;
-  --prose-blockquote: #71717a;
-  --prose-summary-marker: #a1a1aa;
+  --prose-bold: #111827;
+  --prose-code-bg: #f3f4f6;
+  --prose-code-border: #e5e7eb;
+  --prose-border: #e5e7eb;
+  --prose-table-header-bg: #f9fafb;
+  --prose-table-even-bg: #f9fafb;
+  --prose-blockquote: #6b7280;
+  --prose-blockquote-border: #d1d5db;
+  --prose-summary-marker: #9ca3af;
 
   /* TOC */
   --toc-text: rgba(26, 26, 26, 0.5);
@@ -113,15 +115,17 @@ html {
   --scrollbar-thumb-hover: #71717a;
 
   --prose-body: #d4d4d8;
-  --prose-headings: #fafafa;
+  --prose-headings: #f4f4f5;
   --prose-links: #60a5fa;
   --prose-links-hover: #93c5fd;
-  --prose-bold: #fafafa;
+  --prose-bold: #f4f4f5;
   --prose-code-bg: #27272a;
+  --prose-code-border: #3f3f46;
   --prose-border: #3f3f46;
   --prose-table-header-bg: #27272a;
   --prose-table-even-bg: #1f1f23;
   --prose-blockquote: #a1a1aa;
+  --prose-blockquote-border: #52525b;
   --prose-summary-marker: #71717a;
 
   --toc-text: rgba(228, 228, 231, 0.5);
@@ -463,10 +467,11 @@ mark[data-pending] {
   max-width: 65ch;
   margin-left: auto;
   margin-right: auto;
-  line-height: 1.75;
+  line-height: 1.8;
   color: var(--prose-body);
   user-select: text;
   -webkit-user-select: text;
+  letter-spacing: -0.011em;
 }
 
 /* Headings */
@@ -477,19 +482,24 @@ mark[data-pending] {
 .prose h5,
 .prose h6 {
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.3;
   margin-top: 2em;
   margin-bottom: 0.75em;
   color: var(--prose-headings);
+  letter-spacing: -0.02em;
 }
 
 .prose h1 {
-  font-size: 2.25em;
+  font-size: 2em;
   margin-top: 0;
+  font-weight: 700;
 }
 
 .prose h2 {
   font-size: 1.5em;
+  margin-top: 2.5em;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid var(--prose-border);
 }
 
 .prose h3 {
@@ -497,12 +507,12 @@ mark[data-pending] {
 }
 
 .prose h4 {
-  font-size: 1.125em;
+  font-size: 1.1em;
 }
 
 /* Paragraphs and spacing */
 .prose p {
-  margin: 1.25em 0;
+  margin: 1.35em 0;
 }
 
 .prose > :first-child {
@@ -516,12 +526,21 @@ mark[data-pending] {
 /* Lists */
 .prose ul,
 .prose ol {
-  padding-left: 1.5em;
-  margin: 1.25em 0;
+  padding-left: 1.625em;
+  margin: 1.35em 0;
 }
 
 .prose li {
-  margin: 0.5em 0;
+  margin: 0.4em 0;
+  padding-left: 0.375em;
+}
+
+.prose li::marker {
+  color: #9ca3af;
+}
+
+.dark .prose li::marker {
+  color: #6b7280;
 }
 
 .prose ul {
@@ -535,25 +554,29 @@ mark[data-pending] {
 /* Nested lists */
 .prose li > ul,
 .prose li > ol {
-  margin: 0.5em 0;
+  margin: 0.35em 0;
 }
 
 /* Code */
 .prose code {
   background: var(--prose-code-bg);
-  padding: 0.2em 0.4em;
-  border-radius: 0.25em;
-  font-size: 0.875em;
+  border: 1px solid var(--prose-code-border);
+  padding: 0.15em 0.4em;
+  border-radius: 0.3em;
+  font-size: 0.85em;
+  font-weight: 500;
 }
 
 .prose pre {
-  margin: 1.5em 0;
+  margin: 1.75em 0;
 }
 
 .prose pre code {
   background: transparent;
+  border: none;
   padding: 0;
-  font-size: 0.875em;
+  font-size: 0.85em;
+  font-weight: 400;
   color: inherit;
 }
 
@@ -561,20 +584,23 @@ mark[data-pending] {
 .prose table {
   width: 100%;
   border-collapse: collapse;
-  margin: 1.5em 0;
+  margin: 1.75em 0;
   font-size: 0.9em;
 }
 
 .prose th,
 .prose td {
   border: 1px solid var(--prose-border);
-  padding: 0.75em 1em;
+  padding: 0.625em 1em;
   text-align: left;
+  line-height: 1.6;
 }
 
 .prose th {
   background: var(--prose-table-header-bg);
   font-weight: 600;
+  font-size: 0.875em;
+  letter-spacing: 0.01em;
 }
 
 .prose tr:nth-child(even) {
@@ -583,8 +609,8 @@ mark[data-pending] {
 
 /* Blockquotes */
 .prose blockquote {
-  border-left: 4px solid var(--prose-border);
-  padding-left: 1em;
+  border-left: 3px solid var(--prose-blockquote-border);
+  padding-left: 1.125em;
   margin: 1.5em 0;
   color: var(--prose-blockquote);
   font-style: italic;
@@ -598,6 +624,8 @@ mark[data-pending] {
 .prose a {
   color: var(--prose-links);
   text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
 }
 
 .prose a:hover {
@@ -608,7 +636,7 @@ mark[data-pending] {
 .prose hr {
   border: none;
   border-top: 1px solid var(--prose-border);
-  margin: 2em 0;
+  margin: 3em 0;
 }
 
 /* Task lists (checkboxes) */
@@ -628,10 +656,19 @@ mark[data-pending] {
 .prose strong {
   font-weight: 600;
   color: var(--prose-bold);
+  letter-spacing: -0.01em;
 }
 
 .prose em {
   font-style: italic;
+}
+
+/* First paragraph after heading - tighter spacing */
+.prose h1 + p,
+.prose h2 + p,
+.prose h3 + p,
+.prose h4 + p {
+  margin-top: 0.75em;
 }
 
 /* Fullscreen prose - left-aligned, full width */

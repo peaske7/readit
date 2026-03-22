@@ -217,7 +217,6 @@ export function DocumentViewer({
     return (
       <main className="flex-1 min-w-0 flex flex-col">
         <IframeContainer
-          key={content}
           html={content}
           comments={comments}
           pendingSelection={pendingSelection}
@@ -244,7 +243,6 @@ export function DocumentViewer({
         )}
       >
         <Markdown
-          key={content}
           components={markdownComponents}
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeRaw]}

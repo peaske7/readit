@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useCommentContext } from "../../contexts/CommentContext";
+import { useLocale } from "../../contexts/LocaleContext";
 import { cn } from "../../lib/utils";
 import type { Comment } from "../../types";
 import { InlineEditor } from "../InlineEditor";
@@ -14,6 +15,7 @@ interface CommentListItemProps {
 }
 
 export function CommentListItem({ comment, onAction }: CommentListItemProps) {
+  const { t } = useLocale();
   const { editComment, deleteComment, navigateToComment, startReanchor } =
     useCommentContext();
 
@@ -45,7 +47,7 @@ export function CommentListItem({ comment, onAction }: CommentListItemProps) {
         </Text>
         {isUnresolved && (
           <Text variant="caption" asChild>
-            <span className="shrink-0">· unresolved</span>
+            <span className="shrink-0">· {t("commentList.unresolved")}</span>
           </Text>
         )}
       </div>
@@ -66,13 +68,21 @@ export function CommentListItem({ comment, onAction }: CommentListItemProps) {
           </Text>
 
           <ActionBar className="gap-3 mt-1.5">
-            <ActionLink onClick={() => setIsEditing(true)}>Edit</ActionLink>
-            <ActionLink onClick={() => deleteComment(comment.id)}>
-              Delete
+            <ActionLink onClick={() => setIsEditing(true)}>
+              {t("commentList.edit")}
             </ActionLink>
-            {canGoTo && <ActionLink onClick={handleGoTo}>Go to</ActionLink>}
+            <ActionLink onClick={() => deleteComment(comment.id)}>
+              {t("commentList.delete")}
+            </ActionLink>
+            {canGoTo && (
+              <ActionLink onClick={handleGoTo}>
+                {t("commentList.goTo")}
+              </ActionLink>
+            )}
             {isUnresolved && (
-              <ActionLink onClick={handleReanchor}>Re-anchor</ActionLink>
+              <ActionLink onClick={handleReanchor}>
+                {t("commentList.reanchor")}
+              </ActionLink>
             )}
           </ActionBar>
         </>

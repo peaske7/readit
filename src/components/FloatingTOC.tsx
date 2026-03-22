@@ -1,5 +1,6 @@
 import { List } from "lucide-react";
 import { useState } from "react";
+import { useLocale } from "../contexts/LocaleContext";
 import type { Heading } from "../hooks/useHeadings";
 import { cn } from "../lib/utils";
 import { TableOfContents } from "./TableOfContents";
@@ -15,6 +16,7 @@ export function FloatingTOC({
   activeId,
   onHeadingClick,
 }: FloatingTOCProps) {
+  const { t } = useLocale();
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (headings.length === 0) return null;
@@ -24,7 +26,7 @@ export function FloatingTOC({
       className="fixed left-4 top-16 z-40"
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => setIsExpanded(false)}
-      aria-label="Table of contents"
+      aria-label={t("floatingTOC.label")}
     >
       {/* Collapsed state: circular button */}
       <button
@@ -34,7 +36,7 @@ export function FloatingTOC({
           "w-10 h-10 rounded-full bg-white dark:bg-zinc-900 shadow-lg border border-zinc-100 dark:border-zinc-800 flex items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors duration-150",
           isExpanded && "opacity-0 pointer-events-none",
         )}
-        aria-label="Table of Contents"
+        aria-label={t("floatingTOC.label")}
       >
         <List className="w-5 h-5" />
       </button>

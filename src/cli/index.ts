@@ -116,7 +116,6 @@ function findReviewableFiles(dir: string): FileEntry[] {
           const type = getFileType(entry);
           if (type) {
             results.push({
-              content: readFileSync(fullPath, "utf-8"),
               type,
               filePath: fullPath,
             });
@@ -175,7 +174,6 @@ function resolveFiles(args: string[]): FileEntry[] {
 
       seen.add(filePath);
       files.push({
-        content: readFileSync(filePath, "utf-8"),
         type,
         filePath,
       });
@@ -563,7 +561,6 @@ program
       console.log("No running server found, starting new one...\n");
 
       const files = resolvedFiles.map((f) => ({
-        content: readFileSync(f.path, "utf-8"),
         type: f.type,
         filePath: f.path,
       }));

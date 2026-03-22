@@ -1,7 +1,7 @@
 import { findTextPosition } from "./core";
 import {
+  applyHighlightBatch,
   applyHighlightToRange,
-  applyHighlightWithStyle,
   clearHighlights,
   collectHighlightPositions,
   getDOMTextContent,
@@ -195,19 +195,19 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
         .filter((c): c is HighlightComment => c !== null)
         .sort((a, b) => a.startOffset - b.startOffset);
 
-      for (const comment of resolved) {
-        applyHighlightWithStyle(
-          root,
-          textContent,
-          comment.startOffset,
-          comment.endOffset,
-          {
+      applyHighlightBatch(
+        root,
+        textContent,
+        resolved.map((comment) => ({
+          startOffset: comment.startOffset,
+          endOffset: comment.endOffset,
+          style: {
             attribute: "data-comment-id",
             attributeValue: comment.id,
             colorIndex: 0,
           },
-        );
-      }
+        })),
+      );
 
       // Defer position update to next frame to ensure browser has completed layout
       // after DOM changes from highlight application

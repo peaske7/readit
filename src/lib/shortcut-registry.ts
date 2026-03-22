@@ -1,6 +1,6 @@
 import type { KeybindingOverride, ShortcutBinding } from "../types";
 
-export type { ShortcutBinding, KeybindingOverride };
+export type { KeybindingOverride, ShortcutBinding };
 
 export const ShortcutActions = {
   COPY_ALL: "copyAll",

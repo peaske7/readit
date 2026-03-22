@@ -1,7 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
+import { useLocale } from "../contexts/LocaleContext";
+import type { TranslationKey } from "../lib/i18n";
 import {
   bindingsEqual,
   formatBinding,
+  type ShortcutAction,
   type ShortcutBinding,
   type ShortcutDefinition,
 } from "../lib/shortcut-registry";
@@ -16,12 +19,49 @@ interface ShortcutListProps {
 
 const SHORTCUT_GROUPS = [
   {
-    label: "Copy",
+    labelKey: "shortcutGroup.copy" as const,
     ids: ["copyAll", "copyAllRaw", "copySelectionRaw", "copySelectionLLM"],
   },
-  { label: "Navigate", ids: ["navigateNext", "navigatePrevious"] },
-  { label: "Other", ids: ["clearSelection"] },
+  {
+    labelKey: "shortcutGroup.navigate" as const,
+    ids: ["navigateNext", "navigatePrevious"],
+  },
+  { labelKey: "shortcutGroup.other" as const, ids: ["clearSelection"] },
 ] as const;
+
+const SHORTCUT_LABEL_KEYS: Record<
+  ShortcutAction,
+  { label: TranslationKey; description: TranslationKey }
+> = {
+  copyAll: {
+    label: "shortcut.copyAll.label",
+    description: "shortcut.copyAll.description",
+  },
+  copyAllRaw: {
+    label: "shortcut.copyAllRaw.label",
+    description: "shortcut.copyAllRaw.description",
+  },
+  navigateNext: {
+    label: "shortcut.navigateNext.label",
+    description: "shortcut.navigateNext.description",
+  },
+  navigatePrevious: {
+    label: "shortcut.navigatePrevious.label",
+    description: "shortcut.navigatePrevious.description",
+  },
+  copySelectionRaw: {
+    label: "shortcut.copySelectionRaw.label",
+    description: "shortcut.copySelectionRaw.description",
+  },
+  copySelectionLLM: {
+    label: "shortcut.copySelectionLLM.label",
+    description: "shortcut.copySelectionLLM.description",
+  },
+  clearSelection: {
+    label: "shortcut.clearSelection.label",
+    description: "shortcut.clearSelection.description",
+  },
+};
 
 const isMac =
   typeof navigator !== "undefined" &&
@@ -33,6 +73,7 @@ export function ShortcutList({
   onToggleEnabled,
   onResetToDefaults,
 }: ShortcutListProps) {
+  const { t } = useLocale();
   const [capturingId, setCapturingId] = useState<string | undefined>();
 
   const hasOverrides = useMemo(
@@ -77,9 +118,9 @@ export function ShortcutList({
         if (groupShortcuts.length === 0) return null;
 
         return (
-          <div key={group.label}>
+          <div key={group.labelKey}>
             <span className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-              {group.label}
+              {t(group.labelKey)}
             </span>
             <div className="mt-1 space-y-0.5">
               {groupShortcuts.map((shortcut) => (
@@ -89,9 +130,9 @@ export function ShortcutList({
                 >
                   <span
                     className="flex-1 text-sm text-zinc-700 dark:text-zinc-300 truncate"
-                    title={shortcut.description}
+                    title={t(SHORTCUT_LABEL_KEYS[shortcut.id].description)}
                   >
-                    {shortcut.label}
+                    {t(SHORTCUT_LABEL_KEYS[shortcut.id].label)}
                   </span>
 
                   <div className="flex items-center gap-2.5">
@@ -117,7 +158,7 @@ export function ShortcutList({
                       role="switch"
                       aria-checked={shortcut.enabled}
                       onClick={() => onToggleEnabled(shortcut.id)}
-                      title="Enable/disable shortcut"
+                      title={t("shortcuts.enableDisable")}
                       className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
                         shortcut.enabled
                           ? "bg-zinc-600 dark:bg-zinc-400"
@@ -150,7 +191,7 @@ export function ShortcutList({
             : "text-xs text-zinc-300 dark:text-zinc-600 cursor-default"
         }
       >
-        Reset to defaults
+        {t("shortcuts.resetToDefaults")}
       </button>
     </div>
   );

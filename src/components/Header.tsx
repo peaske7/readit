@@ -1,5 +1,6 @@
 import { useCommentContext } from "../contexts/CommentContext";
 import { useLayoutContext } from "../contexts/LayoutContext";
+import { useLocale } from "../contexts/LocaleContext";
 import { cn } from "../lib/utils";
 import { ActionsMenu } from "./ActionsMenu";
 import { CommentBadge } from "./comments/CommentBadge";
@@ -22,6 +23,7 @@ export function Header({
 }: HeaderProps) {
   const { reanchorTarget } = useCommentContext();
   const { isFullscreen } = useLayoutContext();
+  const { t } = useLocale();
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm border-b border-zinc-100 dark:border-zinc-800">
@@ -44,7 +46,7 @@ export function Header({
         <div className="flex items-center gap-3">
           {reanchorTarget && (
             <Text variant="caption" asChild>
-              <span className="italic">Select text to re-anchor</span>
+              <span className="italic">{t("header.selectTextToReanchor")}</span>
             </Text>
           )}
 

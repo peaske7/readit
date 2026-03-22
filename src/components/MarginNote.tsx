@@ -2,6 +2,7 @@ import { cva } from "class-variance-authority";
 import { useState } from "react";
 import { useCommentContext } from "../contexts/CommentContext";
 import { useLayoutContext } from "../contexts/LayoutContext";
+import { useLocale } from "../contexts/LocaleContext";
 import { cn } from "../lib/utils";
 import { type Comment, FontFamilies } from "../types";
 import { InlineEditor } from "./InlineEditor";
@@ -60,6 +61,7 @@ export function MarginNote({
   commentIndex = 0,
 }: MarginNoteProps) {
   const { fontFamily } = useLayoutContext();
+  const { t } = useLocale();
   const {
     editComment,
     deleteComment,
@@ -100,13 +102,15 @@ export function MarginNote({
           <ActionBar
             className={cn("gap-1.5 duration-150", isHovered && "opacity-100")}
           >
-            <ActionLink onClick={() => setIsEditing(true)}>Add note</ActionLink>
+            <ActionLink onClick={() => setIsEditing(true)}>
+              {t("marginNote.addNote")}
+            </ActionLink>
             <SeparatorDot />
             <ActionLink
               variant="destructive"
               onClick={() => deleteComment(comment.id)}
             >
-              Delete
+              {t("marginNote.delete")}
             </ActionLink>
           </ActionBar>
         </div>
@@ -170,24 +174,29 @@ export function MarginNote({
               {comment.comment}
             </p>
             <ActionBar className="gap-1.5 mt-2">
-              <ActionLink onClick={() => setIsEditing(true)}>Edit</ActionLink>
+              <ActionLink onClick={() => setIsEditing(true)}>
+                {t("marginNote.edit")}
+              </ActionLink>
               <SeparatorDot />
               <ActionLink
                 variant="destructive"
                 onClick={() => deleteComment(comment.id)}
               >
-                Delete
+                {t("marginNote.delete")}
               </ActionLink>
               <SeparatorDot />
-              <ActionLink onClick={handleCopy} title="Copy raw text (⌘C)">
-                Copy
+              <ActionLink
+                onClick={handleCopy}
+                title={t("marginNote.copyTitle")}
+              >
+                {t("marginNote.copy")}
               </ActionLink>
               <SeparatorDot />
               <ActionLink
                 onClick={() => copyCommentForLLM(comment)}
-                title="Copy with context for LLM (⌘⇧C)"
+                title={t("marginNote.llmTitle")}
               >
-                LLM
+                {t("marginNote.llm")}
               </ActionLink>
             </ActionBar>
           </>
