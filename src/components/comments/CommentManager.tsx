@@ -1,6 +1,7 @@
 import { Copy, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useCommentContext } from "../../contexts/CommentContext";
+import { useLocale } from "../../contexts/LocaleContext";
 import { Button } from "../ui/Button";
 import { Text } from "../ui/Text";
 import { CommentListItem } from "./CommentListItem";
@@ -10,6 +11,7 @@ interface CommentManagerProps {
 }
 
 export function CommentManager({ onClose }: CommentManagerProps) {
+  const { t } = useLocale();
   const { comments, copyAllForLLM, deleteAll } = useCommentContext();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
@@ -31,7 +33,7 @@ export function CommentManager({ onClose }: CommentManagerProps) {
       {confirmingDelete ? (
         <div className="px-3 py-2 border-b border-zinc-100">
           <Text variant="caption" className="mb-1.5">
-            Delete all {comments.length} comments?
+            {t("commentManager.deleteAllConfirm", { count: comments.length })}
           </Text>
           <div className="flex gap-3">
             <Button
@@ -43,7 +45,7 @@ export function CommentManager({ onClose }: CommentManagerProps) {
                 onClose();
               }}
             >
-              Delete
+              {t("commentManager.delete")}
             </Button>
             <Button
               variant="ghost"
@@ -51,7 +53,7 @@ export function CommentManager({ onClose }: CommentManagerProps) {
               className="h-auto p-0 text-xs"
               onClick={() => setConfirmingDelete(false)}
             >
-              Cancel
+              {t("commentManager.cancel")}
             </Button>
           </div>
         </div>
@@ -61,7 +63,10 @@ export function CommentManager({ onClose }: CommentManagerProps) {
             <span>
               {resolvedCount}
               {unresolvedCount > 0 && (
-                <span> · {unresolvedCount} unresolved</span>
+                <span>
+                  {" "}
+                  · {unresolvedCount} {t("commentManager.unresolved")}
+                </span>
               )}
             </span>
             <span className="flex items-center gap-1">
@@ -69,7 +74,7 @@ export function CommentManager({ onClose }: CommentManagerProps) {
                 type="button"
                 className="p-1 rounded hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
                 onClick={copyAllForLLM}
-                title="Copy all comments"
+                title={t("commentManager.copyAllTitle")}
               >
                 <Copy size={13} />
               </button>
@@ -77,7 +82,7 @@ export function CommentManager({ onClose }: CommentManagerProps) {
                 type="button"
                 className="p-1 rounded hover:bg-zinc-100 text-zinc-400 hover:text-red-500 transition-colors"
                 onClick={() => setConfirmingDelete(true)}
-                title="Delete all comments"
+                title={t("commentManager.deleteAllTitle")}
               >
                 <Trash2 size={13} />
               </button>
@@ -89,7 +94,9 @@ export function CommentManager({ onClose }: CommentManagerProps) {
       <div className="overflow-y-auto max-h-80">
         {sortedComments.length === 0 ? (
           <Text variant="caption" asChild>
-            <div className="px-3 py-4 text-center">No comments yet</div>
+            <div className="px-3 py-4 text-center">
+              {t("commentManager.noComments")}
+            </div>
           </Text>
         ) : (
           sortedComments.map((comment) => (

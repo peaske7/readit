@@ -15,6 +15,7 @@ import { generatePrompt } from "../lib/export";
 import { truncate } from "../lib/utils";
 import { useAppStore } from "../store";
 import type { Comment, DocumentType } from "../types";
+import { useLocale } from "./LocaleContext";
 
 interface CommentContextValue {
   // From useComments
@@ -108,6 +109,7 @@ export function CommentProvider({
   } = useCommentNavigation(sortedComments);
 
   const { reanchorTarget, startReanchor, cancelReanchor } = useReanchorMode();
+  const { t } = useLocale();
 
   // Show comments errors as toast
   useEffect(() => {
@@ -116,11 +118,14 @@ export function CommentProvider({
     }
   }, [commentsError]);
 
-  const copyCommentRaw = useCallback((comment: Comment) => {
-    const raw = `${comment.selectedText}\n\n${comment.comment}`;
-    navigator.clipboard.writeText(raw);
-    toast.success(`Copied: "${truncate(comment.comment)}"`);
-  }, []);
+  const copyCommentRaw = useCallback(
+    (comment: Comment) => {
+      const raw = `${comment.selectedText}\n\n${comment.comment}`;
+      navigator.clipboard.writeText(raw);
+      toast.success(t("toast.copied", { text: truncate(comment.comment) }));
+    },
+    [t],
+  );
 
   const copyCommentForLLM = useCallback(
     (comment: Comment) => {
@@ -136,16 +141,18 @@ export function CommentProvider({
       });
 
       navigator.clipboard.writeText(formatted);
-      toast.success(`Copied for LLM: "${truncate(comment.comment)}"`);
+      toast.success(
+        t("toast.copiedForLLM", { text: truncate(comment.comment) }),
+      );
     },
-    [documentContent, fileName],
+    [documentContent, fileName, t],
   );
 
   const copyAllForLLM = useCallback(() => {
     const prompt = generatePrompt(comments, fileName);
     navigator.clipboard.writeText(prompt);
-    toast.success("Copied all comments");
-  }, [comments, fileName]);
+    toast.success(t("toast.copiedAllComments"));
+  }, [comments, fileName, t]);
 
   const scrollToHighlight = useCallback(
     (commentId: string) => {

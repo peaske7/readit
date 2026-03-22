@@ -1,6 +1,7 @@
 import { BotMessageSquare, Copy } from "lucide-react";
 import { use, useEffect, useRef, useState } from "react";
 import { LayoutContext } from "../../contexts/LayoutContext";
+import { useLocale } from "../../contexts/LocaleContext";
 import { cn } from "../../lib/utils";
 import { FontFamilies } from "../../types";
 import { Button } from "../ui/Button";
@@ -21,6 +22,7 @@ export function CommentInput({
   onCopyRaw,
   onCopyForLLM,
 }: CommentInputProps) {
+  const { t } = useLocale();
   const layout = use(LayoutContext);
   const fontClass = layout
     ? layout.fontFamily === FontFamilies.SANS_SERIF
@@ -32,18 +34,11 @@ export function CommentInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (selectedText && textareaRef.current) {
-      // Only auto-focus on devices with precise pointing (desktop)
-      if (window.matchMedia("(pointer: fine)").matches) {
-        textareaRef.current.focus();
-      }
+    // Only auto-focus on devices with precise pointing (desktop)
+    if (textareaRef.current && window.matchMedia("(pointer: fine)").matches) {
+      textareaRef.current.focus();
     }
-  }, [selectedText]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset when selection changes
-  useEffect(() => {
-    setCommentText("");
-  }, [selectedText]);
+  }, []);
 
   const handleSubmit = () => {
     onSubmit(commentText.trim());
@@ -76,7 +71,7 @@ export function CommentInput({
         ref={textareaRef}
         value={commentText}
         onChange={(e) => setCommentText(e.target.value)}
-        placeholder="Add your comment..."
+        placeholder={t("comment.placeholder")}
         className={cn(
           fontClass,
           "w-full px-2 py-1.5 text-sm border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 resize-none focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500",
@@ -91,8 +86,8 @@ export function CommentInput({
             size="icon"
             className="size-7 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400"
             onClick={onCopyRaw}
-            title="Copy raw text (⌘C)"
-            aria-label="Copy raw text"
+            title={t("comment.copyRawTitle")}
+            aria-label={t("comment.copyRawLabel")}
           >
             <Copy size={14} />
           </Button>
@@ -101,17 +96,17 @@ export function CommentInput({
             size="icon"
             className="size-7 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400"
             onClick={onCopyForLLM}
-            title="Copy with context for LLM (⌘⇧C)"
-            aria-label="Copy for LLM"
+            title={t("comment.copyLLMTitle")}
+            aria-label={t("comment.copyLLMLabel")}
           >
             <BotMessageSquare size={14} />
           </Button>
         </div>
         <Button variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
+          {t("comment.cancel")}
         </Button>
         <Button variant="link" size="sm" onClick={handleSubmit} title="⌘↵">
-          {commentText.trim() ? "Add Note" : "Highlight"}
+          {commentText.trim() ? t("comment.addNote") : t("comment.highlight")}
         </Button>
       </div>
     </div>

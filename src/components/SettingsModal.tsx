@@ -1,7 +1,11 @@
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, ExternalLink } from "lucide-react";
 import { useLayoutContext } from "../contexts/LayoutContext";
+import { useLocale } from "../contexts/LocaleContext";
+import { type Locale, Locales } from "../lib/i18n";
 import { cn } from "../lib/utils";
 import {
+  type EditorScheme,
+  EditorSchemes,
   FontFamilies,
   type FontFamily,
   type ThemeMode,
@@ -28,10 +32,9 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-const THEME_OPTIONS = [
-  { value: ThemeModes.SYSTEM, label: "System" },
-  { value: ThemeModes.LIGHT, label: "Light" },
-  { value: ThemeModes.DARK, label: "Dark" },
+const LOCALE_OPTIONS = [
+  { value: Locales.JA, label: "日本語" },
+  { value: Locales.EN, label: "English" },
 ] as const;
 
 function ThemeDot({
@@ -73,15 +76,6 @@ function ThemePreviewBadge() {
 
 /* ─── Font selector ──────────────────────────────────────────── */
 
-const FONT_OPTIONS = [
-  { value: FontFamilies.SERIF, label: "Serif", fontClass: "font-serif" },
-  {
-    value: FontFamilies.SANS_SERIF,
-    label: "Sans-serif",
-    fontClass: "font-sans",
-  },
-] as const;
-
 function FontPreviewBadge({ fontClass }: { fontClass: string }) {
   return (
     <span
@@ -112,6 +106,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const {
     fontFamily,
     setFontFamily,
+    editorScheme,
+    setEditorScheme,
     themeMode,
     setThemeMode,
     shortcuts,
@@ -119,11 +115,45 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     toggleShortcutEnabled,
     resetShortcutsToDefaults,
   } = useLayoutContext();
+  const { locale, setLocale, t } = useLocale();
+
+  const themeOptions = [
+    { value: ThemeModes.SYSTEM, label: t("settings.theme.system") },
+    { value: ThemeModes.LIGHT, label: t("settings.theme.light") },
+    { value: ThemeModes.DARK, label: t("settings.theme.dark") },
+  ];
+
+  const fontOptions = [
+    {
+      value: FontFamilies.SERIF,
+      label: t("settings.font.serif"),
+      fontClass: "font-serif",
+    },
+    {
+      value: FontFamilies.SANS_SERIF,
+      label: t("settings.font.sansSerif"),
+      fontClass: "font-sans",
+    },
+  ];
+
+  const editorOptions = [
+    { value: EditorSchemes.NONE, label: t("settings.editor.none") },
+    { value: EditorSchemes.VSCODE, label: t("settings.editor.vscode") },
+    {
+      value: EditorSchemes.VSCODE_INSIDERS,
+      label: t("settings.editor.vscodeInsiders"),
+    },
+    { value: EditorSchemes.CURSOR, label: t("settings.editor.cursor") },
+  ];
 
   const activeTheme =
-    THEME_OPTIONS.find((o) => o.value === themeMode) ?? THEME_OPTIONS[0];
+    themeOptions.find((o) => o.value === themeMode) ?? themeOptions[0];
   const activeFont =
-    FONT_OPTIONS.find((o) => o.value === fontFamily) ?? FONT_OPTIONS[0];
+    fontOptions.find((o) => o.value === fontFamily) ?? fontOptions[0];
+  const activeEditor =
+    editorOptions.find((o) => o.value === editorScheme) ?? editorOptions[0];
+  const activeLocale =
+    LOCALE_OPTIONS.find((o) => o.value === locale) ?? LOCALE_OPTIONS[0];
 
   return (
     <Dialog
@@ -134,13 +164,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Settings</DialogTitle>
+          <DialogTitle>{t("settings.title")}</DialogTitle>
         </DialogHeader>
 
         <DialogBody className="space-y-4">
           <div>
             <Text variant="overline" asChild>
-              <h3 className="mb-3">Theme</h3>
+              <h3 className="mb-3">{t("settings.theme")}</h3>
             </Text>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -152,7 +182,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-[160px]">
-                {THEME_OPTIONS.map((option) => (
+                {themeOptions.map((option) => (
                   <DropdownMenuItem
                     key={option.value}
                     onSelect={() => setThemeMode(option.value)}
@@ -172,7 +202,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
           <div>
             <Text variant="overline" asChild>
-              <h3 className="mb-3">Font</h3>
+              <h3 className="mb-3">{t("settings.font")}</h3>
             </Text>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -183,7 +213,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-[160px]">
-                {FONT_OPTIONS.map((option) => (
+                {fontOptions.map((option) => (
                   <DropdownMenuItem
                     key={option.value}
                     onSelect={() => setFontFamily(option.value as FontFamily)}
@@ -202,10 +232,69 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
           <div>
             <Text variant="overline" asChild>
-              <h3 className="mb-1">Keyboard Shortcuts</h3>
+              <h3 className="mb-3">{t("settings.language")}</h3>
+            </Text>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className={triggerClassName}>
+                  <span>{activeLocale.label}</span>
+                  <ChevronDown className="size-3 text-zinc-400 dark:text-zinc-500" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[160px]">
+                {LOCALE_OPTIONS.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onSelect={() => setLocale(option.value as Locale)}
+                    className="flex items-center gap-2"
+                  >
+                    <span className="flex-1">{option.label}</span>
+                    {locale === option.value && (
+                      <Check className="size-3.5 text-zinc-500 dark:text-zinc-400" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div>
+            <Text variant="overline" asChild>
+              <h3 className="mb-3">{t("settings.editor")}</h3>
+            </Text>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className={triggerClassName}>
+                  <ExternalLink className="size-3 text-zinc-400 dark:text-zinc-500" />
+                  <span>{activeEditor.label}</span>
+                  <ChevronDown className="size-3 text-zinc-400 dark:text-zinc-500" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[160px]">
+                {editorOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onSelect={() =>
+                      setEditorScheme(option.value as EditorScheme)
+                    }
+                    className="flex items-center gap-2"
+                  >
+                    <span className="flex-1">{option.label}</span>
+                    {editorScheme === option.value && (
+                      <Check className="size-3.5 text-zinc-500 dark:text-zinc-400" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div>
+            <Text variant="overline" asChild>
+              <h3 className="mb-1">{t("settings.keyboardShortcuts")}</h3>
             </Text>
             <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-3">
-              Click a key to rebind
+              {t("settings.clickToRebind")}
             </p>
             <ShortcutList
               shortcuts={shortcuts}

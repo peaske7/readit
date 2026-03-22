@@ -12,6 +12,7 @@ import {
 import { useState } from "react";
 import { useCommentContext } from "../contexts/CommentContext";
 import { useLayoutContext } from "../contexts/LayoutContext";
+import { useLocale } from "../contexts/LocaleContext";
 import { RawModal } from "./RawModal";
 import { SettingsModal } from "./SettingsModal";
 import { Button } from "./ui/Button";
@@ -38,6 +39,7 @@ export function ActionsMenu({
 }: ActionsMenuProps) {
   const { commentCount } = useCommentContext();
   const { isFullscreen, toggleLayoutMode } = useLayoutContext();
+  const { t } = useLocale();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [rawModalOpen, setRawModalOpen] = useState(false);
@@ -51,7 +53,7 @@ export function ActionsMenu({
             variant="ghost"
             size="icon"
             className="size-7"
-            aria-label="Actions menu"
+            aria-label={t("actions.ariaLabel")}
           >
             <MoreHorizontal className="w-4 h-4" />
           </Button>
@@ -59,40 +61,40 @@ export function ActionsMenu({
         <DropdownMenuContent align="end" className="min-w-[160px]">
           <DropdownMenuItem onSelect={() => toggleLayoutMode()}>
             {isFullscreen ? <Minimize2 /> : <Maximize2 />}
-            {isFullscreen ? "Centered" : "Fullscreen"}
+            {isFullscreen ? t("actions.centered") : t("actions.fullscreen")}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
             <Settings />
-            Settings
+            {t("actions.settings")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => onReload()}>
             <RefreshCw />
-            Reload
+            {t("actions.reload")}
           </DropdownMenuItem>
           {commentCount > 0 && (
             <>
               <DropdownMenuItem
                 onSelect={() => onCopyAll()}
-                title="Copy in prompt format for AI assistants"
+                title={t("actions.copyAllAITitle")}
               >
                 <BotMessageSquare />
-                Copy All (AI)
+                {t("actions.copyAllAI")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => onCopyAllRaw()}
-                title="Copy as plain text"
+                title={t("actions.copyAllRawTitle")}
               >
                 <TextQuote />
-                Copy All (Raw)
+                {t("actions.copyAllRaw")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => onExportJson()}>
                 <FileDown />
-                Export JSON
+                {t("actions.exportJson")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setRawModalOpen(true)}>
                 <FileText />
-                View Raw
+                {t("actions.viewRaw")}
               </DropdownMenuItem>
             </>
           )}

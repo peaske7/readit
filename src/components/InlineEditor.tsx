@@ -1,5 +1,6 @@
 import { use, useEffect, useRef, useState } from "react";
 import { LayoutContext } from "../contexts/LayoutContext";
+import { useLocale } from "../contexts/LocaleContext";
 import { cn } from "../lib/utils";
 import { FontFamilies } from "../types";
 import { Button } from "./ui/Button";
@@ -20,6 +21,7 @@ export function InlineEditor({
   className,
 }: InlineEditorProps) {
   const layout = use(LayoutContext);
+  const { t } = useLocale();
   const fontClass = layout
     ? layout.fontFamily === FontFamilies.SANS_SERIF
       ? "font-sans"
@@ -61,10 +63,10 @@ export function InlineEditor({
       />
       <div className="flex gap-3 text-sm">
         <Button variant="link" size="sm" onClick={handleSave}>
-          Save
+          {t("editor.save")}
         </Button>
         <Button variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
+          {t("editor.cancel")}
         </Button>
       </div>
     </div>

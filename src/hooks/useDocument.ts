@@ -10,6 +10,12 @@ interface UseDocumentResult {
   reload: () => Promise<void>;
 }
 
+interface DocListItem {
+  path: string;
+  fileName: string;
+  type: Document["type"];
+}
+
 /**
  * Manage multi-document loading, lazy content fetching, and live reloading.
  *
@@ -39,15 +45,21 @@ export function useDocument(): UseDocumentResult {
         const data = await res.json();
 
         const clean = data.clean || false;
-        for (const file of data.files) {
-          appStore.getState().openDocument({
-            content: "", // Content loaded lazily on tab activation
-            type: file.type,
-            filePath: file.path,
-            fileName: file.fileName,
-            clean,
-          });
+        if (data.workingDirectory) {
+          appStore.getState().setWorkingDirectory(data.workingDirectory);
         }
+        data.files.forEach((file: DocListItem, index: number) => {
+          appStore.getState().openDocument(
+            {
+              content: "", // Content loaded lazily on tab activation
+              type: file.type,
+              filePath: file.path,
+              fileName: file.fileName,
+              clean,
+            },
+            { active: index === 0 },
+          );
+        });
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load documents",
@@ -84,23 +96,26 @@ export function useDocument(): UseDocumentResult {
     loadContent();
   }, [activeDocumentPath]);
 
-  // SSE: listen for file updates, reload content for already-loaded documents
+  // SSE: register new documents without stealing focus; reload loaded docs on updates
   useEffect(() => {
     const eventSource = new EventSource("/api/document/stream");
     eventSource.onmessage = async (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (data.type === "file-added" && data.path) {
-          appStore.getState().openDocument({
-            content: "", // Lazy-loaded when tab activated
-            type: data.fileType,
-            filePath: data.path,
-            fileName: data.fileName,
-            clean: false,
-          });
+        if (data.type === "document-added" && data.path) {
+          appStore.getState().openDocument(
+            {
+              content: "", // Lazy-loaded when tab activated
+              type: data.fileType,
+              filePath: data.path,
+              fileName: data.fileName,
+              clean: false,
+            },
+            { active: false },
+          );
           return;
         }
-        if (data.type === "update" && data.path) {
+        if (data.type === "document-updated" && data.path) {
           // Only reload if content was previously loaded
           const state = appStore.getState().documents.get(data.path);
           if (!state || !state.document.content) return;

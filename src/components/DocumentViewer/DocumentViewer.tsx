@@ -16,6 +16,7 @@ import {
   type Highlighter,
 } from "../../lib/highlight";
 import { cn, getTextContent } from "../../lib/utils";
+import { useAppStore } from "../../store";
 import {
   AnchorConfidences,
   type Comment,
@@ -23,8 +24,8 @@ import {
   FontFamilies,
   type SelectionRange,
 } from "../../types";
-import { CodeBlock } from "./CodeBlock";
 import { IframeContainer } from "./IframeContainer";
+import { createCodeComponent } from "./InlineCode";
 
 function createHeadingComponent(
   level: 1 | 2 | 3 | 4 | 5 | 6,
@@ -101,7 +102,8 @@ export function DocumentViewer({
   onHighlightHover,
   onHighlightClick,
 }: DocumentViewerProps) {
-  const { isFullscreen, fontFamily } = useLayoutContext();
+  const { isFullscreen, fontFamily, editorScheme } = useLayoutContext();
+  const workingDirectory = useAppStore((s) => s.workingDirectory);
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<Highlighter | null>(null);
@@ -208,16 +210,15 @@ export function DocumentViewer({
       h4: createHeadingComponent(4, headings, headingIndexRef),
       h5: createHeadingComponent(5, headings, headingIndexRef),
       h6: createHeadingComponent(6, headings, headingIndexRef),
-      code: CodeBlock,
+      code: createCodeComponent(editorScheme, workingDirectory),
     }),
-    [headings],
+    [headings, editorScheme, workingDirectory],
   );
 
   if (type === "html") {
     return (
       <main className="flex-1 min-w-0 flex flex-col">
         <IframeContainer
-          key={content}
           html={content}
           comments={comments}
           pendingSelection={pendingSelection}
@@ -244,7 +245,6 @@ export function DocumentViewer({
         )}
       >
         <Markdown
-          key={content}
           components={markdownComponents}
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeRaw]}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useCommentContext } from "../../contexts/CommentContext";
+import { useLocale } from "../../contexts/LocaleContext";
 import { cn } from "../../lib/utils";
 import {
   DropdownMenu,
@@ -9,6 +10,7 @@ import {
 import { CommentManager } from "./CommentManager";
 
 export function CommentBadge() {
+  const { t } = useLocale();
   const { commentCount } = useCommentContext();
 
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -26,7 +28,11 @@ export function CommentBadge() {
               ? "text-zinc-600"
               : "text-zinc-400 hover:text-zinc-600",
           )}
-          title={`${commentCount} comment${commentCount !== 1 ? "s" : ""}`}
+          title={
+            commentCount === 1
+              ? t("commentBadge.title", { count: commentCount })
+              : t("commentBadge.titlePlural", { count: commentCount })
+          }
         >
           <span className="text-zinc-300">·</span>
           {commentCount}

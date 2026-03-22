@@ -19,6 +19,8 @@ import {
   type Comment,
   type DocumentSettings,
   type DocumentType,
+  type EditorScheme,
+  EditorSchemes,
   FontFamilies,
   type FontFamily,
 } from "../types/index.js";
@@ -30,7 +32,7 @@ function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
 }
 
 export interface FileEntry {
-  content: string;
+  content?: string;
   type: DocumentType;
   filePath: string;
 }
@@ -48,17 +50,43 @@ export interface ServerResult {
   server: { stop(): void };
 }
 
+interface ResolvedCommentsCacheEntry {
+  commentMtimeMs: number;
+  sourceHash: string;
+  comments: Comment[];
+}
+
+const resolvedCommentsCache = new Map<string, ResolvedCommentsCacheEntry>();
+
+function invalidateResolvedComments(filePath: string): void {
+  resolvedCommentsCache.delete(filePath);
+}
+
+async function canonicalPath(filePath: string): Promise<string> {
+  return fs.realpath(path.resolve(filePath));
+}
+
 async function readCommentsFromFile(
   filePath: string,
   sourceContent: string,
 ): Promise<Comment[]> {
   const commentPath = getCommentPath(filePath);
+  const sourceHash = computeHash(sourceContent);
 
   try {
+    const stats = await fs.stat(commentPath);
+    const cached = resolvedCommentsCache.get(filePath);
+    if (
+      cached &&
+      cached.sourceHash === sourceHash &&
+      cached.commentMtimeMs === stats.mtimeMs
+    ) {
+      return cached.comments;
+    }
+
     const content = await fs.readFile(commentPath, "utf-8");
     const file = parseCommentFile(content);
-
-    return file.comments.map((comment) => {
+    const resolvedComments = file.comments.map((comment) => {
       const textForMatching = comment.anchorPrefix || comment.selectedText;
       const anchor = findAnchorWithFallback({
         source: sourceContent,
@@ -81,8 +109,17 @@ async function readCommentsFromFile(
         anchorConfidence: AnchorConfidences.UNRESOLVED,
       };
     });
+
+    resolvedCommentsCache.set(filePath, {
+      sourceHash,
+      commentMtimeMs: stats.mtimeMs,
+      comments: resolvedComments,
+    });
+
+    return resolvedComments;
   } catch (err) {
     if (isErrnoException(err) && err.code === "ENOENT") {
+      invalidateResolvedComments(filePath);
       return [];
     }
     throw err;
@@ -110,6 +147,7 @@ async function writeCommentsToFile(
   const tempPath = `${commentPath}.tmp`;
   await fs.writeFile(tempPath, content, "utf-8");
   await fs.rename(tempPath, commentPath);
+  invalidateResolvedComments(filePath);
 }
 
 async function deleteCommentFile(filePath: string): Promise<void> {
@@ -121,6 +159,7 @@ async function deleteCommentFile(filePath: string): Promise<void> {
       throw err;
     }
   }
+  invalidateResolvedComments(filePath);
 }
 
 const SETTINGS_PATH = path.join(os.homedir(), ".readit", "settings.json");
@@ -153,6 +192,10 @@ async function writeSettings(settings: DocumentSettings): Promise<void> {
 
 function isValidFontFamily(value: unknown): value is FontFamily {
   return value === FontFamilies.SERIF || value === FontFamilies.SANS_SERIF;
+}
+
+function isValidEditorScheme(value: unknown): value is EditorScheme {
+  return Object.values(EditorSchemes).includes(value as EditorScheme);
 }
 
 // ─── PID file helpers ───────────────────────────────────────────────
@@ -196,17 +239,15 @@ function errorResponse(message: string, status: number): Response {
 
 interface RouteContext {
   filePath: string;
-  getCurrentContent: () => string;
+  getCurrentContent: () => Promise<string>;
 }
 
 // ─── Route handlers ─────────────────────────────────────────────────
 
 async function getComments(ctx: RouteContext): Promise<Response> {
   try {
-    const comments = await readCommentsFromFile(
-      ctx.filePath,
-      ctx.getCurrentContent(),
-    );
+    const currentContent = await ctx.getCurrentContent();
+    const comments = await readCommentsFromFile(ctx.filePath, currentContent);
     return json({ comments });
   } catch (err) {
     console.error("Failed to read comments:", err);
@@ -232,7 +273,7 @@ async function addComment(ctx: RouteContext, req: Request): Promise<Response> {
       return errorResponse("Missing required fields", 400);
     }
 
-    const currentContent = ctx.getCurrentContent();
+    const currentContent = await ctx.getCurrentContent();
     const newComment = createComment(
       selectedText,
       commentText,
@@ -268,7 +309,7 @@ async function updateComment(
       return errorResponse("Missing comment text", 400);
     }
 
-    const currentContent = ctx.getCurrentContent();
+    const currentContent = await ctx.getCurrentContent();
     const existingComments = await readCommentsFromFile(
       ctx.filePath,
       currentContent,
@@ -294,7 +335,7 @@ async function updateComment(
 
 async function deleteComment(ctx: RouteContext, id: string): Promise<Response> {
   try {
-    const currentContent = ctx.getCurrentContent();
+    const currentContent = await ctx.getCurrentContent();
     const existingComments = await readCommentsFromFile(
       ctx.filePath,
       currentContent,
@@ -354,7 +395,7 @@ async function reanchorComment(
       return errorResponse("Missing required fields", 400);
     }
 
-    const currentContent = ctx.getCurrentContent();
+    const currentContent = await ctx.getCurrentContent();
     const existingComments = await readCommentsFromFile(
       ctx.filePath,
       currentContent,
@@ -405,16 +446,21 @@ async function getSettingsRoute(): Promise<Response> {
 async function updateSettingsRoute(req: Request): Promise<Response> {
   try {
     const body = await req.json();
-    const { fontFamily, keybindings } = body;
+    const { fontFamily, editorScheme, keybindings } = body;
 
     if (fontFamily !== undefined && !isValidFontFamily(fontFamily)) {
       return errorResponse("Invalid font family", 400);
+    }
+
+    if (editorScheme !== undefined && !isValidEditorScheme(editorScheme)) {
+      return errorResponse("Invalid editor scheme", 400);
     }
 
     const current = await readSettings();
     const settings: DocumentSettings = {
       ...current,
       ...(fontFamily !== undefined && { fontFamily }),
+      ...(editorScheme !== undefined && { editorScheme }),
       ...(keybindings !== undefined && { keybindings }),
     };
 
@@ -431,13 +477,26 @@ async function updateSettingsRoute(req: Request): Promise<Response> {
 function createDocumentStream(
   sseClients: Set<ReadableStreamDefaultController>,
 ): Response {
+  let pingInterval: ReturnType<typeof setInterval>;
+  let captured: ReadableStreamDefaultController;
+
   const stream = new ReadableStream({
     start(controller) {
+      captured = controller;
       controller.enqueue("data: connected\n\n");
       sseClients.add(controller);
+      pingInterval = setInterval(() => {
+        try {
+          controller.enqueue("data: ping\n\n");
+        } catch {
+          clearInterval(pingInterval);
+          sseClients.delete(controller);
+        }
+      }, 5000);
     },
-    cancel(controller) {
-      sseClients.delete(controller);
+    cancel() {
+      clearInterval(pingInterval);
+      sseClients.delete(captured);
     },
   });
 
@@ -515,7 +574,8 @@ function extractCommentId(pathname: string): string | undefined {
 // ─── Multi-file state ───────────────────────────────────────────────
 
 interface FileState {
-  content: string;
+  content: string | null;
+  isLoaded: boolean;
   type: DocumentType;
   debounceTimer: ReturnType<typeof setTimeout> | null;
 }
@@ -535,7 +595,8 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 
   for (const entry of options.files) {
     fileMap.set(entry.filePath, {
-      content: entry.content,
+      content: entry.content ?? null,
+      isLoaded: entry.content !== undefined,
       type: entry.type,
       debounceTimer: null,
     });
@@ -545,6 +606,33 @@ function createServer(options: ServerOptions): ServerWithWatchers {
   const defaultPath = fileOrder[0];
   const sseClients = new Set<ReadableStreamDefaultController>();
 
+  function sendEvent(event: unknown): void {
+    const message = `data: ${JSON.stringify(event)}\n\n`;
+    for (const controller of sseClients) {
+      try {
+        controller.enqueue(message);
+      } catch {
+        sseClients.delete(controller);
+      }
+    }
+  }
+
+  async function ensureFileContent(filePath: string): Promise<string> {
+    const state = fileMap.get(filePath);
+    if (!state) {
+      throw new Error(`File not found: ${filePath}`);
+    }
+
+    if (state.isLoaded && state.content !== null) {
+      return state.content;
+    }
+
+    const content = await fs.readFile(filePath, "utf-8");
+    state.content = content;
+    state.isLoaded = true;
+    return content;
+  }
+
   // Resolve the target file from ?path= query param, falling back to first file
   function resolveContext(url: URL): RouteContext | null {
     const requestedPath = url.searchParams.get("path") ?? defaultPath;
@@ -552,7 +640,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     if (!state) return null;
     return {
       filePath: requestedPath,
-      getCurrentContent: () => state.content,
+      getCurrentContent: () => ensureFileContent(requestedPath),
     };
   }
 
@@ -579,18 +667,12 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         state.debounceTimer = setTimeout(async () => {
           try {
             const newContent = await fs.readFile(targetPath, "utf-8");
-            if (newContent !== state.content) {
+            if (!state.isLoaded || newContent !== state.content) {
               state.content = newContent;
+              state.isLoaded = true;
+              invalidateResolvedComments(targetPath);
               console.log(`File changed: ${basename(targetPath)}`);
-
-              const message = `data: ${JSON.stringify({ type: "update", path: targetPath })}\n\n`;
-              for (const controller of sseClients) {
-                try {
-                  controller.enqueue(message);
-                } catch {
-                  sseClients.delete(controller);
-                }
-              }
+              sendEvent({ type: "document-updated", path: targetPath });
             }
           } catch (err) {
             console.error(`Failed to read updated file ${targetPath}:`, err);
@@ -607,6 +689,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
   const server = Bun.serve({
     port: options.port,
     hostname: options.host,
+    idleTimeout: 255, // max value (seconds) — SSE streams stay open long
 
     async fetch(req) {
       const url = new URL(req.url);
@@ -625,11 +708,15 @@ function createServer(options: ServerOptions): ServerWithWatchers {
             type: state.type,
           };
         });
-        return json({ files, clean: options.clean || false });
+        return json({
+          files,
+          clean: options.clean || false,
+          workingDirectory: process.cwd(),
+        });
       }
 
-      // Hot-add or refresh a file
-      if (pathname === "/api/files" && method === "POST") {
+      // Register a document for this session without forcing focus
+      if (pathname === "/api/documents" && method === "POST") {
         try {
           const { path: requestedPath } = await req.json();
 
@@ -637,7 +724,15 @@ function createServer(options: ServerOptions): ServerWithWatchers {
             return errorResponse("Missing 'path' field", 400);
           }
 
-          const filePath = path.resolve(requestedPath);
+          let filePath: string;
+          try {
+            filePath = await canonicalPath(requestedPath);
+          } catch (err) {
+            if (isErrnoException(err) && err.code === "ENOENT") {
+              return errorResponse(`File not found: ${requestedPath}`, 404);
+            }
+            throw err;
+          }
           const fileType = getFileType(filePath);
 
           if (!fileType) {
@@ -647,65 +742,45 @@ function createServer(options: ServerOptions): ServerWithWatchers {
             );
           }
 
-          let content: string;
-          try {
-            content = await fs.readFile(filePath, "utf-8");
-          } catch (err) {
-            if (isErrnoException(err) && err.code === "ENOENT") {
-              return errorResponse(`File not found: ${filePath}`, 404);
-            }
-            throw err;
-          }
-
           const existingState = fileMap.get(filePath);
 
           if (existingState) {
-            // File already loaded — refresh content
-            existingState.content = content;
-            const message = `data: ${JSON.stringify({ type: "update", path: filePath })}\n\n`;
-            for (const controller of sseClients) {
-              try {
-                controller.enqueue(message);
-              } catch {
-                sseClients.delete(controller);
-              }
-            }
+            return json({
+              path: filePath,
+              fileName: basename(filePath),
+              type: fileType,
+              status: "present",
+            });
           } else {
-            // New file — add to server
+            // New document — register metadata only, load content on demand
             fileMap.set(filePath, {
-              content,
+              content: null,
+              isLoaded: false,
               type: fileType,
               debounceTimer: null,
             });
             fileOrder.push(filePath);
 
-            // Set up file watcher for the new file
             const watcher = watchFile(filePath);
             if (watcher) watchers.push(watcher);
 
-            const message = `data: ${JSON.stringify({
-              type: "file-added",
+            sendEvent({
+              type: "document-added",
               path: filePath,
               fileName: basename(filePath),
               fileType,
-            })}\n\n`;
-            for (const controller of sseClients) {
-              try {
-                controller.enqueue(message);
-              } catch {
-                sseClients.delete(controller);
-              }
-            }
+            });
           }
 
           return json({
             path: filePath,
             fileName: basename(filePath),
             type: fileType,
+            status: "added",
           });
         } catch (err) {
-          console.error("Failed to add file:", err);
-          return errorResponse("Failed to add file", 500);
+          console.error("Failed to add document:", err);
+          return errorResponse("Failed to add document", 500);
         }
       }
 
@@ -714,8 +789,9 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         const ctxOrRes = requireContext(url);
         if (ctxOrRes instanceof Response) return ctxOrRes;
         const state = fileMap.get(ctxOrRes.filePath)!;
+        const content = await ctxOrRes.getCurrentContent();
         return json({
-          content: state.content,
+          content,
           type: state.type,
           filePath: ctxOrRes.filePath,
           fileName: basename(ctxOrRes.filePath),
@@ -788,15 +864,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 
       // ── Static / SPA serving ────────────────────────────────
 
-      if (isDev && pathname === "/") {
-        return Response.redirect("http://localhost:5173", 302);
-      }
-
-      if (!isDev) {
-        return serveStaticFile(distPath, pathname);
-      }
-
-      return new Response("Not Found", { status: 404 });
+      return serveStaticFile(distPath, pathname);
     },
   });
 

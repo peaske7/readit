@@ -1,47 +1,5 @@
-import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
-// Import only the languages we need (reduces bundle by ~800KB)
-import bash from "react-syntax-highlighter/dist/esm/languages/prism/bash";
-import css from "react-syntax-highlighter/dist/esm/languages/prism/css";
-import diff from "react-syntax-highlighter/dist/esm/languages/prism/diff";
-import go from "react-syntax-highlighter/dist/esm/languages/prism/go";
-import graphql from "react-syntax-highlighter/dist/esm/languages/prism/graphql";
-import javascript from "react-syntax-highlighter/dist/esm/languages/prism/javascript";
-import json from "react-syntax-highlighter/dist/esm/languages/prism/json";
-import jsx from "react-syntax-highlighter/dist/esm/languages/prism/jsx";
-import markdown from "react-syntax-highlighter/dist/esm/languages/prism/markdown";
-import python from "react-syntax-highlighter/dist/esm/languages/prism/python";
-import rust from "react-syntax-highlighter/dist/esm/languages/prism/rust";
-import sql from "react-syntax-highlighter/dist/esm/languages/prism/sql";
-import tsx from "react-syntax-highlighter/dist/esm/languages/prism/tsx";
-import typescript from "react-syntax-highlighter/dist/esm/languages/prism/typescript";
-import yaml from "react-syntax-highlighter/dist/esm/languages/prism/yaml";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { useEffect, useState } from "react";
 import { MermaidDiagram } from "./MermaidDiagram";
-
-// Register languages
-SyntaxHighlighter.registerLanguage("bash", bash);
-SyntaxHighlighter.registerLanguage("sh", bash);
-SyntaxHighlighter.registerLanguage("shell", bash);
-SyntaxHighlighter.registerLanguage("css", css);
-SyntaxHighlighter.registerLanguage("diff", diff);
-SyntaxHighlighter.registerLanguage("go", go);
-SyntaxHighlighter.registerLanguage("graphql", graphql);
-SyntaxHighlighter.registerLanguage("javascript", javascript);
-SyntaxHighlighter.registerLanguage("js", javascript);
-SyntaxHighlighter.registerLanguage("json", json);
-SyntaxHighlighter.registerLanguage("jsx", jsx);
-SyntaxHighlighter.registerLanguage("markdown", markdown);
-SyntaxHighlighter.registerLanguage("md", markdown);
-SyntaxHighlighter.registerLanguage("python", python);
-SyntaxHighlighter.registerLanguage("py", python);
-SyntaxHighlighter.registerLanguage("rust", rust);
-SyntaxHighlighter.registerLanguage("rs", rust);
-SyntaxHighlighter.registerLanguage("sql", sql);
-SyntaxHighlighter.registerLanguage("tsx", tsx);
-SyntaxHighlighter.registerLanguage("typescript", typescript);
-SyntaxHighlighter.registerLanguage("ts", typescript);
-SyntaxHighlighter.registerLanguage("yaml", yaml);
-SyntaxHighlighter.registerLanguage("yml", yaml);
 
 const CODE_BLOCK_STYLE = {
   margin: "1.5em 0",
@@ -49,26 +7,129 @@ const CODE_BLOCK_STYLE = {
   fontSize: "0.875em",
 };
 
+interface SyntaxHighlighterModule {
+  SyntaxHighlighter: typeof import("react-syntax-highlighter").PrismLight;
+  oneDark: typeof import("react-syntax-highlighter/dist/esm/styles/prism").oneDark;
+}
+
 interface CodeBlockProps {
   className?: string;
   children?: React.ReactNode;
 }
 
-export function CodeBlock({ className, children }: CodeBlockProps) {
-  // Extract language from className (e.g., "language-typescript" -> "typescript")
-  const langMatch = className?.match(/language-(\w+)/);
-  const language = langMatch?.[1] ?? "";
-  const codeString = String(children).replace(/\n$/, "");
+let syntaxHighlighterPromise: Promise<SyntaxHighlighterModule> | null = null;
 
-  // Mermaid diagrams
-  if (language === "mermaid") {
-    return <MermaidDiagram code={codeString} />;
+async function loadSyntaxHighlighter(): Promise<SyntaxHighlighterModule> {
+  if (syntaxHighlighterPromise) {
+    return syntaxHighlighterPromise;
   }
 
-  // Inline code (no language specified and no newlines)
-  if (!langMatch && !String(children).includes("\n")) {
-    return <code className={className}>{children}</code>;
+  syntaxHighlighterPromise = Promise.all([
+    import("react-syntax-highlighter"),
+    import("react-syntax-highlighter/dist/esm/styles/prism"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/bash"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/css"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/diff"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/go"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/graphql"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/javascript"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/json"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/jsx"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/markdown"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/python"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/rust"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/sql"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/tsx"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/typescript"),
+    import("react-syntax-highlighter/dist/esm/languages/prism/yaml"),
+  ]).then(
+    ([
+      syntaxModule,
+      styleModule,
+      bash,
+      css,
+      diff,
+      go,
+      graphql,
+      javascript,
+      json,
+      jsx,
+      markdown,
+      python,
+      rust,
+      sql,
+      tsx,
+      typescript,
+      yaml,
+    ]) => {
+      const SyntaxHighlighter = syntaxModule.PrismLight;
+
+      SyntaxHighlighter.registerLanguage("bash", bash.default);
+      SyntaxHighlighter.registerLanguage("sh", bash.default);
+      SyntaxHighlighter.registerLanguage("shell", bash.default);
+      SyntaxHighlighter.registerLanguage("css", css.default);
+      SyntaxHighlighter.registerLanguage("diff", diff.default);
+      SyntaxHighlighter.registerLanguage("go", go.default);
+      SyntaxHighlighter.registerLanguage("graphql", graphql.default);
+      SyntaxHighlighter.registerLanguage("javascript", javascript.default);
+      SyntaxHighlighter.registerLanguage("js", javascript.default);
+      SyntaxHighlighter.registerLanguage("json", json.default);
+      SyntaxHighlighter.registerLanguage("jsx", jsx.default);
+      SyntaxHighlighter.registerLanguage("markdown", markdown.default);
+      SyntaxHighlighter.registerLanguage("md", markdown.default);
+      SyntaxHighlighter.registerLanguage("python", python.default);
+      SyntaxHighlighter.registerLanguage("py", python.default);
+      SyntaxHighlighter.registerLanguage("rust", rust.default);
+      SyntaxHighlighter.registerLanguage("rs", rust.default);
+      SyntaxHighlighter.registerLanguage("sql", sql.default);
+      SyntaxHighlighter.registerLanguage("tsx", tsx.default);
+      SyntaxHighlighter.registerLanguage("typescript", typescript.default);
+      SyntaxHighlighter.registerLanguage("ts", typescript.default);
+      SyntaxHighlighter.registerLanguage("yaml", yaml.default);
+      SyntaxHighlighter.registerLanguage("yml", yaml.default);
+
+      return {
+        SyntaxHighlighter,
+        oneDark: styleModule.oneDark,
+      };
+    },
+  );
+
+  return syntaxHighlighterPromise;
+}
+
+function LazySyntaxCodeBlock({
+  codeString,
+  language,
+}: {
+  codeString: string;
+  language: string;
+}) {
+  const [module, setModule] = useState<SyntaxHighlighterModule | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadSyntaxHighlighter().then((loaded) => {
+      if (!cancelled) {
+        setModule(loaded);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!module) {
+    return (
+      <pre style={CODE_BLOCK_STYLE}>
+        <code>{codeString}</code>
+      </pre>
+    );
   }
+
+  const { SyntaxHighlighter, oneDark } = module;
 
   return (
     <SyntaxHighlighter
@@ -80,4 +141,20 @@ export function CodeBlock({ className, children }: CodeBlockProps) {
       {codeString}
     </SyntaxHighlighter>
   );
+}
+
+export function CodeBlock({ className, children }: CodeBlockProps) {
+  const langMatch = className?.match(/language-(\w+)/);
+  const language = langMatch?.[1] ?? "";
+  const codeString = String(children).replace(/\n$/, "");
+
+  if (language === "mermaid") {
+    return <MermaidDiagram code={codeString} />;
+  }
+
+  if (!langMatch && !String(children).includes("\n")) {
+    return <code className={className}>{children}</code>;
+  }
+
+  return <LazySyntaxCodeBlock codeString={codeString} language={language} />;
 }

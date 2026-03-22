@@ -147,6 +147,21 @@ export function collectTextNodes(root: Node): TextNodeInfo[] {
 export interface ExtendedHighlightStyle extends HighlightStyle {
   colorIndex?: number;
   isBracketMode?: boolean;
+  isBracketStart?: boolean;
+  isBracketEnd?: boolean;
+}
+
+interface BatchedHighlightSegment {
+  startOffset: number;
+  endOffset: number;
+  style: ExtendedHighlightStyle;
+}
+
+interface NodeSegment {
+  start: number;
+  end: number;
+  style: ExtendedHighlightStyle;
+  order: number;
 }
 
 /**
@@ -217,78 +232,135 @@ export function applyHighlightToRange(
   }
 }
 
-/**
- * Apply highlight with extended styling (color index, bracket mode) for saved comments.
- */
-export function applyHighlightWithStyle(
-  root: HTMLElement,
-  textContent: string,
-  startOffset: number,
-  endOffset: number,
+function createStyledMark(
+  text: string,
   style: ExtendedHighlightStyle,
-): void {
-  const textNodes = collectTextNodes(root);
-  const overlappingNodes = textNodes.filter(
-    (n) => n.end > startOffset && n.start < endOffset,
-  );
+): HTMLElement {
+  const mark = document.createElement("mark");
+  mark.setAttribute(style.attribute, style.attributeValue);
 
-  if (overlappingNodes.length === 0) {
-    return;
+  if (style.colorIndex !== undefined) {
+    mark.setAttribute("data-color-index", String(style.colorIndex % 4));
   }
 
-  const lineCount = countLinesInRange(textContent, startOffset, endOffset);
-  const useBracketMode =
-    style.isBracketMode ?? lineCount >= BRACKET_MODE_LINE_THRESHOLD;
-
-  let isFirst = true;
-
-  for (let i = 0; i < overlappingNodes.length; i++) {
-    const { node: textNode, start } = overlappingNodes[i];
-    const isLast = i === overlappingNodes.length - 1;
-
-    const nodeStart = Math.max(0, startOffset - start);
-    const nodeEnd = Math.min(textNode.length, endOffset - start);
-
-    if (nodeStart >= nodeEnd) {
-      continue;
+  if (style.isBracketMode) {
+    mark.setAttribute("data-bracket-mode", "true");
+    if (style.isBracketStart) {
+      mark.setAttribute("data-bracket-start", "true");
     }
-
-    const range = document.createRange();
-    range.setStart(textNode, nodeStart);
-    range.setEnd(textNode, nodeEnd);
-
-    const mark = document.createElement("mark");
-    mark.setAttribute(style.attribute, style.attributeValue);
-
-    if (style.colorIndex !== undefined) {
-      mark.setAttribute("data-color-index", String(style.colorIndex % 4));
+    if (style.isBracketEnd) {
+      mark.setAttribute("data-bracket-end", "true");
     }
+  }
 
-    if (useBracketMode) {
-      mark.setAttribute("data-bracket-mode", "true");
-      if (isFirst) {
-        mark.setAttribute("data-bracket-start", "true");
+  mark.textContent = text;
+  return mark;
+}
+
+function normalizeNodeSegments(segments: NodeSegment[]): NodeSegment[] {
+  const sorted = [...segments].sort((a, b) => {
+    if (a.start !== b.start) return a.start - b.start;
+    if (a.end !== b.end) return b.end - a.end;
+    return a.order - b.order;
+  });
+
+  const normalized: NodeSegment[] = [];
+  let coveredUntil = 0;
+
+  for (const segment of sorted) {
+    const start = Math.max(segment.start, coveredUntil);
+    if (start >= segment.end) continue;
+
+    normalized.push({ ...segment, start });
+    coveredUntil = segment.end;
+  }
+
+  return normalized;
+}
+
+export function applyHighlightBatch(
+  root: HTMLElement,
+  textContent: string,
+  highlights: BatchedHighlightSegment[],
+): void {
+  if (highlights.length === 0) return;
+
+  const textNodes = collectTextNodes(root);
+  const segmentsByNode = new Map<Text, NodeSegment[]>();
+
+  for (
+    let highlightIndex = 0;
+    highlightIndex < highlights.length;
+    highlightIndex++
+  ) {
+    const highlight = highlights[highlightIndex];
+    const overlappingNodes = textNodes.filter(
+      (n) => n.end > highlight.startOffset && n.start < highlight.endOffset,
+    );
+
+    if (overlappingNodes.length === 0) continue;
+
+    const lineCount = countLinesInRange(
+      textContent,
+      highlight.startOffset,
+      highlight.endOffset,
+    );
+    const useBracketMode =
+      highlight.style.isBracketMode ?? lineCount >= BRACKET_MODE_LINE_THRESHOLD;
+
+    for (let nodeIndex = 0; nodeIndex < overlappingNodes.length; nodeIndex++) {
+      const { node, start } = overlappingNodes[nodeIndex];
+      const localStart = Math.max(0, highlight.startOffset - start);
+      const localEnd = Math.min(node.length, highlight.endOffset - start);
+
+      if (localStart >= localEnd) continue;
+
+      const nodeSegments = segmentsByNode.get(node) ?? [];
+      nodeSegments.push({
+        start: localStart,
+        end: localEnd,
+        order: highlightIndex,
+        style: {
+          ...highlight.style,
+          isBracketMode: useBracketMode,
+          isBracketStart: useBracketMode && nodeIndex === 0,
+          isBracketEnd:
+            useBracketMode && nodeIndex === overlappingNodes.length - 1,
+        },
+      });
+      segmentsByNode.set(node, nodeSegments);
+    }
+  }
+
+  for (const { node } of textNodes) {
+    const segments = segmentsByNode.get(node);
+    if (!segments || segments.length === 0) continue;
+
+    const normalized = normalizeNodeSegments(segments);
+    if (normalized.length === 0) continue;
+
+    const text = node.textContent ?? "";
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+
+    for (const segment of normalized) {
+      if (cursor < segment.start) {
+        fragment.appendChild(
+          document.createTextNode(text.slice(cursor, segment.start)),
+        );
       }
-      if (isLast) {
-        mark.setAttribute("data-bracket-end", "true");
-      }
+
+      fragment.appendChild(
+        createStyledMark(text.slice(segment.start, segment.end), segment.style),
+      );
+      cursor = segment.end;
     }
 
-    try {
-      range.surroundContents(mark);
-    } catch {
-      // Range crosses element boundaries - use extractContents fallback
-      try {
-        const fragment = range.extractContents();
-        mark.appendChild(fragment);
-        range.insertNode(mark);
-      } catch (err) {
-        // Skip if fallback also fails, but log for debugging
-        console.warn("[highlight] Failed to apply styled highlight:", err);
-      }
+    if (cursor < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(cursor)));
     }
 
-    isFirst = false;
+    node.replaceWith(fragment);
   }
 }
 

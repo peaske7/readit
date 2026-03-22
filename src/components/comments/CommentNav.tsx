@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useCommentContext } from "../../contexts/CommentContext";
+import { useLocale } from "../../contexts/LocaleContext";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/Button";
 import { Text } from "../ui/Text";
@@ -8,6 +9,7 @@ import { Text } from "../ui/Text";
 const ANIMATION_DURATION_MS = 200;
 
 export function CommentNav() {
+  const { t } = useLocale();
   const { currentIndex, sortedComments, navigatePrevious, navigateNext } =
     useCommentContext();
   const totalComments = sortedComments.length;
@@ -67,7 +69,7 @@ export function CommentNav() {
               "scale-90 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300",
           )}
           onClick={handlePrevious}
-          title="Previous comment (Alt+↑)"
+          title={t("commentNav.previous")}
         >
           <ChevronLeft className="w-4 h-4" />
         </Button>
@@ -81,7 +83,10 @@ export function CommentNav() {
               animating === "next" && "translate-x-0.5",
             )}
           >
-            {currentIndex + 1} of {totalComments}
+            {t("commentNav.of", {
+              current: currentIndex + 1,
+              total: totalComments,
+            })}
           </span>
         </Text>
 
@@ -94,7 +99,7 @@ export function CommentNav() {
               "scale-90 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300",
           )}
           onClick={handleNext}
-          title="Next comment (Alt+↓)"
+          title={t("commentNav.next")}
         >
           <ChevronRight className="w-4 h-4" />
         </Button>

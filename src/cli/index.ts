@@ -5,6 +5,7 @@ import {
   lstatSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   statSync,
 } from "node:fs";
 import * as fs from "node:fs/promises";
@@ -116,7 +117,6 @@ function findReviewableFiles(dir: string): FileEntry[] {
           const type = getFileType(entry);
           if (type) {
             results.push({
-              content: readFileSync(fullPath, "utf-8"),
               type,
               filePath: fullPath,
             });
@@ -145,12 +145,14 @@ function resolveFiles(args: string[]): FileEntry[] {
   const files: FileEntry[] = [];
 
   for (const arg of args) {
-    const filePath = resolve(process.cwd(), arg);
+    const inputPath = resolve(process.cwd(), arg);
 
-    if (!existsSync(filePath)) {
-      console.error(`error: not found: ${filePath}`);
+    if (!existsSync(inputPath)) {
+      console.error(`error: not found: ${inputPath}`);
       process.exit(1);
     }
+
+    const filePath = realpathSync(inputPath);
 
     const stat = statSync(filePath);
 
@@ -175,7 +177,6 @@ function resolveFiles(args: string[]): FileEntry[] {
 
       seen.add(filePath);
       files.push({
-        content: readFileSync(filePath, "utf-8"),
         type,
         filePath,
       });
@@ -504,12 +505,14 @@ program
       // Resolve and validate files
       const resolvedFiles: { path: string; type: DocumentType }[] = [];
       for (const arg of fileArgs) {
-        const filePath = resolve(process.cwd(), arg);
+        const inputPath = resolve(process.cwd(), arg);
 
-        if (!existsSync(filePath)) {
-          console.error(`error: not found: ${filePath}`);
+        if (!existsSync(inputPath)) {
+          console.error(`error: not found: ${inputPath}`);
           process.exit(1);
         }
+
+        const filePath = realpathSync(inputPath);
 
         const type = getFileType(filePath);
         if (!type) {
@@ -530,7 +533,7 @@ program
         for (const file of resolvedFiles) {
           try {
             const res = await fetch(
-              `http://127.0.0.1:${server.port}/api/files`,
+              `http://127.0.0.1:${server.port}/api/documents`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -545,7 +548,11 @@ program
             }
 
             const data = await res.json();
-            console.log(`Added: ${data.fileName} (${data.type})`);
+            if (data.status === "added") {
+              console.log(`Added: ${data.fileName} (${data.type})`);
+            } else {
+              console.log(`Present: ${data.fileName} (${data.type})`);
+            }
           } catch (err) {
             console.error(
               "error: failed to connect to server:",
@@ -563,7 +570,6 @@ program
       console.log("No running server found, starting new one...\n");
 
       const files = resolvedFiles.map((f) => ({
-        content: readFileSync(f.path, "utf-8"),
         type: f.type,
         filePath: f.path,
       }));

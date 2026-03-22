@@ -1,16 +1,24 @@
 import { createContext, type ReactNode, use, useMemo } from "react";
+import { useEditorScheme } from "../hooks/useEditorScheme";
 import { useFontPreference } from "../hooks/useFontPreference";
 import { useKeybindings } from "../hooks/useKeybindings";
 import { useLayoutMode } from "../hooks/useLayoutMode";
 import { useThemePreference } from "../hooks/useThemePreference";
 import type { ShortcutDefinition } from "../lib/shortcut-registry";
-import type { FontFamily, ShortcutBinding, ThemeMode } from "../types";
+import type {
+  EditorScheme,
+  FontFamily,
+  ShortcutBinding,
+  ThemeMode,
+} from "../types";
 
 interface LayoutContextValue {
   isFullscreen: boolean;
   toggleLayoutMode: () => void;
   fontFamily: FontFamily;
   setFontFamily: (font: FontFamily) => Promise<void>;
+  editorScheme: EditorScheme;
+  setEditorScheme: (scheme: EditorScheme) => Promise<void>;
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
   shortcuts: ShortcutDefinition[];
@@ -36,6 +44,7 @@ interface LayoutProviderProps {
 export function LayoutProvider({ children }: LayoutProviderProps) {
   const { isFullscreen, toggleLayoutMode } = useLayoutMode();
   const { fontFamily, setFontFamily } = useFontPreference();
+  const { editorScheme, setEditorScheme } = useEditorScheme();
   const { themeMode, setThemeMode } = useThemePreference();
   const {
     shortcuts,
@@ -50,6 +59,8 @@ export function LayoutProvider({ children }: LayoutProviderProps) {
       toggleLayoutMode,
       fontFamily,
       setFontFamily,
+      editorScheme,
+      setEditorScheme,
       themeMode,
       setThemeMode,
       shortcuts,
@@ -62,6 +73,8 @@ export function LayoutProvider({ children }: LayoutProviderProps) {
       toggleLayoutMode,
       fontFamily,
       setFontFamily,
+      editorScheme,
+      setEditorScheme,
       themeMode,
       setThemeMode,
       shortcuts,

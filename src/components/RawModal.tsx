@@ -1,6 +1,7 @@
 import { Copy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useLocale } from "../contexts/LocaleContext";
 import { useAppStore } from "../store";
 import { Button } from "./ui/Button";
 import {
@@ -26,6 +27,7 @@ type ModalState =
   | { status: "success"; content: string; path: string };
 
 export function RawModal({ isOpen, onClose }: RawModalProps) {
+  const { t } = useLocale();
   const [state, setState] = useState<ModalState>({ status: "idle" });
   const activeDocumentPath = useAppStore((s) => s.activeDocumentPath);
 
@@ -73,11 +75,11 @@ export function RawModal({ isOpen, onClose }: RawModalProps) {
 
     try {
       await navigator.clipboard.writeText(state.content);
-      toast.success("Copied to clipboard");
+      toast.success(t("rawModal.copiedToClipboard"));
     } catch {
-      toast.error("Failed to copy");
+      toast.error(t("rawModal.failedToCopy"));
     }
-  }, [state]);
+  }, [state, t]);
 
   return (
     <Dialog
@@ -88,14 +90,14 @@ export function RawModal({ isOpen, onClose }: RawModalProps) {
     >
       <DialogContent className="max-w-2xl max-h-[80vh]">
         <DialogHeader>
-          <DialogTitle>Raw Comments</DialogTitle>
+          <DialogTitle>{t("rawModal.title")}</DialogTitle>
           {state.status === "success" && (
             <Button
               variant="ghost"
               size="icon"
               className="size-7"
               onClick={handleCopy}
-              title="Copy to clipboard"
+              title={t("rawModal.copyTitle")}
             >
               <Copy className="w-4 h-4" />
             </Button>
@@ -111,7 +113,7 @@ export function RawModal({ isOpen, onClose }: RawModalProps) {
         <DialogBody>
           {state.status === "loading" && (
             <Text variant="caption" className="text-center py-8">
-              Loading...
+              {t("rawModal.loading")}
             </Text>
           )}
 
@@ -123,7 +125,7 @@ export function RawModal({ isOpen, onClose }: RawModalProps) {
 
           {state.status === "empty" && (
             <Text variant="caption" className="text-center py-8">
-              No comments file yet. Add comments to create one.
+              {t("rawModal.noComments")}
             </Text>
           )}
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react";
+import { useLocale } from "../contexts/LocaleContext";
 import {
   eventToBinding,
   isReservedBinding,
@@ -11,6 +12,8 @@ interface ShortcutCaptureProps {
 }
 
 export function ShortcutCapture({ onCapture, onCancel }: ShortcutCaptureProps) {
+  const { t } = useLocale();
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       e.preventDefault();
@@ -39,7 +42,7 @@ export function ShortcutCapture({ onCapture, onCancel }: ShortcutCaptureProps) {
 
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium animate-pulse">
-      Press keys...
+      {t("shortcutCapture.pressKeys")}
     </span>
   );
 }

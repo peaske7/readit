@@ -6,6 +6,7 @@ import {
   generatePrompt,
   generateRawText,
 } from "../lib/export";
+import type { TranslationKey } from "../lib/i18n";
 import { truncate } from "../lib/utils";
 import type { Comment, Document, Selection } from "../types";
 
@@ -14,6 +15,7 @@ interface UseClipboardParams {
   document: Document | undefined;
   selection: Selection | undefined;
   clearSelection: () => void;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
 }
 
 export function useClipboard({
@@ -21,21 +23,22 @@ export function useClipboard({
   document,
   selection,
   clearSelection,
+  t,
 }: UseClipboardParams) {
   // Export handlers
   const copyAll = useCallback(() => {
     if (!document) return;
     const prompt = generatePrompt(comments, document.fileName);
     navigator.clipboard.writeText(prompt);
-    toast.success("Copied all comments");
-  }, [comments, document]);
+    toast.success(t("toast.copiedAllComments"));
+  }, [comments, document, t]);
 
   const copyAllRaw = useCallback(() => {
     if (!document) return;
     const raw = generateRawText(comments);
     navigator.clipboard.writeText(raw);
-    toast.success("Copied all comments as raw text");
-  }, [comments, document]);
+    toast.success(t("toast.copiedAllRaw"));
+  }, [comments, document, t]);
 
   const exportJson = useCallback(() => {
     if (!document) return;
@@ -47,9 +50,9 @@ export function useClipboard({
     if (!selection) return;
 
     navigator.clipboard.writeText(selection.text);
-    toast.success(`Copied: "${truncate(selection.text)}"`);
+    toast.success(t("toast.copied", { text: truncate(selection.text) }));
     clearSelection();
-  }, [selection, clearSelection]);
+  }, [selection, clearSelection, t]);
 
   const copySelectionForLLM = useCallback(() => {
     if (!selection || !document) return;
@@ -65,9 +68,9 @@ export function useClipboard({
     });
 
     navigator.clipboard.writeText(formatted);
-    toast.success(`Copied for LLM: "${truncate(selection.text)}"`);
+    toast.success(t("toast.copiedForLLM", { text: truncate(selection.text) }));
     clearSelection();
-  }, [selection, document, clearSelection]);
+  }, [selection, document, clearSelection, t]);
 
   return {
     copyAll,
