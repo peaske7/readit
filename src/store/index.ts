@@ -23,9 +23,11 @@ export interface AppStore {
   documents: Map<string, DocumentState>;
   activeDocumentPath: string | null;
   documentOrder: string[];
+  workingDirectory: string | null;
 
   // Global actions
-  openDocument: (doc: Document) => void;
+  setWorkingDirectory: (dir: string) => void;
+  openDocument: (doc: Document, opts?: { active?: boolean }) => void;
   closeDocument: (filePath: string) => void;
   setActiveDocument: (filePath: string) => void;
 
@@ -103,17 +105,35 @@ export function createAppStore() {
       documents: new Map(),
       activeDocumentPath: null,
       documentOrder: [],
+      workingDirectory: null,
 
-      openDocument: (doc) => {
+      setWorkingDirectory: (dir) => set({ workingDirectory: dir }),
+
+      openDocument: (doc, opts) => {
         set((prev) => {
+          const active = opts?.active ?? true;
+          const nextActive =
+            active || !prev.activeDocumentPath
+              ? doc.filePath
+              : prev.activeDocumentPath;
+
           if (prev.documents.has(doc.filePath)) {
-            return { activeDocumentPath: doc.filePath };
+            const newDocs = new Map(prev.documents);
+            const prevDoc = newDocs.get(doc.filePath)!;
+            newDocs.set(doc.filePath, {
+              ...prevDoc,
+              document: { ...prevDoc.document, ...doc },
+            });
+            return {
+              documents: newDocs,
+              activeDocumentPath: nextActive,
+            };
           }
           const newDocs = new Map(prev.documents);
           newDocs.set(doc.filePath, createInitialDocumentState(doc));
           return {
             documents: newDocs,
-            activeDocumentPath: doc.filePath,
+            activeDocumentPath: nextActive,
             documentOrder: [...prev.documentOrder, doc.filePath],
           };
         });

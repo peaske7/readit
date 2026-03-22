@@ -41,6 +41,11 @@ export interface Translations {
   "settings.theme.dark": string;
   "settings.font.serif": string;
   "settings.font.sansSerif": string;
+  "settings.editor": string;
+  "settings.editor.none": string;
+  "settings.editor.vscode": string;
+  "settings.editor.vscodeInsiders": string;
+  "settings.editor.cursor": string;
 
   // Comment input
   "comment.placeholder": string;

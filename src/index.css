@@ -61,8 +61,7 @@ html {
   --prose-links: #2563eb;
   --prose-links-hover: #1d4ed8;
   --prose-bold: #111827;
-  --prose-code-bg: #f3f4f6;
-  --prose-code-border: #e5e7eb;
+  --prose-code-bg: #e8e8ec;
   --prose-border: #e5e7eb;
   --prose-table-header-bg: #f9fafb;
   --prose-table-even-bg: #f9fafb;
@@ -119,8 +118,7 @@ html {
   --prose-links: #60a5fa;
   --prose-links-hover: #93c5fd;
   --prose-bold: #f4f4f5;
-  --prose-code-bg: #27272a;
-  --prose-code-border: #3f3f46;
+  --prose-code-bg: #323238;
   --prose-border: #3f3f46;
   --prose-table-header-bg: #27272a;
   --prose-table-even-bg: #1f1f23;
@@ -467,7 +465,7 @@ mark[data-pending] {
   max-width: 65ch;
   margin-left: auto;
   margin-right: auto;
-  line-height: 1.8;
+  line-height: 1.75;
   color: var(--prose-body);
   user-select: text;
   -webkit-user-select: text;
@@ -490,29 +488,40 @@ mark[data-pending] {
 }
 
 .prose h1 {
-  font-size: 2em;
+  font-size: 2.25em;
   margin-top: 0;
-  font-weight: 700;
+  margin-bottom: 0.889em;
+  font-weight: 800;
+  line-height: 1.111;
 }
 
 .prose h2 {
   font-size: 1.5em;
-  margin-top: 2.5em;
+  margin-top: 2em;
+  margin-bottom: 1em;
+  font-weight: 700;
+  line-height: 1.333;
   padding-bottom: 0.4em;
   border-bottom: 1px solid var(--prose-border);
 }
 
 .prose h3 {
   font-size: 1.25em;
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
+  line-height: 1.6;
 }
 
 .prose h4 {
   font-size: 1.1em;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  line-height: 1.5;
 }
 
 /* Paragraphs and spacing */
 .prose p {
-  margin: 1.35em 0;
+  margin: 1.25em 0;
 }
 
 .prose > :first-child {
@@ -527,11 +536,11 @@ mark[data-pending] {
 .prose ul,
 .prose ol {
   padding-left: 1.625em;
-  margin: 1.35em 0;
+  margin: 1.25em 0;
 }
 
 .prose li {
-  margin: 0.4em 0;
+  margin: 0.5em 0;
   padding-left: 0.375em;
 }
 
@@ -560,7 +569,6 @@ mark[data-pending] {
 /* Code */
 .prose code {
   background: var(--prose-code-bg);
-  border: 1px solid var(--prose-code-border);
   padding: 0.15em 0.4em;
   border-radius: 0.3em;
   font-size: 0.85em;
@@ -573,11 +581,26 @@ mark[data-pending] {
 
 .prose pre code {
   background: transparent;
-  border: none;
   padding: 0;
   font-size: 0.85em;
   font-weight: 400;
   color: inherit;
+}
+
+/* Editor links — clickable file paths */
+.prose a.editor-link {
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px dashed var(--prose-links);
+  transition: border-color 0.15s;
+}
+
+.prose a.editor-link:hover {
+  border-bottom-style: solid;
+}
+
+.prose a.editor-link code {
+  cursor: pointer;
 }
 
 /* Tables */
@@ -623,6 +646,7 @@ mark[data-pending] {
 /* Links */
 .prose a {
   color: var(--prose-links);
+  font-weight: 500;
   text-decoration: underline;
   text-underline-offset: 2px;
   text-decoration-thickness: 1px;

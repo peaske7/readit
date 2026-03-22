@@ -19,6 +19,8 @@ import {
   type Comment,
   type DocumentSettings,
   type DocumentType,
+  type EditorScheme,
+  EditorSchemes,
   FontFamilies,
   type FontFamily,
 } from "../types/index.js";
@@ -58,6 +60,10 @@ const resolvedCommentsCache = new Map<string, ResolvedCommentsCacheEntry>();
 
 function invalidateResolvedComments(filePath: string): void {
   resolvedCommentsCache.delete(filePath);
+}
+
+async function canonicalPath(filePath: string): Promise<string> {
+  return fs.realpath(path.resolve(filePath));
 }
 
 async function readCommentsFromFile(
@@ -186,6 +192,10 @@ async function writeSettings(settings: DocumentSettings): Promise<void> {
 
 function isValidFontFamily(value: unknown): value is FontFamily {
   return value === FontFamilies.SERIF || value === FontFamilies.SANS_SERIF;
+}
+
+function isValidEditorScheme(value: unknown): value is EditorScheme {
+  return Object.values(EditorSchemes).includes(value as EditorScheme);
 }
 
 // ─── PID file helpers ───────────────────────────────────────────────
@@ -436,16 +446,21 @@ async function getSettingsRoute(): Promise<Response> {
 async function updateSettingsRoute(req: Request): Promise<Response> {
   try {
     const body = await req.json();
-    const { fontFamily, keybindings } = body;
+    const { fontFamily, editorScheme, keybindings } = body;
 
     if (fontFamily !== undefined && !isValidFontFamily(fontFamily)) {
       return errorResponse("Invalid font family", 400);
+    }
+
+    if (editorScheme !== undefined && !isValidEditorScheme(editorScheme)) {
+      return errorResponse("Invalid editor scheme", 400);
     }
 
     const current = await readSettings();
     const settings: DocumentSettings = {
       ...current,
       ...(fontFamily !== undefined && { fontFamily }),
+      ...(editorScheme !== undefined && { editorScheme }),
       ...(keybindings !== undefined && { keybindings }),
     };
 
@@ -591,6 +606,17 @@ function createServer(options: ServerOptions): ServerWithWatchers {
   const defaultPath = fileOrder[0];
   const sseClients = new Set<ReadableStreamDefaultController>();
 
+  function sendEvent(event: unknown): void {
+    const message = `data: ${JSON.stringify(event)}\n\n`;
+    for (const controller of sseClients) {
+      try {
+        controller.enqueue(message);
+      } catch {
+        sseClients.delete(controller);
+      }
+    }
+  }
+
   async function ensureFileContent(filePath: string): Promise<string> {
     const state = fileMap.get(filePath);
     if (!state) {
@@ -646,15 +672,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
               state.isLoaded = true;
               invalidateResolvedComments(targetPath);
               console.log(`File changed: ${basename(targetPath)}`);
-
-              const message = `data: ${JSON.stringify({ type: "update", path: targetPath })}\n\n`;
-              for (const controller of sseClients) {
-                try {
-                  controller.enqueue(message);
-                } catch {
-                  sseClients.delete(controller);
-                }
-              }
+              sendEvent({ type: "document-updated", path: targetPath });
             }
           } catch (err) {
             console.error(`Failed to read updated file ${targetPath}:`, err);
@@ -690,11 +708,15 @@ function createServer(options: ServerOptions): ServerWithWatchers {
             type: state.type,
           };
         });
-        return json({ files, clean: options.clean || false });
+        return json({
+          files,
+          clean: options.clean || false,
+          workingDirectory: process.cwd(),
+        });
       }
 
-      // Hot-add or refresh a file
-      if (pathname === "/api/files" && method === "POST") {
+      // Register a document for this session without forcing focus
+      if (pathname === "/api/documents" && method === "POST") {
         try {
           const { path: requestedPath } = await req.json();
 
@@ -702,7 +724,15 @@ function createServer(options: ServerOptions): ServerWithWatchers {
             return errorResponse("Missing 'path' field", 400);
           }
 
-          const filePath = path.resolve(requestedPath);
+          let filePath: string;
+          try {
+            filePath = await canonicalPath(requestedPath);
+          } catch (err) {
+            if (isErrnoException(err) && err.code === "ENOENT") {
+              return errorResponse(`File not found: ${requestedPath}`, 404);
+            }
+            throw err;
+          }
           const fileType = getFileType(filePath);
 
           if (!fileType) {
@@ -712,68 +742,45 @@ function createServer(options: ServerOptions): ServerWithWatchers {
             );
           }
 
-          let content: string;
-          try {
-            content = await fs.readFile(filePath, "utf-8");
-          } catch (err) {
-            if (isErrnoException(err) && err.code === "ENOENT") {
-              return errorResponse(`File not found: ${filePath}`, 404);
-            }
-            throw err;
-          }
-
           const existingState = fileMap.get(filePath);
 
           if (existingState) {
-            // File already loaded — refresh content
-            existingState.content = content;
-            existingState.isLoaded = true;
-            invalidateResolvedComments(filePath);
-            const message = `data: ${JSON.stringify({ type: "update", path: filePath })}\n\n`;
-            for (const controller of sseClients) {
-              try {
-                controller.enqueue(message);
-              } catch {
-                sseClients.delete(controller);
-              }
-            }
+            return json({
+              path: filePath,
+              fileName: basename(filePath),
+              type: fileType,
+              status: "present",
+            });
           } else {
-            // New file — add to server
+            // New document — register metadata only, load content on demand
             fileMap.set(filePath, {
-              content,
-              isLoaded: true,
+              content: null,
+              isLoaded: false,
               type: fileType,
               debounceTimer: null,
             });
             fileOrder.push(filePath);
 
-            // Set up file watcher for the new file
             const watcher = watchFile(filePath);
             if (watcher) watchers.push(watcher);
 
-            const message = `data: ${JSON.stringify({
-              type: "file-added",
+            sendEvent({
+              type: "document-added",
               path: filePath,
               fileName: basename(filePath),
               fileType,
-            })}\n\n`;
-            for (const controller of sseClients) {
-              try {
-                controller.enqueue(message);
-              } catch {
-                sseClients.delete(controller);
-              }
-            }
+            });
           }
 
           return json({
             path: filePath,
             fileName: basename(filePath),
             type: fileType,
+            status: "added",
           });
         } catch (err) {
-          console.error("Failed to add file:", err);
-          return errorResponse("Failed to add file", 500);
+          console.error("Failed to add document:", err);
+          return errorResponse("Failed to add document", 500);
         }
       }
 

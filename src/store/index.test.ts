@@ -64,6 +64,28 @@ describe("AppStore", () => {
         "/test/file.html",
       ]);
     });
+
+    it("adds document without activating when active is false", () => {
+      store.getState().openDocument(mockDoc);
+      store.getState().openDocument(mockDoc2, { active: false });
+      expect(store.getState().activeDocumentPath).toBe("/test/file.md");
+      expect(store.getState().documentOrder).toEqual([
+        "/test/file.md",
+        "/test/file.html",
+      ]);
+    });
+
+    it("updates existing document without stealing focus when active is false", () => {
+      store.getState().openDocument(mockDoc);
+      store.getState().openDocument(mockDoc2);
+      store
+        .getState()
+        .openDocument({ ...mockDoc, content: "# Updated" }, { active: false });
+      expect(store.getState().activeDocumentPath).toBe("/test/file.html");
+      expect(
+        store.getState().documents.get("/test/file.md")!.document.content,
+      ).toBe("# Updated");
+    });
   });
 
   describe("closeDocument", () => {

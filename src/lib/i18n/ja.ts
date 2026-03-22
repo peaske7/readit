@@ -36,6 +36,11 @@ export const ja: Translations = {
   "settings.theme.dark": "ダーク",
   "settings.font.serif": "明朝体",
   "settings.font.sansSerif": "ゴシック体",
+  "settings.editor": "エディター",
+  "settings.editor.none": "なし",
+  "settings.editor.vscode": "VS Code",
+  "settings.editor.vscodeInsiders": "VS Code Insiders",
+  "settings.editor.cursor": "Cursor",
 
   // Comment input
   "comment.placeholder": "コメントを入力...",

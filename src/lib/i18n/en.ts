@@ -36,6 +36,11 @@ export const en: Translations = {
   "settings.theme.dark": "Dark",
   "settings.font.serif": "Serif",
   "settings.font.sansSerif": "Sans-serif",
+  "settings.editor": "Editor",
+  "settings.editor.none": "None",
+  "settings.editor.vscode": "VS Code",
+  "settings.editor.vscodeInsiders": "VS Code Insiders",
+  "settings.editor.cursor": "Cursor",
 
   // Comment input
   "comment.placeholder": "Add your comment...",

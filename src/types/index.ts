@@ -67,6 +67,16 @@ export interface Document {
   clean: boolean;
 }
 
+// Editor scheme options - const object pattern per style guide 6.3
+export const EditorSchemes = {
+  NONE: "none",
+  VSCODE: "vscode",
+  VSCODE_INSIDERS: "vscode-insiders",
+  CURSOR: "cursor",
+} as const;
+
+export type EditorScheme = (typeof EditorSchemes)[keyof typeof EditorSchemes];
+
 // Font family options - const object pattern per style guide 6.3
 export const FontFamilies = {
   SERIF: "serif",
@@ -111,6 +121,7 @@ export interface KeybindingOverride {
 export interface DocumentSettings {
   version: number;
   fontFamily: FontFamily;
+  editorScheme?: EditorScheme;
   keybindings?: KeybindingOverride[];
   onboarded?: boolean;
 }

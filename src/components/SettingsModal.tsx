@@ -1,9 +1,11 @@
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, ExternalLink } from "lucide-react";
 import { useLayoutContext } from "../contexts/LayoutContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { type Locale, Locales } from "../lib/i18n";
 import { cn } from "../lib/utils";
 import {
+  type EditorScheme,
+  EditorSchemes,
   FontFamilies,
   type FontFamily,
   type ThemeMode,
@@ -104,6 +106,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const {
     fontFamily,
     setFontFamily,
+    editorScheme,
+    setEditorScheme,
     themeMode,
     setThemeMode,
     shortcuts,
@@ -132,10 +136,22 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     },
   ];
 
+  const editorOptions = [
+    { value: EditorSchemes.NONE, label: t("settings.editor.none") },
+    { value: EditorSchemes.VSCODE, label: t("settings.editor.vscode") },
+    {
+      value: EditorSchemes.VSCODE_INSIDERS,
+      label: t("settings.editor.vscodeInsiders"),
+    },
+    { value: EditorSchemes.CURSOR, label: t("settings.editor.cursor") },
+  ];
+
   const activeTheme =
     themeOptions.find((o) => o.value === themeMode) ?? themeOptions[0];
   const activeFont =
     fontOptions.find((o) => o.value === fontFamily) ?? fontOptions[0];
+  const activeEditor =
+    editorOptions.find((o) => o.value === editorScheme) ?? editorOptions[0];
   const activeLocale =
     LOCALE_OPTIONS.find((o) => o.value === locale) ?? LOCALE_OPTIONS[0];
 
@@ -234,6 +250,37 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   >
                     <span className="flex-1">{option.label}</span>
                     {locale === option.value && (
+                      <Check className="size-3.5 text-zinc-500 dark:text-zinc-400" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div>
+            <Text variant="overline" asChild>
+              <h3 className="mb-3">{t("settings.editor")}</h3>
+            </Text>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className={triggerClassName}>
+                  <ExternalLink className="size-3 text-zinc-400 dark:text-zinc-500" />
+                  <span>{activeEditor.label}</span>
+                  <ChevronDown className="size-3 text-zinc-400 dark:text-zinc-500" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[160px]">
+                {editorOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onSelect={() =>
+                      setEditorScheme(option.value as EditorScheme)
+                    }
+                    className="flex items-center gap-2"
+                  >
+                    <span className="flex-1">{option.label}</span>
+                    {editorScheme === option.value && (
                       <Check className="size-3.5 text-zinc-500 dark:text-zinc-400" />
                     )}
                   </DropdownMenuItem>
