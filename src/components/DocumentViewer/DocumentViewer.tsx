@@ -157,7 +157,7 @@ export function DocumentViewer({
 
   // Double RAF: ensures React commit phase completes before DOM queries.
   // See: https://github.com/facebook/react/issues/20863
-  // biome-ignore lint/correctness/useExhaustiveDependencies: must reapply highlights when content changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: must reapply highlights when content or components change
   useEffect(() => {
     if (type !== "markdown") return;
 
@@ -186,7 +186,9 @@ export function DocumentViewer({
       cancelAnimationFrame(outerFrameId);
       cancelAnimationFrame(innerFrameId);
     };
-  }, [comments, content, type]);
+    // editorScheme/workingDirectory: when these change, markdownComponents memo recomputes,
+    // react-markdown replaces the DOM, so highlights must be reapplied
+  }, [comments, content, type, editorScheme, workingDirectory]);
 
   useEffect(() => {
     if (type !== "markdown") return;

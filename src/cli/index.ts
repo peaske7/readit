@@ -34,17 +34,113 @@ interface ServerInfo {
   pid: number;
 }
 
-async function discoverServer(): Promise<ServerInfo | null> {
-  const serverInfoPath = join(os.homedir(), ".readit", "server.json");
+interface ServerTarget {
+  kind: "existing" | "started";
+  port: number;
+  url: string;
+  server?: { stop(): void };
+}
 
+const READIT_DIR = join(os.homedir(), ".readit");
+const SERVER_INFO_PATH = join(READIT_DIR, "server.json");
+const SERVER_LOCK_PATH = join(READIT_DIR, "server.lock");
+const SERVER_LOCK_MAX_AGE_MS = 30_000;
+const SERVER_LOCK_TIMEOUT_MS = 10_000;
+const SERVER_LOCK_WAIT_MS = 100;
+
+function isAlive(pid: number): boolean {
   try {
-    const content = readFileSync(serverInfoPath, "utf-8");
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getErrnoCode(err: unknown): string | undefined {
+  return err instanceof Error && "code" in err
+    ? (err as NodeJS.ErrnoException).code
+    : undefined;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function clearStaleServerLock(): Promise<void> {
+  try {
+    const [stats, content] = await Promise.all([
+      fs.stat(SERVER_LOCK_PATH),
+      fs.readFile(SERVER_LOCK_PATH, "utf-8").catch(() => ""),
+    ]);
+
+    const age = Date.now() - stats.mtimeMs;
+    let pid: number | undefined;
+
+    if (content) {
+      try {
+        const lock = JSON.parse(content) as { pid?: number };
+        pid = lock.pid;
+      } catch {
+        // Ignore malformed lock files and fall back to age-based cleanup.
+      }
+    }
+
+    if (age > SERVER_LOCK_MAX_AGE_MS || (pid !== undefined && !isAlive(pid))) {
+      await fs.unlink(SERVER_LOCK_PATH).catch(() => {});
+    }
+  } catch (err) {
+    if (getErrnoCode(err) !== "ENOENT") throw err;
+  }
+}
+
+async function withServerLock<T>(run: () => Promise<T>): Promise<T> {
+  await fs.mkdir(READIT_DIR, { recursive: true });
+  const start = Date.now();
+
+  while (true) {
+    let handle: fs.FileHandle | undefined;
+
+    try {
+      handle = await fs.open(SERVER_LOCK_PATH, "wx");
+      await handle.writeFile(
+        JSON.stringify({ pid: process.pid, createdAt: Date.now() }),
+        "utf-8",
+      );
+
+      try {
+        return await run();
+      } finally {
+        await handle.close().catch(() => {});
+        await fs.unlink(SERVER_LOCK_PATH).catch(() => {});
+      }
+    } catch (err) {
+      if (handle) {
+        await handle.close().catch(() => {});
+      }
+
+      if (getErrnoCode(err) !== "EEXIST") {
+        throw err;
+      }
+
+      await clearStaleServerLock();
+
+      if (Date.now() - start >= SERVER_LOCK_TIMEOUT_MS) {
+        throw new Error("Timed out waiting for readit server lock");
+      }
+
+      await sleep(SERVER_LOCK_WAIT_MS);
+    }
+  }
+}
+
+async function discoverServer(): Promise<ServerInfo | null> {
+  try {
+    const content = readFileSync(SERVER_INFO_PATH, "utf-8");
     const info: ServerInfo = JSON.parse(content);
 
     // Verify the process is alive
-    try {
-      process.kill(info.pid, 0);
-    } catch {
+    if (!isAlive(info.pid)) {
       return null;
     }
 
@@ -60,6 +156,65 @@ async function discoverServer(): Promise<ServerInfo | null> {
   } catch {
     return null;
   }
+}
+
+async function attachFiles(
+  server: ServerInfo,
+  files: { path: string; type: DocumentType }[],
+): Promise<void> {
+  for (const file of files) {
+    try {
+      const res = await fetch(`http://127.0.0.1:${server.port}/api/documents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: file.path }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        console.error(`error: failed to add ${file.path}: ${data.error}`);
+        process.exit(1);
+      }
+
+      const data = await res.json();
+      if (data.status === "added") {
+        console.log(`Added: ${data.fileName} (${data.type})`);
+      } else {
+        console.log(`Present: ${data.fileName} (${data.type})`);
+      }
+    } catch (err) {
+      console.error(
+        "error: failed to connect to server:",
+        err instanceof Error ? err.message : err,
+      );
+      process.exit(1);
+    }
+  }
+}
+
+async function getServerTarget(
+  files: FileEntry[],
+  port: number,
+  host: string,
+): Promise<ServerTarget> {
+  return withServerLock(async () => {
+    const server = await discoverServer();
+    if (server) {
+      return {
+        kind: "existing",
+        port: server.port,
+        url: `http://127.0.0.1:${server.port}`,
+      };
+    }
+
+    const started = await startServer({ files, port, host });
+    return {
+      kind: "started",
+      port: started.port,
+      url: started.url,
+      server: started.server,
+    };
+  });
 }
 
 /**
@@ -525,50 +680,6 @@ program
         resolvedFiles.push({ path: filePath, type });
       }
 
-      // Try to find running server
-      const server = await discoverServer();
-
-      if (server) {
-        // Send files to running server
-        for (const file of resolvedFiles) {
-          try {
-            const res = await fetch(
-              `http://127.0.0.1:${server.port}/api/documents`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ path: file.path }),
-              },
-            );
-
-            if (!res.ok) {
-              const data = await res.json();
-              console.error(`error: failed to add ${file.path}: ${data.error}`);
-              process.exit(1);
-            }
-
-            const data = await res.json();
-            if (data.status === "added") {
-              console.log(`Added: ${data.fileName} (${data.type})`);
-            } else {
-              console.log(`Present: ${data.fileName} (${data.type})`);
-            }
-          } catch (err) {
-            console.error(
-              "error: failed to connect to server:",
-              err instanceof Error ? err.message : err,
-            );
-            process.exit(1);
-          }
-        }
-
-        console.log(`\nServer: http://127.0.0.1:${server.port}`);
-        return;
-      }
-
-      // No running server — start one
-      console.log("No running server found, starting new one...\n");
-
       const files = resolvedFiles.map((f) => ({
         type: f.type,
         filePath: f.path,
@@ -576,11 +687,20 @@ program
 
       const preferredPort = Number.parseInt(options.port, 10);
       try {
-        const { url, server: newServer } = await startServer({
+        const target = await getServerTarget(
           files,
-          port: preferredPort,
-          host: options.host,
-        });
+          preferredPort,
+          options.host,
+        );
+
+        if (target.kind === "existing") {
+          await attachFiles(
+            { port: target.port, pid: process.pid },
+            resolvedFiles,
+          );
+          console.log(`\nServer: ${target.url}`);
+          return;
+        }
 
         const fileList = files.map((f) => `  ${f.filePath} (${f.type})`);
         console.log(`
@@ -588,17 +708,17 @@ readit - Document Review Tool
 
   ${files.length === 1 ? "File:" : "Files:"}
 ${fileList.join("\n")}
-  URL:  ${url}
+  URL:  ${target.url}
 
   Server running. Close browser tab to stop.
   Press Ctrl+C to force stop.
 `);
 
-        open(url);
+        open(target.url);
 
         process.on("SIGINT", async () => {
           console.log("\n\nShutting down...");
-          newServer.stop();
+          target.server?.stop();
           await removeServerInfo();
           process.exit(0);
         });
