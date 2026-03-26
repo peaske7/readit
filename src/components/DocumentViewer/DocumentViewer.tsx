@@ -14,12 +14,12 @@ import { useSettings } from "../../contexts/SettingsContext";
 import type { Heading } from "../../hooks/useHeadings";
 import {
   createHighlighter,
-  type HighlightComment,
   type Highlighter,
-} from "../../lib/highlight";
+} from "../../lib/highlight/highlighter";
+import type { HighlightComment } from "../../lib/highlight/types";
 import { cn, getTextContent } from "../../lib/utils";
 import { AnchorConfidences, type Comment, FontFamilies } from "../../types";
-import { createCodeComponent } from "./InlineCode";
+import { CodeBlock } from "./CodeBlock";
 
 const REMARK_PLUGINS = [remarkGfm];
 const REHYPE_PLUGINS = [rehypeRaw];
@@ -201,7 +201,16 @@ export function DocumentViewer({
       h4: createHeadingComponent(4, headings, headingIndexRef),
       h5: createHeadingComponent(5, headings, headingIndexRef),
       h6: createHeadingComponent(6, headings, headingIndexRef),
-      code: createCodeComponent(),
+      code: ({
+        children,
+        className,
+        ...props
+      }: ComponentPropsWithoutRef<"code">) => {
+        if (className || String(children).includes("\n")) {
+          return <CodeBlock className={className}>{children}</CodeBlock>;
+        }
+        return <code {...props}>{children}</code>;
+      },
     }),
     [headings],
   );

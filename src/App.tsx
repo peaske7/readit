@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Toaster, toast } from "sonner";
 import { CommentInput } from "./components/comments/CommentInput";
 import { CommentNav } from "./components/comments/CommentNav";
-import { DocumentViewer } from "./components/DocumentViewer";
+import { DocumentViewer } from "./components/DocumentViewer/DocumentViewer";
 import { Header } from "./components/Header";
 import { MarginNotes } from "./components/MarginNotes";
 import { ReanchorConfirm } from "./components/ReanchorConfirm";

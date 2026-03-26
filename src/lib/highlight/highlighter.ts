@@ -17,8 +17,6 @@ export type SelectionHandler = (
 export type PositionChangeHandler = (positions: HighlightPositions) => void;
 export type HoverHandler = (commentId: string | undefined) => void;
 export type ClickHandler = (commentId: string) => void;
-export type ContentHeightHandler = (height: number) => void;
-
 export interface Highlighter {
   applyHighlights(
     comments: HighlightComment[],
@@ -29,7 +27,6 @@ export interface Highlighter {
   onPositionsChange(callback: PositionChangeHandler): () => void;
   onHighlightHover(callback: HoverHandler): () => void;
   onHighlightClick(callback: ClickHandler): () => void;
-  onContentHeightChange?(callback: ContentHeightHandler): () => void;
   dispose(): void;
 }
 
@@ -40,10 +37,6 @@ export interface HighlighterOptions {
 }
 
 export function createHighlighter(options: HighlighterOptions): Highlighter {
-  return createMarkdownHighlighter(options);
-}
-
-function createMarkdownHighlighter(options: HighlighterOptions): Highlighter {
   const { root, container, onSelect } = options;
 
   let hoverCallback: HoverHandler | undefined;
@@ -257,7 +250,7 @@ function createMarkdownHighlighter(options: HighlighterOptions): Highlighter {
     },
 
     getPositions(): HighlightPositions {
-      return { positions: {}, documentPositions: {} };
+      return { positions: {} };
     },
 
     onPositionsChange(_callback: PositionChangeHandler) {

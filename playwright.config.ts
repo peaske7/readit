@@ -16,6 +16,15 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: "**/perf/**",
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "perf",
+      testDir: "./e2e/perf",
+      timeout: 120_000,
+      globalSetup: "./e2e/perf/perf.setup.ts",
+      globalTeardown: "./e2e/perf/perf.teardown.ts",
       use: { ...devices["Desktop Chrome"] },
     },
   ],

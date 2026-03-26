@@ -387,10 +387,8 @@ export function clearHighlights(
 export function collectHighlightPositions(
   root: HTMLElement,
   containerRect: DOMRect,
-  scrollY = 0,
 ): HighlightPositions {
   const positions: Record<string, number> = {};
-  const documentPositions: Record<string, number> = {};
 
   // Collect comment highlight positions
   const marks = root.querySelectorAll("mark[data-comment-id]");
@@ -405,10 +403,8 @@ export function collectHighlightPositions(
     // Use first occurrence of each comment id
     if (!(commentId in positions)) {
       positions[commentId] = relativeTop;
-      // Document-absolute position (for minimap)
-      documentPositions[commentId] = markRect.top + scrollY;
     }
   }
 
-  return { positions, documentPositions };
+  return { positions };
 }

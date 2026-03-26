@@ -37,13 +37,11 @@ export interface HighlightComment {
 }
 
 /**
- * Highlight positions for margin note alignment and minimap.
+ * Highlight positions for margin note alignment.
  * - positions: Y-position relative to container (for margin notes)
- * - documentPositions: Y-position from document top (for minimap)
  */
 export interface HighlightPositions {
   positions: Record<string, number>;
-  documentPositions: Record<string, number>;
   pendingTop?: number;
 }
 
