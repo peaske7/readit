@@ -15,12 +15,19 @@ import {
 } from "./contexts/CommentContext";
 import { useLocale } from "./contexts/LocaleContext";
 import { PositionsProvider, usePositions } from "./contexts/PositionsContext";
-import { SettingsProvider } from "./contexts/SettingsContext";
+import { SettingsProvider, useSettings } from "./contexts/SettingsContext";
 import { useDocument } from "./hooks/useDocument";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useScrollSpy } from "./hooks/useScrollSpy";
 import { useTextSelection } from "./hooks/useTextSelection";
-import { exportCommentsAsJson, generatePrompt } from "./lib/export";
+import { extractContext, formatForLLM } from "./lib/context";
+import {
+  exportCommentsAsJson,
+  formatComment,
+  generatePrompt,
+} from "./lib/export";
 import type { Heading } from "./lib/headings";
+import { ShortcutActions } from "./lib/shortcut-registry";
 import { cn } from "./lib/utils";
 import { appStore, useAppStore } from "./store";
 
@@ -45,8 +52,15 @@ interface AppContentProps {
 function AppContent({ document, reload, isActive }: AppContentProps) {
   const { t } = useLocale();
   const { comments, sortedComments, reanchorTarget } = useCommentData();
-  const { addComment, reanchorComment, cancelReanchor, setHoveredCommentId } =
-    useCommentActions();
+  const {
+    addComment,
+    reanchorComment,
+    cancelReanchor,
+    setHoveredCommentId,
+    navigatePrevious,
+    navigateNext,
+  } = useCommentActions();
+  const { shortcuts } = useSettings();
 
   const { selection, pendingSelectionTop, onTextSelect, clearSelection } =
     useTextSelection();
@@ -66,10 +80,51 @@ function AppContent({ document, reload, isActive }: AppContentProps) {
     toast.success(t("toast.copiedAllComments"));
   }, [comments, document, t]);
 
+  const copyAllRaw = useCallback(() => {
+    if (!document) return;
+    const raw = comments.map(formatComment).join("\n\n---\n\n");
+    navigator.clipboard.writeText(raw);
+    toast.success(t("toast.copiedAllRaw"));
+  }, [comments, document, t]);
+
+  const copySelectionRaw = useCallback(() => {
+    if (!selection) return;
+    navigator.clipboard.writeText(selection.text);
+    toast.success(t("toast.copied", { text: selection.text.slice(0, 30) }));
+    clearSelection();
+  }, [selection, clearSelection, t]);
+
+  const copySelectionForLLM = useCallback(() => {
+    if (!selection || !document) return;
+    const context = extractContext({
+      content: document.html,
+      startOffset: selection.startOffset,
+      endOffset: selection.endOffset,
+    });
+    const formatted = formatForLLM({ context, fileName: document.fileName });
+    navigator.clipboard.writeText(formatted);
+    toast.success(t("toast.copiedForLLM"));
+    clearSelection();
+  }, [selection, document, clearSelection, t]);
+
   const exportJson = useCallback(() => {
     if (!document) return;
     exportCommentsAsJson(comments, document);
   }, [comments, document]);
+
+  useKeyboardShortcuts(shortcuts, {
+    [ShortcutActions.COPY_ALL]: copyAll,
+    [ShortcutActions.COPY_ALL_RAW]: copyAllRaw,
+    [ShortcutActions.NAVIGATE_NEXT]: navigateNext,
+    [ShortcutActions.NAVIGATE_PREVIOUS]: navigatePrevious,
+    [ShortcutActions.COPY_SELECTION_RAW]: selection
+      ? copySelectionRaw
+      : undefined,
+    [ShortcutActions.COPY_SELECTION_LLM]: selection
+      ? copySelectionForLLM
+      : undefined,
+    [ShortcutActions.CLEAR_SELECTION]: selection ? clearSelection : undefined,
+  });
 
   const headings = useAppStore(
     (s) => s.documents.get(document.filePath)?.headings ?? ([] as Heading[]),

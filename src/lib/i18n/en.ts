@@ -80,9 +80,40 @@ export const en: Translations = {
   "rawModal.copiedToClipboard": "Copied to clipboard",
   "rawModal.failedToCopy": "Failed to copy",
 
+  // Settings - shortcuts
+  "settings.keyboardShortcuts": "Keyboard Shortcuts",
+  "settings.clickToRebind": "Click a key to rebind",
+
+  // Shortcut groups
+  "shortcutGroup.copy": "Copy",
+  "shortcutGroup.navigate": "Navigate",
+  "shortcutGroup.other": "Other",
+  "shortcuts.resetToDefaults": "Reset to defaults",
+  "shortcuts.enableDisable": "Enable/disable shortcut",
+  "shortcutCapture.pressKeys": "Press keys...",
+
+  // Shortcut labels
+  "shortcut.copyAll.label": "Copy All (AI)",
+  "shortcut.copyAll.description": "Copy all comments in AI prompt format",
+  "shortcut.copyAllRaw.label": "Copy All (Raw)",
+  "shortcut.copyAllRaw.description": "Copy all comments as raw text",
+  "shortcut.navigateNext.label": "Next Comment",
+  "shortcut.navigateNext.description": "Navigate to next comment",
+  "shortcut.navigatePrevious.label": "Previous Comment",
+  "shortcut.navigatePrevious.description": "Navigate to previous comment",
+  "shortcut.copySelectionRaw.label": "Copy Selection",
+  "shortcut.copySelectionRaw.description": "Copy selected text",
+  "shortcut.copySelectionLLM.label": "Copy Selection (LLM)",
+  "shortcut.copySelectionLLM.description":
+    "Copy selected text with context for LLM",
+  "shortcut.clearSelection.label": "Clear Selection",
+  "shortcut.clearSelection.description": "Clear text selection",
+
   // Toast messages
   "toast.copied": 'Copied: "{{text}}"',
   "toast.copiedAllComments": "Copied all comments",
+  "toast.copiedAllRaw": "Copied all comments (raw)",
+  "toast.copiedForLLM": "Copied selection with context",
 
   // Comment badge
   "commentBadge.title": "{{count}} comment",

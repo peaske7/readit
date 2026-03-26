@@ -71,8 +71,22 @@ export const ThemeModes = {
 
 export type ThemeMode = (typeof ThemeModes)[keyof typeof ThemeModes];
 
+export interface ShortcutBinding {
+  key: string;
+  alt?: boolean;
+  meta?: boolean;
+  shift?: boolean;
+}
+
+export interface KeybindingOverride {
+  id: string;
+  binding?: ShortcutBinding;
+  enabled: boolean;
+}
+
 export interface DocumentSettings {
   version: number;
   fontFamily: FontFamily;
+  keybindings?: KeybindingOverride[];
   onboarded?: boolean;
 }

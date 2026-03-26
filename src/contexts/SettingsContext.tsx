@@ -9,8 +9,14 @@ import {
 } from "react";
 import { toast } from "sonner";
 import {
+  resolveShortcuts,
+  type ShortcutDefinition,
+} from "../lib/shortcut-registry";
+import {
   FontFamilies,
   type FontFamily,
+  type KeybindingOverride,
+  type ShortcutBinding,
   type ThemeMode,
   ThemeModes,
 } from "../schema";
@@ -45,6 +51,10 @@ interface SettingsContextValue {
   setFontFamily: (font: FontFamily) => Promise<void>;
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  shortcuts: ShortcutDefinition[];
+  updateBinding: (id: string, binding: ShortcutBinding) => Promise<void>;
+  toggleShortcutEnabled: (id: string) => Promise<void>;
+  resetShortcutsToDefaults: () => Promise<void>;
 }
 
 export const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -61,6 +71,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [fontFamily, setFontFamilyState] = useState<FontFamily>(
     FontFamilies.SERIF,
   );
+  const [overrides, setOverrides] = useState<KeybindingOverride[]>([]);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -69,6 +80,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (response.ok) {
           const settings = await response.json();
           setFontFamilyState(settings.fontFamily || FontFamilies.SERIF);
+          setOverrides(settings.keybindings ?? []);
         }
       } catch (err) {
         console.error("Failed to fetch settings:", err);
@@ -97,6 +109,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // --- Theme ---
+
   const [themeMode, setThemeModeState] = useState<ThemeMode>(getStoredTheme);
 
   useEffect(() => {
@@ -120,9 +134,84 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
+  // --- Keyboard Shortcuts ---
+
+  const shortcuts = useMemo(() => resolveShortcuts(overrides), [overrides]);
+
+  const persistOverrides = useCallback(
+    async (newOverrides: KeybindingOverride[]) => {
+      try {
+        const response = await fetch("/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keybindings: newOverrides }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to save keybindings");
+        }
+      } catch (err) {
+        console.error("Failed to save keybindings:", err);
+        toast.error("Failed to save keybindings");
+      }
+    },
+    [],
+  );
+
+  const updateBinding = useCallback(
+    async (id: string, binding: ShortcutBinding) => {
+      const newOverrides = overrides.filter((o) => o.id !== id);
+      newOverrides.push({ id, binding, enabled: true });
+
+      setOverrides(newOverrides);
+      await persistOverrides(newOverrides);
+    },
+    [overrides, persistOverrides],
+  );
+
+  const toggleShortcutEnabled = useCallback(
+    async (id: string) => {
+      const existing = overrides.find((o) => o.id === id);
+      const currentEnabled = existing?.enabled ?? true;
+      const newOverrides = overrides.filter((o) => o.id !== id);
+      newOverrides.push({
+        id,
+        binding: existing?.binding,
+        enabled: !currentEnabled,
+      });
+
+      setOverrides(newOverrides);
+      await persistOverrides(newOverrides);
+    },
+    [overrides, persistOverrides],
+  );
+
+  const resetShortcutsToDefaults = useCallback(async () => {
+    setOverrides([]);
+    await persistOverrides([]);
+  }, [persistOverrides]);
+
   const value = useMemo<SettingsContextValue>(
-    () => ({ fontFamily, setFontFamily, themeMode, setThemeMode }),
-    [fontFamily, setFontFamily, themeMode, setThemeMode],
+    () => ({
+      fontFamily,
+      setFontFamily,
+      themeMode,
+      setThemeMode,
+      shortcuts,
+      updateBinding,
+      toggleShortcutEnabled,
+      resetShortcutsToDefaults,
+    }),
+    [
+      fontFamily,
+      setFontFamily,
+      themeMode,
+      setThemeMode,
+      shortcuts,
+      updateBinding,
+      toggleShortcutEnabled,
+      resetShortcutsToDefaults,
+    ],
   );
 
   return <SettingsContext value={value}>{children}</SettingsContext>;

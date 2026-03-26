@@ -458,16 +458,21 @@ async function getSettingsRoute(): Promise<Response> {
 async function updateSettingsRoute(req: Request): Promise<Response> {
   try {
     const body = await req.json();
-    const { fontFamily } = body;
+    const { fontFamily, keybindings } = body;
 
     if (fontFamily !== undefined && !isValidFontFamily(fontFamily)) {
       return errorResponse("Invalid font family", 400);
+    }
+
+    if (keybindings !== undefined && !Array.isArray(keybindings)) {
+      return errorResponse("Invalid keybindings format", 400);
     }
 
     const current = await readSettings();
     const settings: DocumentSettings = {
       ...current,
       ...(fontFamily !== undefined && { fontFamily }),
+      ...(keybindings !== undefined && { keybindings }),
     };
 
     await writeSettings(settings);
