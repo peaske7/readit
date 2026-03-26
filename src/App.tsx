@@ -1,36 +1,30 @@
-import { use, useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Toaster } from "sonner";
 import { CommentInput } from "./components/comments/CommentInput";
-import { CommentMinimap } from "./components/comments/CommentMinimap";
 import { CommentNav } from "./components/comments/CommentNav";
 import { DocumentViewer } from "./components/DocumentViewer";
-import { FloatingTOC } from "./components/FloatingTOC";
 import { Header } from "./components/Header";
 import { MarginNotes } from "./components/MarginNotes";
 import { ReanchorConfirm } from "./components/ReanchorConfirm";
 import { TabBar } from "./components/TabBar";
 import { TableOfContents } from "./components/TableOfContents";
-import { textVariants } from "./components/ui/Text";
 import {
   CommentProvider,
   useCommentActions,
   useCommentData,
 } from "./contexts/CommentContext";
-import { LayoutContext, LayoutProvider } from "./contexts/LayoutContext";
 import { useLocale } from "./contexts/LocaleContext";
 import {
   PositionEngineProvider,
   usePositionEngine,
 } from "./contexts/PositionEngineContext";
+import { SettingsProvider } from "./contexts/SettingsContext";
 import { useClipboard } from "./hooks/useClipboard";
 import { useDocument } from "./hooks/useDocument";
 import { useHeadings } from "./hooks/useHeadings";
-import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
-import { useScrollMetrics } from "./hooks/useScrollMetrics";
 import { useScrollSpy } from "./hooks/useScrollSpy";
 import { useTextSelection } from "./hooks/useTextSelection";
 import { calculateScrollTarget, getElementTopInDocument } from "./lib/scroll";
-import { ShortcutActions } from "./lib/shortcut-registry";
 import { cn } from "./lib/utils";
 import { appStore, useAppStore } from "./store";
 
@@ -41,7 +35,7 @@ const TOASTER_OPTIONS = {
   classNames: {
     toast: cn(
       "backdrop-blur-sm bg-white/90 dark:bg-zinc-900/90 border border-zinc-100 dark:border-zinc-800 px-3 py-2 shadow-sm rounded-md",
-      textVariants({ variant: "caption" }),
+      "text-xs text-zinc-500 dark:text-zinc-400",
     ),
   },
 };
@@ -89,20 +83,6 @@ function AppContent({ document, reload }: AppContentProps) {
     clearSelection,
     t,
   });
-
-  const { shortcuts, isFullscreen } = use(LayoutContext)!;
-
-  useKeyboardShortcuts(shortcuts, {
-    [ShortcutActions.COPY_ALL]: copyAll,
-    [ShortcutActions.COPY_ALL_RAW]: copyAllRaw,
-    [ShortcutActions.NAVIGATE_NEXT]: navigateNext,
-    [ShortcutActions.NAVIGATE_PREVIOUS]: navigatePrevious,
-    [ShortcutActions.COPY_SELECTION_RAW]: copySelectionRaw,
-    [ShortcutActions.COPY_SELECTION_LLM]: copySelectionForLLM,
-    [ShortcutActions.CLEAR_SELECTION]: clearSelection,
-  });
-
-  const scrollMetrics = useScrollMetrics();
 
   const headings = useHeadings(
     document?.content ?? null,
@@ -235,10 +215,8 @@ function AppContent({ document, reload }: AppContentProps) {
         onReload={reload}
       />
 
-      <div
-        className={`flex-1 flex gap-4 w-full ${!isFullscreen ? "max-w-7xl mx-auto" : ""}`}
-      >
-        {!isFullscreen && headings.length > 0 && (
+      <div className="flex-1 flex gap-4 w-full max-w-7xl mx-auto">
+        {headings.length > 0 && (
           <aside className="w-48 flex-shrink-0 py-6 pl-6 hidden xl:block">
             <div className="sticky top-64 max-h-[calc(100vh-17rem)] overflow-y-auto">
               <TableOfContents
@@ -248,13 +226,6 @@ function AppContent({ document, reload }: AppContentProps) {
               />
             </div>
           </aside>
-        )}
-        {isFullscreen && (
-          <FloatingTOC
-            headings={headings}
-            activeId={activeHeadingId}
-            onHeadingClick={scrollToHeading}
-          />
         )}
 
         <div className="flex-1 px-6 py-6">
@@ -298,11 +269,6 @@ function AppContent({ document, reload }: AppContentProps) {
           <MarginNotes sortedComments={sortedComments} />
         </div>
       </div>
-
-      <CommentMinimap
-        documentHeight={scrollMetrics.documentHeight}
-        viewportHeight={scrollMetrics.viewportHeight}
-      />
 
       <CommentNav />
 
@@ -401,7 +367,7 @@ function App() {
   return (
     <>
       <TabBar />
-      <LayoutProvider>
+      <SettingsProvider>
         <PositionEngineProvider>
           <CommentProvider
             filePath={document.filePath}
@@ -413,7 +379,7 @@ function App() {
             <AppContent document={document} reload={reload} />
           </CommentProvider>
         </PositionEngineProvider>
-      </LayoutProvider>
+      </SettingsProvider>
     </>
   );
 }
