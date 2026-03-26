@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCommentContext } from "../../contexts/CommentContext";
+import { useCommentData } from "../../contexts/CommentContext";
 import { useLocale } from "../../contexts/LocaleContext";
 import { cn } from "../../lib/utils";
 import {
@@ -11,7 +11,7 @@ import { CommentManager } from "./CommentManager";
 
 export function CommentBadge() {
   const { t } = useLocale();
-  const { commentCount } = useCommentContext();
+  const { commentCount } = useCommentData();
 
   const [commentsOpen, setCommentsOpen] = useState(false);
 

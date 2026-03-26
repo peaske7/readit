@@ -10,7 +10,6 @@ export interface DocumentState {
   sortedComments: Comment[];
   selection: Selection | null;
   pendingSelectionTop: number | undefined;
-  pendingCommentText: string;
   scrollY: number;
   reanchorTarget: { commentId: string } | null;
 }
@@ -34,7 +33,6 @@ export interface AppStore {
     target: { commentId: string } | null,
     filePath?: string,
   ) => void;
-  setPendingCommentText: (text: string, filePath?: string) => void;
   updateDocumentHtml: (html: string, filePath?: string) => void;
   setHeadings: (headings: Heading[], filePath?: string) => void;
 
@@ -50,7 +48,6 @@ function createInitialDocumentState(doc: Document): DocumentState {
     sortedComments: [],
     selection: null,
     pendingSelectionTop: undefined,
-    pendingCommentText: "",
     scrollY: 0,
     reanchorTarget: null,
   };
@@ -180,12 +177,6 @@ export function createAppStore() {
         const path = resolveFilePath(filePath);
         if (!path) return;
         updateDocState(path, () => ({ reanchorTarget: target }));
-      },
-
-      setPendingCommentText: (text, filePath?) => {
-        const path = resolveFilePath(filePath);
-        if (!path) return;
-        updateDocState(path, () => ({ pendingCommentText: text }));
       },
 
       updateDocumentHtml: (html, filePath?) => {

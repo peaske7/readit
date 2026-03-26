@@ -38,7 +38,6 @@ interface CommentActionsValue {
   startReanchor: (commentId: string) => void;
   cancelReanchor: () => void;
   copyComment: (comment: Comment) => void;
-  scrollToHighlight: (commentId: string) => void;
   registerHighlighter: (
     setFocused: (id: string | undefined) => void,
     scrollToComment: (id: string) => void,
@@ -78,8 +77,6 @@ export type CommentContextValue = CommentActionsValue & CommentDataValue;
 export function useCommentContext(): CommentContextValue {
   return { ...useCommentActions(), ...useCommentData() };
 }
-
-export const CommentContext = CommentDataContext;
 
 interface CommentProviderProps {
   filePath: string;
@@ -140,13 +137,6 @@ export function CommentProvider({
     [t],
   );
 
-  const scrollToHighlight = useCallback(
-    (commentId: string) => {
-      navigateToComment(commentId);
-    },
-    [navigateToComment],
-  );
-
   const actions = useMemo<CommentActionsValue>(
     () => ({
       addComment,
@@ -161,7 +151,6 @@ export function CommentProvider({
       startReanchor,
       cancelReanchor,
       copyComment,
-      scrollToHighlight,
       registerHighlighter,
     }),
     [
@@ -177,7 +166,6 @@ export function CommentProvider({
       startReanchor,
       cancelReanchor,
       copyComment,
-      scrollToHighlight,
       registerHighlighter,
     ],
   );

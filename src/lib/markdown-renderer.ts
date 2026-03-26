@@ -110,13 +110,9 @@ function injectHeadingIds(html: string, headings: Heading[]): string {
   );
 }
 
-export interface RenderResult {
+interface RenderResult {
   html: string;
   headings: Heading[];
-}
-
-export async function initRenderer(): Promise<void> {
-  await getShiki();
 }
 
 export async function renderMarkdown(content: string): Promise<RenderResult> {

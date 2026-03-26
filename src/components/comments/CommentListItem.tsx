@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCommentContext } from "../../contexts/CommentContext";
+import { useCommentActions } from "../../contexts/CommentContext";
 import { useLocale } from "../../contexts/LocaleContext";
 import { cn } from "../../lib/utils";
 import type { Comment } from "../../schema";
@@ -15,7 +15,7 @@ interface CommentListItemProps {
 export function CommentListItem({ comment, onAction }: CommentListItemProps) {
   const { t } = useLocale();
   const { editComment, deleteComment, navigateToComment, startReanchor } =
-    useCommentContext();
+    useCommentActions();
 
   const [isEditing, setIsEditing] = useState(false);
 
