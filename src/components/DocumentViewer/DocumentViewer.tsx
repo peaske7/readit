@@ -32,6 +32,7 @@ const MemoizedMarkdown = memo(function MemoizedMarkdown({
   content: string;
   components: ComponentPropsWithoutRef<typeof Markdown>["components"];
 }) {
+  console.warn("[perf] MemoizedMarkdown RENDER — memo was busted");
   return (
     <Markdown
       components={components}

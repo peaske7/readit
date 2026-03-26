@@ -1,4 +1,4 @@
-import type { HighlightPositions, HighlightStyle, TextNodeInfo } from "./types";
+import type { HighlightStyle, TextNodeInfo } from "./types";
 
 /**
  * Block-level elements that should have newlines between them.
@@ -379,32 +379,4 @@ export function clearHighlights(
       parent.removeChild(mark);
     }
   }
-}
-
-/**
- * Collect highlight positions relative to a container and document.
- */
-export function collectHighlightPositions(
-  root: HTMLElement,
-  containerRect: DOMRect,
-): HighlightPositions {
-  const positions: Record<string, number> = {};
-
-  // Collect comment highlight positions
-  const marks = root.querySelectorAll("mark[data-comment-id]");
-  for (const mark of marks) {
-    const commentId = mark.getAttribute("data-comment-id");
-    if (!commentId) continue;
-
-    // Get position relative to container (for margin notes)
-    const markRect = mark.getBoundingClientRect();
-    const relativeTop = markRect.top - containerRect.top;
-
-    // Use first occurrence of each comment id
-    if (!(commentId in positions)) {
-      positions[commentId] = relativeTop;
-    }
-  }
-
-  return { positions };
 }

@@ -49,6 +49,7 @@ export class Positions {
 
   cache() {
     if (!this.root || !this.container) return;
+    console.time("[perf] positions.cache");
 
     const ref = this.container.getBoundingClientRect();
     const scrollY = window.scrollY;
@@ -71,6 +72,7 @@ export class Positions {
 
     this.apply();
     this.notify();
+    console.timeEnd("[perf] positions.cache");
   }
 
   setIds(ids: string[]) {

@@ -1,6 +1,37 @@
-import { createContext, type ReactNode, use, useMemo } from "react";
-import { useLocalePreference } from "../hooks/useLocalePreference";
-import { createT, type Locale, type TranslationKey } from "../lib/i18n";
+import {
+  createContext,
+  type ReactNode,
+  use,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
+import {
+  createT,
+  type Locale,
+  Locales,
+  type TranslationKey,
+} from "../lib/i18n";
+
+const STORAGE_KEY = "readit:locale";
+
+function detectLocale(): Locale {
+  const browserLang = navigator.language.slice(0, 2).toLowerCase();
+  if (browserLang === "ja") return Locales.JA;
+  return Locales.EN;
+}
+
+function getStoredLocale(): Locale {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === Locales.JA || stored === Locales.EN) {
+      return stored;
+    }
+  } catch {
+    // localStorage may be unavailable
+  }
+  return detectLocale();
+}
 
 interface LocaleContextValue {
   locale: Locale;
@@ -23,7 +54,17 @@ interface LocaleProviderProps {
 }
 
 export function LocaleProvider({ children }: LocaleProviderProps) {
-  const { locale, setLocale } = useLocalePreference();
+  const [locale, setLocaleState] = useState<Locale>(getStoredLocale);
+
+  const setLocale = useCallback((newLocale: Locale) => {
+    setLocaleState(newLocale);
+    try {
+      localStorage.setItem(STORAGE_KEY, newLocale);
+    } catch {
+      // localStorage may be unavailable
+    }
+  }, []);
+
   const t = useMemo(() => createT(locale), [locale]);
 
   const value = useMemo<LocaleContextValue>(

@@ -1,4 +1,3 @@
-import DOMPurify from "dompurify";
 import { useEffect, useId, useState } from "react";
 
 interface MermaidDiagramProps {
@@ -83,14 +82,14 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
           },
         });
 
-        const { svg: rawSvg } = await mermaid.render(`mermaid-${id}`, code);
-        // Sanitize SVG output with DOMPurify before storing in state
-        const sanitizedSvg = DOMPurify.sanitize(rawSvg, {
-          USE_PROFILES: { svg: true },
-        });
+        // securityLevel: "strict" prevents script injection in mermaid output
+        const { svg: renderedSvg } = await mermaid.render(
+          `mermaid-${id}`,
+          code,
+        );
 
         if (!cancelled) {
-          setSvg(sanitizedSvg);
+          setSvg(renderedSvg);
           setError(null);
         }
       } catch (err) {

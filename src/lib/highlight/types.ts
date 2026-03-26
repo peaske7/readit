@@ -11,14 +11,6 @@ export interface HighlightStyle {
 }
 
 /**
- * Text range with character offsets.
- */
-export interface TextRange {
-  startOffset: number;
-  endOffset: number;
-}
-
-/**
  * Resolved text position in content.
  */
 export interface TextPosition {
@@ -34,15 +26,6 @@ export interface HighlightComment {
   selectedText: string;
   startOffset: number;
   endOffset: number;
-}
-
-/**
- * Highlight positions for margin note alignment.
- * - positions: Y-position relative to container (for margin notes)
- */
-export interface HighlightPositions {
-  positions: Record<string, number>;
-  pendingTop?: number;
 }
 
 /**

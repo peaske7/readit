@@ -18,8 +18,6 @@ export interface Translations {
 
   // Actions menu
   "actions.ariaLabel": string;
-  "actions.centered": string;
-  "actions.fullscreen": string;
   "actions.settings": string;
   "actions.reload": string;
   "actions.copyAll": string;
@@ -31,18 +29,11 @@ export interface Translations {
   "settings.theme": string;
   "settings.font": string;
   "settings.language": string;
-  "settings.keyboardShortcuts": string;
-  "settings.clickToRebind": string;
   "settings.theme.system": string;
   "settings.theme.light": string;
   "settings.theme.dark": string;
   "settings.font.serif": string;
   "settings.font.sansSerif": string;
-  "settings.editor": string;
-  "settings.editor.none": string;
-  "settings.editor.vscode": string;
-  "settings.editor.vscodeInsiders": string;
-  "settings.editor.cursor": string;
 
   // Comment input
   "comment.placeholder": string;
@@ -94,30 +85,9 @@ export interface Translations {
   "rawModal.copiedToClipboard": string;
   "rawModal.failedToCopy": string;
 
-  // Shortcut groups
-  "shortcutGroup.copy": string;
-  "shortcutGroup.navigate": string;
-  "shortcutGroup.other": string;
-  "shortcuts.resetToDefaults": string;
-  "shortcuts.enableDisable": string;
-  "shortcutCapture.pressKeys": string;
-
-  // Shortcut labels (rendered in ShortcutList)
-  "shortcut.copyAll.label": string;
-  "shortcut.copyAll.description": string;
-  "shortcut.navigateNext.label": string;
-  "shortcut.navigateNext.description": string;
-  "shortcut.navigatePrevious.label": string;
-  "shortcut.navigatePrevious.description": string;
-  "shortcut.clearSelection.label": string;
-  "shortcut.clearSelection.description": string;
-
   // Toast messages
   "toast.copied": string;
   "toast.copiedAllComments": string;
-
-  // Floating TOC
-  "floatingTOC.label": string;
 
   // Comment badge
   "commentBadge.title": string;

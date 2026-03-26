@@ -6,7 +6,7 @@ import {
   getTextOffset,
 } from "./dom";
 import { Resolver } from "./resolver";
-import type { HighlightComment, HighlightPositions, TextRange } from "./types";
+import type { HighlightComment } from "./types";
 
 export type SelectionHandler = (
   text: string,
@@ -14,17 +14,11 @@ export type SelectionHandler = (
   endOffset: number,
   selectionTop: number,
 ) => void;
-export type PositionChangeHandler = (positions: HighlightPositions) => void;
 export type HoverHandler = (commentId: string | undefined) => void;
 export type ClickHandler = (commentId: string) => void;
 export interface Highlighter {
-  applyHighlights(
-    comments: HighlightComment[],
-    pendingSelection?: TextRange,
-  ): void;
+  applyHighlights(comments: HighlightComment[]): void;
   clearHighlights(): void;
-  getPositions(): HighlightPositions;
-  onPositionsChange(callback: PositionChangeHandler): () => void;
   onHighlightHover(callback: HoverHandler): () => void;
   onHighlightClick(callback: ClickHandler): () => void;
   dispose(): void;
@@ -198,16 +192,17 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
   root.addEventListener("click", handleClick);
 
   return {
-    applyHighlights(
-      comments: HighlightComment[],
-      _pendingSelection?: TextRange,
-    ) {
+    applyHighlights(comments: HighlightComment[]) {
+      console.time("[perf] getDOMTextContent");
       const textContent = getDOMTextContent(root);
+      console.timeEnd("[perf] getDOMTextContent");
 
       // If DOM content changed (e.g. document reload), full rebuild is required
       const contentChanged = textContent !== lastTextContent;
       if (contentChanged) {
+        console.time("[perf] clearHighlights (full rebuild)");
         clearHighlights(root);
+        console.timeEnd("[perf] clearHighlights (full rebuild)");
         activeHighlights.clear();
         lastTextContent = textContent;
       }
@@ -216,7 +211,9 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
       const generation = ++resolveGeneration;
 
       // Resolve anchors off the main thread, then diff and apply
+      console.time("[perf] resolver.resolve (worker)");
       resolver.resolve(textContent, comments).then((anchorMap) => {
+        console.timeEnd("[perf] resolver.resolve (worker)");
         // Discard if a newer applyHighlights call has started
         if (generation !== resolveGeneration) return;
 
@@ -239,7 +236,9 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
           }
         }
 
+        console.time("[perf] applyDiff");
         applyDiff(textContent, resolved);
+        console.timeEnd("[perf] applyDiff");
       });
     },
 
@@ -247,15 +246,6 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
       clearHighlights(root);
       activeHighlights.clear();
       lastTextContent = "";
-    },
-
-    getPositions(): HighlightPositions {
-      return { positions: {} };
-    },
-
-    onPositionsChange(_callback: PositionChangeHandler) {
-      // No-op — positions managed by Positions class
-      return () => {};
     },
 
     onHighlightHover(callback: HoverHandler) {

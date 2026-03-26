@@ -13,8 +13,6 @@ export const ja: Translations = {
 
   // Actions menu
   "actions.ariaLabel": "操作メニュー",
-  "actions.centered": "中央揃え",
-  "actions.fullscreen": "全画面",
   "actions.settings": "設定",
   "actions.reload": "再読み込み",
   "actions.copyAll": "全てコピー",
@@ -26,18 +24,11 @@ export const ja: Translations = {
   "settings.theme": "テーマ",
   "settings.font": "フォント",
   "settings.language": "言語",
-  "settings.keyboardShortcuts": "キーボードショートカット",
-  "settings.clickToRebind": "キーをクリックして変更",
   "settings.theme.system": "システム",
   "settings.theme.light": "ライト",
   "settings.theme.dark": "ダーク",
   "settings.font.serif": "明朝体",
   "settings.font.sansSerif": "ゴシック体",
-  "settings.editor": "エディター",
-  "settings.editor.none": "なし",
-  "settings.editor.vscode": "VS Code",
-  "settings.editor.vscodeInsiders": "VS Code Insiders",
-  "settings.editor.cursor": "Cursor",
 
   // Comment input
   "comment.placeholder": "コメントを入力...",
@@ -91,30 +82,9 @@ export const ja: Translations = {
   "rawModal.copiedToClipboard": "クリップボードにコピーしました",
   "rawModal.failedToCopy": "コピーに失敗しました",
 
-  // Shortcut groups
-  "shortcutGroup.copy": "コピー",
-  "shortcutGroup.navigate": "ナビゲーション",
-  "shortcutGroup.other": "その他",
-  "shortcuts.resetToDefaults": "初期設定に戻す",
-  "shortcuts.enableDisable": "ショートカットの有効/無効",
-  "shortcutCapture.pressKeys": "キーを入力...",
-
-  // Shortcut labels
-  "shortcut.copyAll.label": "全てコピー",
-  "shortcut.copyAll.description": "全コメントをクリップボードにコピー",
-  "shortcut.navigateNext.label": "次のコメント",
-  "shortcut.navigateNext.description": "次のコメントに移動",
-  "shortcut.navigatePrevious.label": "前のコメント",
-  "shortcut.navigatePrevious.description": "前のコメントに移動",
-  "shortcut.clearSelection.label": "選択を解除",
-  "shortcut.clearSelection.description": "テキスト選択を解除",
-
   // Toast messages
   "toast.copied": 'コピーしました: "{{text}}"',
   "toast.copiedAllComments": "全てのコメントをコピーしました",
-
-  // Floating TOC
-  "floatingTOC.label": "目次",
 
   // Comment badge
   "commentBadge.title": "{{count}}件のコメント",

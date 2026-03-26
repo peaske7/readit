@@ -16,7 +16,7 @@ const CLI_PATH = resolve(import.meta.dirname, "../../../dist/index.js");
 
 /**
  * Start the readit CLI with one or more fixture files for perf testing.
- * Always uses --clean --no-open.
+ * Uses --no-open (no --clean, so pre-seeded comments are loaded).
  */
 export async function spawnPerfCli(
   fixturePaths: string | string[],
@@ -25,14 +25,7 @@ export async function spawnPerfCli(
   const { port = 4600 } = options;
 
   const paths = Array.isArray(fixturePaths) ? fixturePaths : [fixturePaths];
-  const args = [
-    CLI_PATH,
-    ...paths,
-    "--no-open",
-    "--clean",
-    "--port",
-    String(port),
-  ];
+  const args = [CLI_PATH, ...paths, "--no-open", "--port", String(port)];
 
   const cliProcess = spawn("bun", args, {
     cwd: resolve(import.meta.dirname, "../../.."),

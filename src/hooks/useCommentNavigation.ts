@@ -76,18 +76,9 @@ export function useCommentNavigation(
         );
       };
 
-      // Try main document first (for markdown)
-      const mainHighlight = document.querySelector(selector);
-      if (mainHighlight) {
-        scrollAndHighlight(mainHighlight);
-        return;
-      }
-
-      // Try inside iframe (for HTML content)
-      const iframe = document.querySelector("iframe");
-      const iframeHighlight = iframe?.contentDocument?.querySelector(selector);
-      if (iframeHighlight) {
-        scrollAndHighlight(iframeHighlight);
+      const highlight = document.querySelector(selector);
+      if (highlight) {
+        scrollAndHighlight(highlight);
       }
     },
     [setHoveredCommentId],

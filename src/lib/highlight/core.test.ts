@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findTextPosition } from "./core";
+import { findTextPosition } from "./resolver";
 
 describe("findTextPosition", () => {
   it("finds single occurrence", () => {

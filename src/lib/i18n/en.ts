@@ -13,8 +13,6 @@ export const en: Translations = {
 
   // Actions menu
   "actions.ariaLabel": "Actions menu",
-  "actions.centered": "Centered",
-  "actions.fullscreen": "Fullscreen",
   "actions.settings": "Settings",
   "actions.reload": "Reload",
   "actions.copyAll": "Copy All",
@@ -26,18 +24,11 @@ export const en: Translations = {
   "settings.theme": "Theme",
   "settings.font": "Font",
   "settings.language": "Language",
-  "settings.keyboardShortcuts": "Keyboard Shortcuts",
-  "settings.clickToRebind": "Click a key to rebind",
   "settings.theme.system": "System",
   "settings.theme.light": "Light",
   "settings.theme.dark": "Dark",
   "settings.font.serif": "Serif",
   "settings.font.sansSerif": "Sans-serif",
-  "settings.editor": "Editor",
-  "settings.editor.none": "None",
-  "settings.editor.vscode": "VS Code",
-  "settings.editor.vscodeInsiders": "VS Code Insiders",
-  "settings.editor.cursor": "Cursor",
 
   // Comment input
   "comment.placeholder": "Add your comment...",
@@ -89,30 +80,9 @@ export const en: Translations = {
   "rawModal.copiedToClipboard": "Copied to clipboard",
   "rawModal.failedToCopy": "Failed to copy",
 
-  // Shortcut groups
-  "shortcutGroup.copy": "Copy",
-  "shortcutGroup.navigate": "Navigate",
-  "shortcutGroup.other": "Other",
-  "shortcuts.resetToDefaults": "Reset to defaults",
-  "shortcuts.enableDisable": "Enable/disable shortcut",
-  "shortcutCapture.pressKeys": "Press keys...",
-
-  // Shortcut labels
-  "shortcut.copyAll.label": "Copy All",
-  "shortcut.copyAll.description": "Copy all comments to clipboard",
-  "shortcut.navigateNext.label": "Next Comment",
-  "shortcut.navigateNext.description": "Navigate to next comment",
-  "shortcut.navigatePrevious.label": "Previous Comment",
-  "shortcut.navigatePrevious.description": "Navigate to previous comment",
-  "shortcut.clearSelection.label": "Clear Selection",
-  "shortcut.clearSelection.description": "Clear text selection",
-
   // Toast messages
   "toast.copied": 'Copied: "{{text}}"',
   "toast.copiedAllComments": "Copied all comments",
-
-  // Floating TOC
-  "floatingTOC.label": "Table of Contents",
 
   // Comment badge
   "commentBadge.title": "{{count}} comment",
