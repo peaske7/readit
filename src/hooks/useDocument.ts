@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import type { Document } from "../schema";
 import { appStore, useAppStore } from "../store";
-import type { Document } from "../types";
 
 interface UseDocumentResult {
   document: Document | null;
@@ -15,27 +15,18 @@ interface DocListItem {
   fileName: string;
 }
 
-/**
- * Manage multi-document loading, lazy content fetching, and live reloading.
- *
- * On mount: fetches the document list from `/api/documents` and opens all
- * files in the store. Content is loaded lazily when a tab becomes active.
- * SSE events trigger content updates for already-loaded documents.
- */
 export function useDocument(): UseDocumentResult {
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
   const activeDocumentPath = useAppStore((s) => s.activeDocumentPath);
 
-  // Active document — null until content is loaded
   const document = useAppStore((s) => {
     const ds = s.getActiveDocumentState();
     if (!ds?.document.content) return null;
     return ds.document;
   });
 
-  // Fetch document list on mount, populate store
   useEffect(() => {
     async function init() {
       try {
@@ -50,7 +41,7 @@ export function useDocument(): UseDocumentResult {
         data.files.forEach((file: DocListItem, index: number) => {
           appStore.getState().openDocument(
             {
-              content: "", // Content loaded lazily on tab activation
+              content: "",
               filePath: file.path,
               fileName: file.fileName,
               clean,
@@ -69,7 +60,6 @@ export function useDocument(): UseDocumentResult {
     init();
   }, []);
 
-  // Load content when active document changes and has no content yet
   useEffect(() => {
     if (!activeDocumentPath) return;
     const state = appStore.getState().documents.get(activeDocumentPath);
@@ -94,7 +84,7 @@ export function useDocument(): UseDocumentResult {
     loadContent();
   }, [activeDocumentPath]);
 
-  // SSE: register new documents without stealing focus; reload loaded docs on updates
+  // SSE: register new documents without stealing focus; reload already-loaded docs on updates
   useEffect(() => {
     const eventSource = new EventSource("/api/document/stream");
     eventSource.onmessage = async (e) => {
@@ -103,7 +93,7 @@ export function useDocument(): UseDocumentResult {
         if (data.type === "document-added" && data.path) {
           appStore.getState().openDocument(
             {
-              content: "", // Lazy-loaded when tab activated
+              content: "",
               filePath: data.path,
               fileName: data.fileName,
               clean: false,
@@ -113,7 +103,6 @@ export function useDocument(): UseDocumentResult {
           return;
         }
         if (data.type === "document-updated" && data.path) {
-          // Only reload if content was previously loaded
           const state = appStore.getState().documents.get(data.path);
           if (!state?.document.content) return;
 

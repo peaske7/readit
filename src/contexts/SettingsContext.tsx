@@ -13,9 +13,7 @@ import {
   type FontFamily,
   type ThemeMode,
   ThemeModes,
-} from "../types";
-
-// --- Theme helpers ---
+} from "../schema";
 
 const THEME_STORAGE_KEY = "readit:theme";
 const DARK_MQ = "(prefers-color-scheme: dark)";
@@ -44,8 +42,6 @@ function applyTheme(mode: ThemeMode): void {
   document.documentElement.classList.toggle("dark", isDark);
 }
 
-// --- Context ---
-
 interface SettingsContextValue {
   fontFamily: FontFamily;
   setFontFamily: (font: FontFamily) => Promise<void>;
@@ -64,7 +60,6 @@ export function useSettings(): SettingsContextValue {
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  // --- Font preference (server-persisted) ---
   const [fontFamily, setFontFamilyState] = useState<FontFamily>(
     FontFamilies.SERIF,
   );
@@ -104,7 +99,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // --- Theme preference (localStorage-persisted) ---
   const [themeMode, setThemeModeState] = useState<ThemeMode>(getStoredTheme);
 
   useEffect(() => {
@@ -130,7 +124,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // --- Context value ---
   const value = useMemo<SettingsContextValue>(
     () => ({ fontFamily, setFontFamily, themeMode, setThemeMode }),
     [fontFamily, setFontFamily, themeMode, setThemeMode],

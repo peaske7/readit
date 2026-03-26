@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { basename, dirname, join } from "node:path";
-import { findAnchorWithFallback } from "../lib/anchor.js";
+import { findAnchorWithFallback } from "./lib/anchor.js";
 import {
   computeHash,
   createComment,
@@ -12,17 +12,15 @@ import {
   parseCommentFile,
   serializeComments,
   truncateSelection,
-} from "../lib/comment-storage.js";
-import { isMarkdownFile } from "../lib/utils.js";
+} from "./lib/comment-storage.js";
+import { isMarkdownFile } from "./lib/utils.js";
 import {
   AnchorConfidences,
   type Comment,
   type DocumentSettings,
   FontFamilies,
   type FontFamily,
-} from "../types/index.js";
-
-// ─── Helpers ─────────────────────────────────────────────────────────
+} from "./schema.js";
 
 function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err;
@@ -190,8 +188,6 @@ function isValidFontFamily(value: unknown): value is FontFamily {
   return value === FontFamilies.SERIF || value === FontFamilies.SANS_SERIF;
 }
 
-// ─── PID file helpers ───────────────────────────────────────────────
-
 export const SERVER_INFO_PATH = path.join(
   os.homedir(),
   ".readit",
@@ -217,8 +213,6 @@ export async function removeServerInfo(): Promise<void> {
   }
 }
 
-// ─── Response helpers ───────────────────────────────────────────────
-
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status });
 }
@@ -227,14 +221,10 @@ function errorResponse(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
 }
 
-// ─── Route context ──────────────────────────────────────────────────
-
 interface RouteContext {
   filePath: string;
   getCurrentContent: () => Promise<string>;
 }
-
-// ─── Route handlers ─────────────────────────────────────────────────
 
 async function getComments(ctx: RouteContext): Promise<Response> {
   try {
@@ -458,8 +448,6 @@ async function updateSettingsRoute(req: Request): Promise<Response> {
   }
 }
 
-// ─── SSE helpers ────────────────────────────────────────────────────
-
 function createDocumentStream(
   sseClients: Set<ReadableStreamDefaultController>,
 ): Response {
@@ -531,8 +519,6 @@ function createHeartbeat(
   });
 }
 
-// ─── Static file serving ────────────────────────────────────────────
-
 async function serveStaticFile(
   distPath: string,
   pathname: string,
@@ -552,8 +538,6 @@ async function serveStaticFile(
 
   return new Response("Not Found", { status: 404 });
 }
-
-// ─── Dev proxy ──────────────────────────────────────────────────────
 
 const VITE_DEV_PORT = 24678;
 const VITE_DEV_ORIGIN = `http://127.0.0.1:${VITE_DEV_PORT}`;
@@ -581,7 +565,6 @@ async function proxyToVite(
 async function isViteReady(): Promise<boolean> {
   try {
     const res = await fetch(`${VITE_DEV_ORIGIN}/`);
-    // Vite returns 200 with index.html content when properly serving
     return res.ok;
   } catch {
     return false;
@@ -611,14 +594,10 @@ async function spawnViteDev(): Promise<() => void> {
   };
 }
 
-// ─── Extract route param ────────────────────────────────────────────
-
 function extractCommentId(pathname: string): string | undefined {
   const match = pathname.match(/^\/api\/comments\/([^/]+)/);
   return match?.[1];
 }
-
-// ─── Multi-file state ───────────────────────────────────────────────
 
 interface FileState {
   content: string | null;
@@ -626,17 +605,13 @@ interface FileState {
   debounceTimer: ReturnType<typeof setTimeout> | null;
 }
 
-// ─── Server creation ────────────────────────────────────────────────
-
 interface ServerWithWatchers {
   server: ReturnType<typeof Bun.serve>;
   watchers: FSWatcher[];
 }
 
 function createServer(options: ServerOptions): ServerWithWatchers {
-  // Map of absolute path → mutable file state
   const fileMap = new Map<string, FileState>();
-  // Ordered list of file paths (insertion order for tab display)
   const fileOrder: string[] = [];
 
   for (const entry of options.files) {
@@ -705,7 +680,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     return content;
   }
 
-  // Resolve the target file from ?path= query param, falling back to first file
   function resolveContext(url: URL): RouteContext | null {
     const requestedPath = url.searchParams.get("path") ?? defaultPath;
     const state = fileMap.get(requestedPath);
@@ -768,9 +742,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       const { pathname } = url;
       const method = req.method;
 
-      // ── API routes ──────────────────────────────────────────
-
-      // Document list (multi-file)
       if (pathname === "/api/documents" && method === "GET") {
         const files = fileOrder.map((fp) => ({
           path: fp,
@@ -783,7 +754,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         });
       }
 
-      // Register a document for this session without forcing focus
       if (pathname === "/api/documents" && method === "POST") {
         try {
           const { path: requestedPath } = await req.json();
@@ -817,7 +787,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
               status: "present",
             });
           } else {
-            // New document — register metadata only, load content on demand
             fileMap.set(filePath, {
               content: null,
               isLoaded: false,
@@ -846,7 +815,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         }
       }
 
-      // Single document (backward compat + path-aware)
       if (pathname === "/api/document" && method === "GET") {
         const ctxOrRes = requireContext(url);
         if (ctxOrRes instanceof Response) return ctxOrRes;
@@ -871,7 +839,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         return createHeartbeat(onHeartbeatOpen, onHeartbeatClose);
       }
 
-      // Comments routes
       if (pathname === "/api/comments" && method === "GET") {
         const ctxOrRes = requireContext(url);
         if (ctxOrRes instanceof Response) return ctxOrRes;
@@ -896,7 +863,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         return clearComments(ctxOrRes);
       }
 
-      // Parameterized comment routes
       const commentId = extractCommentId(pathname);
       if (commentId) {
         const ctxOrRes = requireContext(url);
@@ -913,7 +879,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         }
       }
 
-      // Settings routes (global, not per-document)
       if (pathname === "/api/settings" && method === "GET") {
         return getSettingsRoute();
       }
@@ -921,8 +886,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       if (pathname === "/api/settings" && method === "PUT") {
         return updateSettingsRoute(req);
       }
-
-      // ── Static / SPA serving ────────────────────────────────
 
       if (isDev) {
         return proxyToVite(req, pathname, url.search);
@@ -941,8 +904,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 
   return { server, watchers };
 }
-
-// ─── Port fallback + start ──────────────────────────────────────────
 
 export async function startServer(
   options: ServerOptions,

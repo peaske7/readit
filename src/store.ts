@@ -1,7 +1,5 @@
 import { createStore, useStore } from "zustand";
-import type { Comment, Document, Selection } from "../types";
-
-// ─── Types ───────────────────────────────────────────────────────────
+import type { Comment, Document, Selection } from "./schema";
 
 export interface DocumentState {
   document: Document;
@@ -16,19 +14,17 @@ export interface DocumentState {
 }
 
 export interface AppStore {
-  // Multi-document state
   documents: Map<string, DocumentState>;
   activeDocumentPath: string | null;
   documentOrder: string[];
   workingDirectory: string | null;
 
-  // Global actions
   setWorkingDirectory: (dir: string) => void;
   openDocument: (doc: Document, opts?: { active?: boolean }) => void;
   closeDocument: (filePath: string) => void;
   setActiveDocument: (filePath: string) => void;
 
-  // Per-document setters (default to active doc)
+  // Setters default to active doc when filePath omitted
   setComments: (comments: Comment[], filePath?: string) => void;
   setCommentsError: (error: string | null, filePath?: string) => void;
   setSelection: (selection: Selection | null, filePath?: string) => void;
@@ -41,11 +37,8 @@ export interface AppStore {
   setPendingCommentText: (text: string, filePath?: string) => void;
   updateDocumentContent: (content: string, filePath?: string) => void;
 
-  // Helpers
   getActiveDocumentState: () => DocumentState | undefined;
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────────
 
 function createInitialDocumentState(doc: Document): DocumentState {
   return {
@@ -64,8 +57,6 @@ function createInitialDocumentState(doc: Document): DocumentState {
 function sortComments(comments: Comment[]): Comment[] {
   return [...comments].sort((a, b) => a.startOffset - b.startOffset);
 }
-
-// ─── Store Factory ───────────────────────────────────────────────────
 
 export function createAppStore() {
   return createStore<AppStore>((set, get) => {
@@ -212,15 +203,11 @@ export function createAppStore() {
   });
 }
 
-// ─── Singleton + React Hook ─────────────────────────────────────────
-
 export const appStore = createAppStore();
 
 export function useAppStore<T>(selector: (state: AppStore) => T): T {
   return useStore(appStore, selector);
 }
-
-// ─── UI Store (high-frequency, flat, no Map overhead) ───────────────
 
 interface UIState {
   hoveredCommentId: string | undefined;

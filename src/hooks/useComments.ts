@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
+import { AnchorConfidences, type Comment } from "../schema";
 import { appStore, useAppStore } from "../store";
-import { AnchorConfidences, type Comment } from "../types";
 
 interface UseCommentsOptions {
   clean?: boolean;
@@ -26,17 +26,12 @@ interface UseCommentsResult {
   ) => void;
 }
 
-/**
- * Hook for managing comments with optimistic updates.
- * State lives in the Zustand store; this hook coordinates API mutations.
- */
 export function useComments(
   filePath: string | null,
   options: UseCommentsOptions = {},
 ): UseCommentsResult {
   const { clean = false } = options;
 
-  // Read comments and error from the store
   const comments = useAppStore(
     (s) => s.documents.get(filePath ?? "")?.comments ?? [],
   );
@@ -44,16 +39,12 @@ export function useComments(
     (s) => s.documents.get(filePath ?? "")?.commentsError ?? undefined,
   );
 
-  // Track pending operations for rollback on error
   const pendingOperations = useRef<Map<string, Comment[]>>(new Map());
 
-  // Capture filePath at call time for stable closures
+  // Capture filePath at call time so callbacks stay stable across renders
   const filePathRef = useRef(filePath);
   filePathRef.current = filePath;
 
-  /**
-   * Execute an optimistic mutation with automatic rollback on error.
-   */
   const executeMutation = useCallback(
     async <T>({
       operationId,
@@ -71,19 +62,16 @@ export function useComments(
       const fp = filePathRef.current;
       if (!fp) return;
 
-      // Read current comments from store for rollback
       const currentDocState = appStore.getState().documents.get(fp);
       const previousComments = [...(currentDocState?.comments ?? [])];
       pendingOperations.current.set(operationId, previousComments);
 
-      // Apply optimistic update
       appStore.getState().setComments(optimisticUpdate(previousComments), fp);
       appStore.getState().setCommentsError(null, fp);
 
       try {
         const result = await apiCall();
 
-        // Apply server response transformation if provided
         if (onSuccess) {
           const current = appStore.getState().documents.get(fp)?.comments ?? [];
           appStore.getState().setComments(onSuccess(result, current), fp);
@@ -97,7 +85,6 @@ export function useComments(
             fp,
           );
 
-        // Rollback on error
         const rollback = pendingOperations.current.get(operationId);
         if (rollback) {
           appStore.getState().setComments(rollback, fp);
@@ -109,14 +96,12 @@ export function useComments(
     [],
   );
 
-  // Build path-scoped API URL
   const pathQuery = useCallback((base: string) => {
     const fp = filePathRef.current;
     if (!fp) return base;
     return `${base}?path=${encodeURIComponent(fp)}`;
   }, []);
 
-  // Load comments from API
   useEffect(() => {
     if (!filePath) return;
 
@@ -125,7 +110,6 @@ export function useComments(
       const query = `?path=${encodeURIComponent(filePath)}`;
 
       try {
-        // If clean flag is set, clear comments first
         if (clean) {
           await fetch(`/api/comments${query}`, { method: "DELETE" });
           appStore.getState().setComments([], filePath);

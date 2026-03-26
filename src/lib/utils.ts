@@ -10,18 +10,11 @@ export function cn(...inputs: ReadonlyArray<ClassValue>) {
   return twMerge(clsx(inputs));
 }
 
-/**
- * Truncate text with ellipsis for toast notifications.
- */
 export function truncate(text: string, maxLength = 30): string {
   if (text.length <= maxLength) return text;
   return `${text.slice(0, maxLength)}…`;
 }
 
-/**
- * Recursively extract text content from React children.
- * Handles strings, numbers, arrays, and React elements.
- */
 export function getTextContent(children: ReactNode): string {
   if (typeof children === "string" || typeof children === "number") {
     return String(children);
@@ -41,9 +34,6 @@ export function getTextContent(children: ReactNode): string {
   return "";
 }
 
-/**
- * Slugify text to create URL-friendly IDs
- */
 export function slugify(text: string): string {
   return text
     .toLowerCase()

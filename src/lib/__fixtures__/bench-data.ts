@@ -1,4 +1,4 @@
-import type { Comment, CommentFile } from "../../types";
+import type { Comment, CommentFile } from "../../schema";
 import { serializeComments } from "../comment-storage";
 
 // --- Document fixtures ---

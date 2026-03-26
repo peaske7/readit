@@ -39,9 +39,10 @@ const TOASTER_OPTIONS = {
 interface AppContentProps {
   document: NonNullable<ReturnType<typeof useDocument>["document"]>;
   reload: ReturnType<typeof useDocument>["reload"];
+  isActive: boolean;
 }
 
-function AppContent({ document, reload }: AppContentProps) {
+function AppContent({ document, reload, isActive }: AppContentProps) {
   const { t } = useLocale();
   const { comments, sortedComments, reanchorTarget } = useCommentData();
   const { addComment, reanchorComment, cancelReanchor, setHoveredCommentId } =
@@ -72,7 +73,7 @@ function AppContent({ document, reload }: AppContentProps) {
 
   const headings = useHeadings(document?.content ?? null);
   const headingIds = useMemo(() => headings.map((h) => h.id), [headings]);
-  const activeHeadingId = useScrollSpy(headingIds);
+  const activeHeadingId = useScrollSpy(headingIds, isActive);
 
   const scrollToHeading = useCallback((id: string) => {
     const rect = window.document.getElementById(id)?.getBoundingClientRect();
@@ -92,30 +93,31 @@ function AppContent({ document, reload }: AppContentProps) {
     }
   }, []);
 
-  // Scroll save/restore for tab switching
+  // Scroll save/restore for tab switching (visibility-based, not mount-based)
   const setScrollY = useAppStore((s) => s.setScrollY);
   const savedScrollY = useAppStore(
-    (s) => s.getActiveDocumentState()?.scrollY ?? 0,
+    (s) => s.documents.get(document.filePath)?.scrollY ?? 0,
   );
-  const scrollRestored = useRef(false);
+  const prevActiveRef = useRef(isActive);
 
-  // Save scroll position on unmount
   useEffect(() => {
-    return () => {
-      setScrollY(window.scrollY);
-    };
-  }, [setScrollY]);
+    const wasActive = prevActiveRef.current;
+    prevActiveRef.current = isActive;
 
-  // Restore scroll position on mount (after highlights paint)
-  useEffect(() => {
-    if (savedScrollY === 0 || scrollRestored.current) return;
-    scrollRestored.current = true;
-    requestAnimationFrame(() => {
+    if (wasActive && !isActive) {
+      // Tab becoming hidden — save scroll position
+      setScrollY(window.scrollY, document.filePath);
+    }
+
+    if (!wasActive && isActive) {
+      // Tab becoming visible — restore scroll after layout recalc
       requestAnimationFrame(() => {
-        window.scrollTo(0, savedScrollY);
+        requestAnimationFrame(() => {
+          window.scrollTo(0, savedScrollY);
+        });
       });
-    });
-  }, [savedScrollY]);
+    }
+  }, [isActive, savedScrollY, setScrollY, document.filePath]);
 
   const handleAddComment = useCallback(
     (commentText: string) => {
@@ -162,11 +164,6 @@ function AppContent({ document, reload }: AppContentProps) {
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col">
-      <Toaster
-        position="bottom-right"
-        icons={TOASTER_ICONS}
-        toastOptions={TOASTER_OPTIONS}
-      />
       <Header
         fileName={document.fileName}
         onCopyAll={copyAll}
@@ -192,6 +189,7 @@ function AppContent({ document, reload }: AppContentProps) {
             content={document.content}
             comments={comments}
             headings={headings}
+            isActive={isActive}
             onTextSelect={onTextSelect}
             onHighlightHover={setHoveredCommentId}
             onHighlightClick={handleHighlightClick}
@@ -260,8 +258,10 @@ function useTabKeyboardShortcuts() {
 
 function App() {
   const { t } = useLocale();
-  const { document, error, isInitialized, reload } = useDocument();
+  const { error, isInitialized, reload } = useDocument();
   const documentOrder = useAppStore((s) => s.documentOrder);
+  const activeDocumentPath = useAppStore((s) => s.activeDocumentPath);
+  const documents = useAppStore((s) => s.documents);
 
   useTabKeyboardShortcuts();
 
@@ -309,25 +309,57 @@ function App() {
     );
   }
 
-  if (!document) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
-        <div className="text-zinc-500 dark:text-zinc-400">
-          {t("app.loading")}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       <TabBar />
+      <Toaster
+        position="bottom-right"
+        icons={TOASTER_ICONS}
+        toastOptions={TOASTER_OPTIONS}
+      />
       <SettingsProvider>
-        <PositionsProvider>
-          <CommentProvider filePath={document.filePath} clean={document.clean}>
-            <AppContent document={document} reload={reload} />
-          </CommentProvider>
-        </PositionsProvider>
+        {documentOrder.map((filePath) => {
+          const docState = documents.get(filePath);
+          const isActive = filePath === activeDocumentPath;
+          const hasContent = !!docState?.document.content;
+
+          // Don't mount inactive tabs that haven't loaded content yet
+          if (!hasContent && !isActive) return null;
+
+          // Active tab without content — show loading placeholder
+          if (!hasContent) {
+            return (
+              <div
+                key={filePath}
+                className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center"
+              >
+                <div className="text-zinc-500 dark:text-zinc-400">
+                  {t("app.loading")}
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={filePath}
+              style={isActive ? undefined : { display: "none" }}
+            >
+              <PositionsProvider>
+                <CommentProvider
+                  filePath={filePath}
+                  clean={docState.document.clean}
+                >
+                  <AppContent
+                    document={docState.document}
+                    reload={reload}
+                    isActive={isActive}
+                  />
+                </CommentProvider>
+              </PositionsProvider>
+            </div>
+          );
+        })}
       </SettingsProvider>
     </>
   );

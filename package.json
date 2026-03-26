@@ -17,7 +17,7 @@
     "dev": "NODE_ENV=development bun --watch src/cli/index.ts --",
     "dev:client": "bunx vite",
     "build": "bunx vite build && bun run build:cli",
-    "build:cli": "NODE_ENV=production bun build src/cli/index.ts --outdir dist --target bun --format esm --packages external",
+    "build:cli": "NODE_ENV=production bun build src/cli.ts --outdir dist --target bun --format esm --packages external",
     "start": "bun run build && bun dist/index.js",
     "test": "vitest run",
     "bench": "vitest bench",

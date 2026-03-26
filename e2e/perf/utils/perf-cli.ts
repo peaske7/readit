@@ -12,7 +12,7 @@ interface SpawnPerfCliOptions {
   port?: number;
 }
 
-const CLI_PATH = resolve(import.meta.dirname, "../../../dist/index.js");
+const CLI_PATH = resolve(import.meta.dirname, "../../../dist/cli.js");
 
 /**
  * Start the readit CLI with one or more fixture files for perf testing.

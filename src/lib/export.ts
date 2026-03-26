@@ -1,4 +1,4 @@
-import type { Comment, Document } from "../types";
+import type { Comment, Document } from "../schema";
 
 export function formatComment(c: Comment): string {
   const line = c.lineHint ? `[${c.lineHint}] ` : "";

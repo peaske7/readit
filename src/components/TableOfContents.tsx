@@ -2,7 +2,7 @@ import { use, useMemo, useState } from "react";
 import { SettingsContext } from "../contexts/SettingsContext";
 import type { Heading } from "../hooks/useHeadings";
 import { cn } from "../lib/utils";
-import { FontFamilies } from "../types";
+import { FontFamilies } from "../schema";
 
 interface TableOfContentsProps {
   headings: Heading[];

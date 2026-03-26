@@ -126,7 +126,6 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
     }
   };
 
-  /** Diff resolved anchors against active highlights and apply DOM changes. */
   const applyDiff = (
     textContent: string,
     resolved: Map<
@@ -193,16 +192,12 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
 
   return {
     applyHighlights(comments: HighlightComment[]) {
-      console.time("[perf] getDOMTextContent");
       const textContent = getDOMTextContent(root);
-      console.timeEnd("[perf] getDOMTextContent");
 
       // If DOM content changed (e.g. document reload), full rebuild is required
       const contentChanged = textContent !== lastTextContent;
       if (contentChanged) {
-        console.time("[perf] clearHighlights (full rebuild)");
         clearHighlights(root);
-        console.timeEnd("[perf] clearHighlights (full rebuild)");
         activeHighlights.clear();
         lastTextContent = textContent;
       }
@@ -211,9 +206,7 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
       const generation = ++resolveGeneration;
 
       // Resolve anchors off the main thread, then diff and apply
-      console.time("[perf] resolver.resolve (worker)");
       resolver.resolve(textContent, comments).then((anchorMap) => {
-        console.timeEnd("[perf] resolver.resolve (worker)");
         // Discard if a newer applyHighlights call has started
         if (generation !== resolveGeneration) return;
 
@@ -236,9 +229,7 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
           }
         }
 
-        console.time("[perf] applyDiff");
         applyDiff(textContent, resolved);
-        console.timeEnd("[perf] applyDiff");
       });
     },
 

@@ -11,12 +11,11 @@ import { useCommentNavigation } from "../hooks/useCommentNavigation";
 import { useComments } from "../hooks/useComments";
 import { formatComment } from "../lib/export";
 import { truncate } from "../lib/utils";
+import type { Comment } from "../schema";
 import { appStore, useAppStore } from "../store";
-import type { Comment } from "../types";
 import { useLocale } from "./LocaleContext";
 
-// ─── Actions Context (stable callbacks — never causes re-renders) ───
-
+// Stable callbacks — never causes re-renders
 interface CommentActionsValue {
   addComment: (
     selectedText: string,
@@ -53,8 +52,7 @@ export function useCommentActions(): CommentActionsValue {
   return value;
 }
 
-// ─── Data Context (volatile — re-renders consumers on change) ───────
-
+// Volatile — re-renders consumers on change
 interface CommentDataValue {
   comments: Comment[];
   commentCount: number;
@@ -80,8 +78,6 @@ export function useCommentContext(): CommentContextValue {
 }
 
 export const CommentContext = CommentDataContext;
-
-// ─── Provider ───────────────────────────────────────────────────────
 
 interface CommentProviderProps {
   filePath: string;

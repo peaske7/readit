@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
+import type { Selection } from "../schema";
 import { appStore, useAppStore } from "../store";
-import type { Selection } from "../types";
 
 /** Remove pending highlight marks from the DOM without triggering a full clear/reapply cycle. */
 function clearPendingMarks() {
@@ -37,15 +37,10 @@ export function useTextSelection(): UseTextSelectionResult {
 
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-
-      // Don't clear if clicking inside the comment input area
       if (target.closest("[data-comment-input]")) return;
-
-      // Don't clear if clicking on any highlight (pending or comment)
       if (target.closest("mark[data-pending]")) return;
       if (target.closest("mark[data-comment-id]")) return;
 
-      // Clear selection state and pending marks
       appStore.getState().setSelection(null);
       appStore.getState().setPendingSelectionTop(undefined);
       clearPendingMarks();

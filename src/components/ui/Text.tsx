@@ -1,7 +1,7 @@
 import { use } from "react";
 import { SettingsContext } from "../../contexts/SettingsContext";
 import { cn } from "../../lib/utils";
-import { FontFamilies } from "../../types";
+import { FontFamilies } from "../../schema";
 
 const variantStyles = {
   title:

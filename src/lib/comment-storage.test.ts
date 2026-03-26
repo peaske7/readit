@@ -1,6 +1,6 @@
 import type * as os from "node:os";
 import { describe, expect, it, vi } from "vitest";
-import type { CommentFile } from "../types";
+import type { CommentFile } from "../schema";
 import { COMMENT_FILE_LARGE } from "./__fixtures__/bench-data";
 import {
   computeHash,

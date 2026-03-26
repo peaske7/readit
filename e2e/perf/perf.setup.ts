@@ -5,7 +5,7 @@ import { generateFixtures } from "./fixtures/generate";
 
 async function globalSetup() {
   // Build the app if dist doesn't exist
-  const distIndex = resolve(import.meta.dirname, "../../dist/index.js");
+  const distIndex = resolve(import.meta.dirname, "../../dist/cli.js");
   if (!existsSync(distIndex)) {
     console.log("[perf] Building app...");
     execFileSync("bun", ["run", "build"], {

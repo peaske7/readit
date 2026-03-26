@@ -4,8 +4,8 @@ import { useLocale } from "../contexts/LocaleContext";
 import { usePositions } from "../contexts/PositionsContext";
 import { useSettings } from "../contexts/SettingsContext";
 import { cn } from "../lib/utils";
+import { type Comment, FontFamilies } from "../schema";
 import { useUI } from "../store";
-import { type Comment, FontFamilies } from "../types";
 import { InlineEditor } from "./InlineEditor";
 import { ActionLink } from "./ui/ActionLink";
 

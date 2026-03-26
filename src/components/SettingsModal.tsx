@@ -8,7 +8,7 @@ import {
   type FontFamily,
   type ThemeMode,
   ThemeModes,
-} from "../types";
+} from "../schema";
 import {
   Dialog,
   DialogBody,

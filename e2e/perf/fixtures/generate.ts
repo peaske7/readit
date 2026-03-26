@@ -223,8 +223,32 @@ function serializeComments(file: CommentFile): string {
   return lines.join("\n");
 }
 
-function getCommentPath(sourcePath: string): string {
-  const absolute = path.resolve(sourcePath);
+/**
+ * Compute comment path using realpath to match the server's path resolution.
+ * The server uses fs.realpath() which resolves symlinks (e.g., /var → /private/var on macOS).
+ * The sourcePath must exist on disk before calling this.
+ */
+async function getCommentPathReal(sourcePath: string): Promise<string> {
+  const real = await fs.realpath(path.resolve(sourcePath));
+  const normalized = real.replace(/^\//, "").replace(/^[A-Z]:[\\/]/, "");
+  const ext = path.extname(normalized);
+  const withoutExt = normalized.slice(0, -ext.length || undefined);
+  return path.join(
+    os.homedir(),
+    ".readit",
+    "comments",
+    `${withoutExt}.comments.md`,
+  );
+}
+
+/** Sync version for cleanup (file may not exist) */
+function getCommentPathSync(sourcePath: string): string {
+  let absolute: string;
+  try {
+    absolute = require("node:fs").realpathSync(path.resolve(sourcePath));
+  } catch {
+    absolute = path.resolve(sourcePath);
+  }
   const normalized = absolute.replace(/^\//, "").replace(/^[A-Z]:[\\/]/, "");
   const ext = path.extname(normalized);
   const withoutExt = normalized.slice(0, -ext.length || undefined);
@@ -258,20 +282,30 @@ export async function generateFixtures(): Promise<void> {
       comments.push(makeComment(i, doc, tier.comments));
     }
 
+    // Use realpath for the comment path (file must exist first)
+    const realFixturePath = await fs.realpath(fixturePath);
+
     const commentFile: CommentFile = {
-      source: fixturePath,
+      source: realFixturePath,
       hash: computeHash(doc),
       version: 1,
       comments,
     };
 
-    const commentPath = getCommentPath(fixturePath);
+    const commentPath = await getCommentPathReal(fixturePath);
     await fs.mkdir(path.dirname(commentPath), { recursive: true });
     await fs.writeFile(commentPath, serializeComments(commentFile), "utf-8");
   }
 }
 
 export async function cleanupFixtures(): Promise<void> {
+  // Collect comment paths before removing fixtures (need realpath while files exist)
+  const commentPaths: string[] = [];
+  const allTiers = [...TIERS, TAB_SWITCH_TIER];
+  for (const tier of allTiers) {
+    commentPaths.push(getCommentPathSync(getFixturePath(tier)));
+  }
+
   // Remove fixture files
   try {
     await fs.rm(FIXTURES_DIR, { recursive: true, force: true });
@@ -280,9 +314,7 @@ export async function cleanupFixtures(): Promise<void> {
   }
 
   // Remove comment files
-  const allTiers = [...TIERS, TAB_SWITCH_TIER];
-  for (const tier of allTiers) {
-    const commentPath = getCommentPath(getFixturePath(tier));
+  for (const commentPath of commentPaths) {
     try {
       await fs.unlink(commentPath);
     } catch {

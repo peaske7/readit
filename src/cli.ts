@@ -13,10 +13,10 @@ import * as os from "node:os";
 import { join, resolve } from "node:path";
 import { Command } from "commander";
 import open from "open";
-import { getCommentPath, parseCommentFile } from "../lib/comment-storage.js";
-import { isMarkdownFile } from "../lib/utils.js";
-import type { FileEntry } from "../server/index.js";
-import { removeServerInfo, startServer } from "../server/index.js";
+import { getCommentPath, parseCommentFile } from "./lib/comment-storage.js";
+import { isMarkdownFile } from "./lib/utils.js";
+import type { FileEntry } from "./server.js";
+import { removeServerInfo, startServer } from "./server.js";
 
 const program = new Command();
 
@@ -216,9 +216,6 @@ async function getServerTarget(
   });
 }
 
-/**
- * Recursively find all .comments.md files in a directory.
- */
 function findCommentFiles(dir: string): string[] {
   const results: string[] = [];
 
@@ -249,9 +246,6 @@ function findCommentFiles(dir: string): string[] {
   return results;
 }
 
-/**
- * Recursively find reviewable files (.md, .markdown) in a directory.
- */
 function findReviewableFiles(dir: string): FileEntry[] {
   const results: FileEntry[] = [];
 
@@ -285,9 +279,6 @@ function findReviewableFiles(dir: string): FileEntry[] {
   return results;
 }
 
-/**
- * Resolve CLI arguments into a deduplicated list of FileEntry objects.
- */
 function resolveFiles(args: string[]): FileEntry[] {
   const seen = new Set<string>();
   const files: FileEntry[] = [];
@@ -329,8 +320,6 @@ function resolveFiles(args: string[]): FileEntry[] {
 
   return files;
 }
-
-// ─── Onboarding ──────────────────────────────────────────────────────
 
 const SETTINGS_PATH = join(os.homedir(), ".readit", "settings.json");
 
@@ -436,14 +425,11 @@ Go ahead and add a few comments to this document. When you're done, export them 
 
 const WELCOME_PATH = join(os.homedir(), ".readit", "welcome.md");
 
-// ─── Program ─────────────────────────────────────────────────────────
-
 program
   .name("readit")
   .description("Review Markdown documents with inline comments")
   .version("0.1.3");
 
-// List command: show all commented files
 program
   .command("list")
   .description("List all files with comments")
@@ -482,7 +468,6 @@ program
     }
   });
 
-// Show command: display comments for a file
 program
   .command("show <file>")
   .description("Show comments for a file")
@@ -526,7 +511,6 @@ program
     }
   });
 
-// Main review command (default) — accepts zero or more files/directories
 program
   .argument("[files...]", "Markdown files/directories to review")
   .option("-p, --port <number>", "Port to run server on", "4567")
@@ -576,6 +560,17 @@ program
         process.exit(1);
       }
 
+      // Snapshot previous session before startServer() overwrites server.json
+      let previousPort: number | undefined;
+      try {
+        const info = JSON.parse(readFileSync(SERVER_INFO_PATH, "utf-8"));
+        if (!isAlive(info.pid)) {
+          previousPort = info.port;
+        }
+      } catch {
+        // No previous session — will open browser normally
+      }
+
       try {
         const { url, server } = await startServer({
           files,
@@ -610,7 +605,11 @@ ${fileList.join("\n")}
 `);
         }
 
-        if (options.open) {
+        const browserLikelyOpen =
+          previousPort === preferredPort ||
+          process.env.NODE_ENV === "development";
+
+        if (options.open && !browserLikelyOpen) {
           open(url);
         }
 
@@ -636,7 +635,6 @@ ${fileList.join("\n")}
     },
   );
 
-// Open command: add files to running server or start new one
 program
   .command("open")
   .argument("<files...>", "Markdown files to add to running server")

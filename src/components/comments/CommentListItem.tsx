@@ -2,14 +2,13 @@ import { useState } from "react";
 import { useCommentContext } from "../../contexts/CommentContext";
 import { useLocale } from "../../contexts/LocaleContext";
 import { cn } from "../../lib/utils";
-import type { Comment } from "../../types";
+import type { Comment } from "../../schema";
 import { InlineEditor } from "../InlineEditor";
 import { ActionLink } from "../ui/ActionLink";
 import { Text } from "../ui/Text";
 
 interface CommentListItemProps {
   comment: Comment;
-  /** Called after navigation actions (Go to, Re-anchor) to close parent dropdown */
   onAction?: () => void;
 }
 

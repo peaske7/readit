@@ -1,9 +1,8 @@
 import { memo } from "react";
-import type { Comment } from "../types";
+import type { Comment } from "../schema";
 import { MarginNote } from "./MarginNote";
 
 interface MarginNotesProps {
-  /** Comments pre-sorted by startOffset */
   sortedComments: Comment[];
 }
 

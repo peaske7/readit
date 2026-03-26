@@ -1,4 +1,3 @@
-// Anchor confidence levels - const object pattern per style guide 6.3
 export const AnchorConfidences = {
   EXACT: "exact",
   NORMALIZED: "normalized",
@@ -9,7 +8,6 @@ export const AnchorConfidences = {
 export type AnchorConfidence =
   (typeof AnchorConfidences)[keyof typeof AnchorConfidences];
 
-// Subset excluding "unresolved" for resolved anchors
 export type ResolvedAnchorConfidence = Exclude<
   AnchorConfidence,
   typeof AnchorConfidences.UNRESOLVED
@@ -20,32 +18,29 @@ export interface Comment {
   selectedText: string;
   comment: string;
   createdAt: string;
-  // Position info for highlighting
   startOffset: number;
   endOffset: number;
-  // Line hint for text-based anchoring (e.g., "L42" or "L42-L55")
+  /** e.g. "L42" or "L42-L55" */
   lineHint?: string;
-  // Confidence level of anchor resolution
   anchorConfidence?: AnchorConfidence;
-  // First N chars of original text for anchor matching when selectedText is truncated
+  /** First N chars of original text for anchor matching when selectedText is truncated */
   anchorPrefix?: string;
 }
 
-// Parsed comment file structure
 export interface CommentFile {
-  source: string; // Absolute path to source file
-  hash: string; // SHA-256 prefix (16 chars) of source content
-  version: number; // Format version
+  source: string;
+  /** SHA-256 prefix (16 chars) */
+  hash: string;
+  version: number;
   comments: Comment[];
 }
 
-// Anchor match result
 export interface Anchor {
   start: number;
   end: number;
   line: number;
   confidence: ResolvedAnchorConfidence;
-  distance?: number; // Levenshtein distance for fuzzy matches
+  distance?: number;
 }
 
 export interface SelectionRange {
@@ -64,7 +59,6 @@ export interface Document {
   clean: boolean;
 }
 
-// Font family options - const object pattern per style guide 6.3
 export const FontFamilies = {
   SERIF: "serif",
   SANS_SERIF: "sans-serif",
@@ -72,7 +66,6 @@ export const FontFamilies = {
 
 export type FontFamily = (typeof FontFamilies)[keyof typeof FontFamilies];
 
-// Theme mode options - const object pattern per style guide 6.3
 export const ThemeModes = {
   LIGHT: "light",
   DARK: "dark",
@@ -81,7 +74,6 @@ export const ThemeModes = {
 
 export type ThemeMode = (typeof ThemeModes)[keyof typeof ThemeModes];
 
-// Document settings stored per-file
 export interface DocumentSettings {
   version: number;
   fontFamily: FontFamily;

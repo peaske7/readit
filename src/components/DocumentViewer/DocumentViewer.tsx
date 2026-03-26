@@ -18,7 +18,7 @@ import {
 } from "../../lib/highlight/highlighter";
 import type { HighlightComment } from "../../lib/highlight/types";
 import { cn, getTextContent } from "../../lib/utils";
-import { AnchorConfidences, type Comment, FontFamilies } from "../../types";
+import { AnchorConfidences, type Comment, FontFamilies } from "../../schema";
 import { CodeBlock } from "./CodeBlock";
 
 const REMARK_PLUGINS = [remarkGfm];
@@ -32,7 +32,6 @@ const MemoizedMarkdown = memo(function MemoizedMarkdown({
   content: string;
   components: ComponentPropsWithoutRef<typeof Markdown>["components"];
 }) {
-  console.warn("[perf] MemoizedMarkdown RENDER — memo was busted");
   return (
     <Markdown
       components={components}
@@ -69,7 +68,6 @@ function createHeadingComponent(
       }
     }
 
-    // Fallback: if not found (shouldn't happen), search from beginning
     if (!id) {
       for (const heading of headings) {
         if (heading.level === level && heading.text === text) {
@@ -91,6 +89,7 @@ interface DocumentViewerProps {
   content: string;
   comments: Comment[];
   headings: Heading[];
+  isActive: boolean;
   onTextSelect: (
     text: string,
     startOffset: number,
@@ -105,6 +104,7 @@ export function DocumentViewer({
   content,
   comments,
   headings,
+  isActive,
   onTextSelect,
   onHighlightHover,
   onHighlightClick,
@@ -116,12 +116,14 @@ export function DocumentViewer({
   const adapterRef = useRef<Highlighter | null>(null);
   const headingIndexRef = useRef(0);
 
-  // Attach/detach pos to DOM elements for direct position reads
+  // Attach/detach pos to DOM elements — only when tab is visible
+  // (getBoundingClientRect returns zero rects on display:none elements)
   useEffect(() => {
-    if (!contentRef.current || !containerRef.current) return;
+    if (!isActive || !contentRef.current || !containerRef.current) return;
     pos.attach(contentRef.current, containerRef.current);
+    pos.cache();
     return () => pos.detach();
-  }, [pos]);
+  }, [pos, isActive]);
 
   useEffect(() => {
     if (!contentRef.current || !containerRef.current) return;
@@ -150,10 +152,14 @@ export function DocumentViewer({
     };
   }, [onTextSelect, onHighlightHover, onHighlightClick]);
 
-  // Double RAF: ensures React commit phase completes before DOM queries.
-  // See: https://github.com/facebook/react/issues/20863
+  // Apply highlights — only when tab is visible and comments exist.
+  // Skip when comments is empty to avoid wasted Worker round-trip + DOM walk.
+  // When becoming active again, reapply to catch changes made while hidden.
   // biome-ignore lint/correctness/useExhaustiveDependencies: must reapply highlights when content or components change
   useEffect(() => {
+    if (!isActive) return;
+    if (comments.length === 0) return;
+
     let outerFrameId: number;
     let innerFrameId: number;
 
@@ -172,7 +178,6 @@ export function DocumentViewer({
           }));
 
         adapter.applyHighlights(highlightComments);
-        // Engine auto-detects mark changes via MutationObserver
       });
     });
 
@@ -180,7 +185,7 @@ export function DocumentViewer({
       cancelAnimationFrame(outerFrameId);
       cancelAnimationFrame(innerFrameId);
     };
-  }, [comments, content, pos]);
+  }, [comments, content, isActive, pos]);
 
   useEffect(() => {
     const handleTestSelect = (e: Event) => {

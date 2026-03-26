@@ -22,19 +22,15 @@ export interface InteractionMetrics {
   durationMs: number;
 }
 
-// ─── Percentile helper ───────────────────────────────────────────────
-
-function percentile(sorted: number[], p: number): number {
-  if (sorted.length === 0) return 0;
-  const index = Math.ceil((p / 100) * sorted.length) - 1;
-  return sorted[Math.max(0, index)];
-}
-
 // ─── Wait for highlights ─────────────────────────────────────────────
 
 /**
- * Polls the DOM for the expected number of unique comment highlights.
- * Returns the timestamp (relative to navigation start) when the count was reached.
+ * Polls the DOM for comment highlights until either:
+ * - The expected count is reached, OR
+ * - The count stabilizes (no change for `stableMs` milliseconds)
+ *
+ * Returns the timestamp when highlights finished painting.
+ * Not all comments may resolve to highlights (anchor failures, overlaps).
  */
 export async function waitForHighlightCount(
   page: Page,
@@ -42,17 +38,33 @@ export async function waitForHighlightCount(
   timeoutMs = 60_000,
 ): Promise<number> {
   return page.evaluate(
-    ({ expected, timeout }) => {
+    ({ expected, timeout, stableWindow }) => {
       return new Promise<number>((resolve, reject) => {
         const deadline = performance.now() + timeout;
+        let lastCount = 0;
+        let lastChangeTime = performance.now();
 
         const check = () => {
           const marks = document.querySelectorAll("mark[data-comment-id]");
           const uniqueIds = new Set(
             [...marks].map((m) => m.getAttribute("data-comment-id")),
           );
+          const count = uniqueIds.size;
 
-          if (uniqueIds.size >= expected) {
+          // Exact target reached
+          if (count >= expected) {
+            resolve(performance.now());
+            return;
+          }
+
+          // Track changes for stabilization
+          if (count !== lastCount) {
+            lastCount = count;
+            lastChangeTime = performance.now();
+          }
+
+          // Stabilized: count hasn't changed for stableWindow ms and we have > 0 highlights
+          if (count > 0 && performance.now() - lastChangeTime > stableWindow) {
             resolve(performance.now());
             return;
           }
@@ -60,7 +72,7 @@ export async function waitForHighlightCount(
           if (performance.now() > deadline) {
             reject(
               new Error(
-                `Timed out: expected ${expected} highlights, found ${uniqueIds.size}`,
+                `Timed out: expected ${expected} highlights, found ${count}`,
               ),
             );
             return;
@@ -72,7 +84,7 @@ export async function waitForHighlightCount(
         requestAnimationFrame(check);
       });
     },
-    { expected: expectedCount, timeout: timeoutMs },
+    { expected: expectedCount, timeout: timeoutMs, stableWindow: 2000 },
   );
 }
 
@@ -99,17 +111,23 @@ export async function collectLoadMetrics(
     )[0] as PerformanceNavigationTiming;
     const paintEntries = performance.getEntriesByType("paint");
     const fcp = paintEntries.find((e) => e.name === "first-contentful-paint");
+    const marks = document.querySelectorAll("mark[data-comment-id]");
+    const actualCount = new Set(
+      [...marks].map((m) => m.getAttribute("data-comment-id")),
+    ).size;
 
     return {
       fcp: fcp ? fcp.startTime : null,
       domContentLoaded: nav.domContentLoadedEventEnd,
+      actualCount,
     };
   });
 
   return {
-    ...navMetrics,
+    fcp: navMetrics.fcp,
+    domContentLoaded: navMetrics.domContentLoaded,
     allHighlightsPainted: highlightTimestamp,
-    highlightCount: expectedComments,
+    highlightCount: navMetrics.actualCount,
   };
 }
 
@@ -135,13 +153,13 @@ export async function collectScrollMetrics(
       }>((resolve) => {
         const longTasks: number[] = [];
 
-        // Observe Long Tasks (>50ms main-thread blocks)
+        // Observe Long Tasks during scroll only (no buffered — excludes page load jank)
         const obs = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
             longTasks.push(entry.duration);
           }
         });
-        obs.observe({ type: "longtask", buffered: true });
+        obs.observe({ type: "longtask" });
 
         const totalHeight = document.documentElement.scrollHeight;
         const start = performance.now();

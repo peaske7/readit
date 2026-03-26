@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Comment } from "../schema";
 import { uiStore } from "../store";
-import type { Comment } from "../types";
 
 interface UseCommentNavigationResult {
   currentIndex: number;
@@ -10,10 +10,6 @@ interface UseCommentNavigationResult {
   navigateNext: () => void;
 }
 
-/**
- * Manage comment navigation with cycling, keyboard shortcuts, and scroll-to-comment.
- * Handles Alt+↑/↓ keyboard navigation.
- */
 export function useCommentNavigation(
   sortedComments: Comment[],
 ): UseCommentNavigationResult {
@@ -26,7 +22,6 @@ export function useCommentNavigation(
   const sortedRef = useRef(sortedComments);
   sortedRef.current = sortedComments;
 
-  // Cleanup hover timeout on unmount
   useEffect(() => {
     return () => clearTimeout(hoverTimeoutRef.current);
   }, []);
@@ -40,7 +35,6 @@ export function useCommentNavigation(
     setCurrentIndex(clampedIndex);
   }
 
-  // Update DOM data-focused attributes imperatively
   const updateFocusedMarks = useCallback((commentId: string | undefined) => {
     const marks = window.document.querySelectorAll("mark[data-comment-id]");
     for (const mark of marks) {
@@ -61,7 +55,6 @@ export function useCommentNavigation(
     [updateFocusedMarks],
   );
 
-  // Navigate to a comment by scrolling its highlight into view
   const navigateToComment = useCallback(
     (commentId: string) => {
       const selector = `mark[data-comment-id="${commentId}"]`;
@@ -84,7 +77,6 @@ export function useCommentNavigation(
     [setHoveredCommentId],
   );
 
-  // Navigate to previous comment (cycles to last when at first)
   const navigatePrevious = useCallback(() => {
     const sc = sortedRef.current;
     if (sc.length === 0) return;
@@ -95,7 +87,6 @@ export function useCommentNavigation(
     });
   }, [navigateToComment]);
 
-  // Navigate to next comment (cycles to first when at last)
   const navigateNext = useCallback(() => {
     const sc = sortedRef.current;
     if (sc.length === 0) return;

@@ -1,9 +1,5 @@
 import type { HighlightComment, TextPosition } from "./types";
 
-/**
- * Find text position in content, handling duplicate occurrences.
- * Returns the occurrence closest to hintOffset when multiple exist.
- */
 export function findTextPosition(
   textContent: string,
   selectedText: string,
@@ -38,9 +34,6 @@ export function findTextPosition(
   return { start: closest, end: closest + selectedText.length };
 }
 
-/**
- * Resolves anchors via Web Worker with sync fallback.
- */
 export class Resolver {
   private worker: Worker | null = null;
   private seq = 0;

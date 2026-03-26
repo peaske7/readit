@@ -35,26 +35,6 @@ test(`add-comment: ${tier.name} (${tier.lines} lines, ${tier.comments} comments)
       return target.textContent.slice(0, 30).trim();
     });
 
-    // Set up MutationObserver to detect the new highlight
-    await page.evaluate((existingCount) => {
-      const article = document.querySelector("article");
-      if (!article) return;
-
-      (window as any).__perfNewHighlight = new Promise<number>((resolve) => {
-        const obs = new MutationObserver(() => {
-          const marks = article.querySelectorAll("mark[data-comment-id]");
-          const uniqueIds = new Set(
-            [...marks].map((m) => m.getAttribute("data-comment-id")),
-          );
-          if (uniqueIds.size > existingCount) {
-            obs.disconnect();
-            resolve(performance.now());
-          }
-        });
-        obs.observe(article, { childList: true, subtree: true });
-      });
-    }, tier.comments);
-
     // Select text via custom event
     await page.evaluate((text) => {
       const article = document.querySelector("article");
@@ -102,8 +82,13 @@ test(`add-comment: ${tier.name} (${tier.lines} lines, ${tier.comments} comments)
         await page.getByRole("button", { name: "Add" }).click();
       },
       async () => {
-        // Wait for the new highlight to appear via MutationObserver
-        await page.evaluate(() => (window as any).__perfNewHighlight);
+        await page.waitForFunction((expected) => {
+          const marks = document.querySelectorAll("mark[data-comment-id]");
+          const ids = new Set(
+            [...marks].map((m) => m.getAttribute("data-comment-id")),
+          );
+          return ids.size > expected;
+        }, tier.comments);
       },
     );
 
