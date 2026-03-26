@@ -14,7 +14,7 @@
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
-    "dev": "NODE_ENV=development bun --watch src/cli/index.ts --",
+    "dev": "NODE_ENV=development bun --watch src/cli.ts --",
     "dev:client": "bunx vite",
     "build": "bunx vite build && bun run build:cli",
     "build:cli": "NODE_ENV=production bun build src/cli.ts --outdir dist --target bun --format esm --packages external",
