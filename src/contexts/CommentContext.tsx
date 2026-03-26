@@ -5,14 +5,12 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
 } from "react";
 import { toast } from "sonner";
 import { useCommentNavigation } from "../hooks/useCommentNavigation";
 import { useComments } from "../hooks/useComments";
 import { useReanchorMode } from "../hooks/useReanchorMode";
-import { extractContext, formatForLLM } from "../lib/context";
-import { generatePrompt } from "../lib/export";
+import { formatSingleComment } from "../lib/export";
 import { truncate } from "../lib/utils";
 import { useAppStore } from "../store";
 import type { Comment, DocumentType } from "../types";
@@ -42,9 +40,7 @@ interface CommentActionsValue {
   navigateNext: () => void;
   startReanchor: (commentId: string) => void;
   cancelReanchor: () => void;
-  copyCommentRaw: (comment: Comment) => void;
-  copyCommentForLLM: (comment: Comment) => void;
-  copyAllForLLM: () => void;
+  copyComment: (comment: Comment) => void;
   scrollToHighlight: (commentId: string) => void;
 }
 
@@ -78,16 +74,12 @@ export function useCommentData(): CommentDataValue {
   return value;
 }
 
-// ─── Combined hook (backward compat — prefers split hooks) ──────────
-
 export type CommentContextValue = CommentActionsValue & CommentDataValue;
 
-/** @deprecated Use useCommentActions() or useCommentData() for better performance */
 export function useCommentContext(): CommentContextValue {
   return { ...useCommentActions(), ...useCommentData() };
 }
 
-// Keep the old context export for App.tsx use() call
 export const CommentContext = CommentDataContext;
 
 // ─── Provider ───────────────────────────────────────────────────────
@@ -95,8 +87,6 @@ export const CommentContext = CommentDataContext;
 interface CommentProviderProps {
   filePath: string;
   clean: boolean;
-  documentContent: string;
-  fileName: string;
   documentType: DocumentType;
   children: ReactNode;
 }
@@ -104,8 +94,6 @@ interface CommentProviderProps {
 export function CommentProvider({
   filePath,
   clean,
-  documentContent,
-  fileName,
   documentType,
   children,
 }: CommentProviderProps) {
@@ -140,45 +128,13 @@ export function CommentProvider({
     }
   }, [commentsError]);
 
-  const copyCommentRaw = useCallback(
+  const copyComment = useCallback(
     (comment: Comment) => {
-      const line = comment.lineHint ? `[${comment.lineHint}] ` : "";
-      const raw = `${line}${comment.selectedText}\n\n${comment.comment}`;
-      navigator.clipboard.writeText(raw);
+      navigator.clipboard.writeText(formatSingleComment(comment));
       toast.success(t("toast.copied", { text: truncate(comment.comment) }));
     },
     [t],
   );
-
-  const copyCommentForLLM = useCallback(
-    (comment: Comment) => {
-      const context = extractContext({
-        content: documentContent,
-        startOffset: comment.startOffset,
-        endOffset: comment.endOffset,
-      });
-      const formatted = formatForLLM({
-        context,
-        fileName,
-        comment: comment.comment,
-      });
-      navigator.clipboard.writeText(formatted);
-      toast.success(
-        t("toast.copiedForLLM", { text: truncate(comment.comment) }),
-      );
-    },
-    [documentContent, fileName, t],
-  );
-
-  // Use ref so copyAllForLLM callback is stable (doesn't change when comments change)
-  const commentsRef = useRef(comments);
-  commentsRef.current = comments;
-
-  const copyAllForLLM = useCallback(() => {
-    const prompt = generatePrompt(commentsRef.current, fileName);
-    navigator.clipboard.writeText(prompt);
-    toast.success(t("toast.copiedAllComments"));
-  }, [fileName, t]);
 
   const scrollToHighlight = useCallback(
     (commentId: string) => {
@@ -200,7 +156,6 @@ export function CommentProvider({
     [documentType],
   );
 
-  // Actions value — stable (all callbacks are useCallback-wrapped)
   const actions = useMemo<CommentActionsValue>(
     () => ({
       addComment,
@@ -214,9 +169,7 @@ export function CommentProvider({
       navigateNext,
       startReanchor,
       cancelReanchor,
-      copyCommentRaw,
-      copyCommentForLLM,
-      copyAllForLLM,
+      copyComment,
       scrollToHighlight,
     }),
     [
@@ -231,14 +184,11 @@ export function CommentProvider({
       navigateNext,
       startReanchor,
       cancelReanchor,
-      copyCommentRaw,
-      copyCommentForLLM,
-      copyAllForLLM,
+      copyComment,
       scrollToHighlight,
     ],
   );
 
-  // Data value — changes when comments/navigation/reanchor state changes
   const data = useMemo<CommentDataValue>(
     () => ({
       comments,

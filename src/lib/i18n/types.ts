@@ -22,10 +22,7 @@ export interface Translations {
   "actions.fullscreen": string;
   "actions.settings": string;
   "actions.reload": string;
-  "actions.copyAllAI": string;
-  "actions.copyAllAITitle": string;
-  "actions.copyAllRaw": string;
-  "actions.copyAllRawTitle": string;
+  "actions.copyAll": string;
   "actions.exportJson": string;
   "actions.viewRaw": string;
 
@@ -52,19 +49,12 @@ export interface Translations {
   "comment.cancel": string;
   "comment.addNote": string;
   "comment.highlight": string;
-  "comment.copyRawTitle": string;
-  "comment.copyRawLabel": string;
-  "comment.copyLLMTitle": string;
-  "comment.copyLLMLabel": string;
 
   // Margin note
   "marginNote.addNote": string;
   "marginNote.delete": string;
   "marginNote.edit": string;
   "marginNote.copy": string;
-  "marginNote.copyTitle": string;
-  "marginNote.llm": string;
-  "marginNote.llmTitle": string;
 
   // Comment manager
   "commentManager.unresolved": string;
@@ -115,24 +105,16 @@ export interface Translations {
   // Shortcut labels (rendered in ShortcutList)
   "shortcut.copyAll.label": string;
   "shortcut.copyAll.description": string;
-  "shortcut.copyAllRaw.label": string;
-  "shortcut.copyAllRaw.description": string;
   "shortcut.navigateNext.label": string;
   "shortcut.navigateNext.description": string;
   "shortcut.navigatePrevious.label": string;
   "shortcut.navigatePrevious.description": string;
-  "shortcut.copySelectionRaw.label": string;
-  "shortcut.copySelectionRaw.description": string;
-  "shortcut.copySelectionLLM.label": string;
-  "shortcut.copySelectionLLM.description": string;
   "shortcut.clearSelection.label": string;
   "shortcut.clearSelection.description": string;
 
   // Toast messages
   "toast.copied": string;
-  "toast.copiedForLLM": string;
   "toast.copiedAllComments": string;
-  "toast.copiedAllRaw": string;
 
   // Floating TOC
   "floatingTOC.label": string;

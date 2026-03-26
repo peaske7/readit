@@ -17,10 +17,7 @@ export const ja: Translations = {
   "actions.fullscreen": "全画面",
   "actions.settings": "設定",
   "actions.reload": "再読み込み",
-  "actions.copyAllAI": "全てコピー (AI)",
-  "actions.copyAllAITitle": "AIアシスタント用プロンプト形式でコピー",
-  "actions.copyAllRaw": "全てコピー (テキスト)",
-  "actions.copyAllRawTitle": "プレーンテキストとしてコピー",
+  "actions.copyAll": "全てコピー",
   "actions.exportJson": "JSONエクスポート",
   "actions.viewRaw": "生データを表示",
 

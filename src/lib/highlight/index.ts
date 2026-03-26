@@ -1,7 +1,4 @@
-// Highlighter (unified adapter)
-
 export type { CommentColor } from "./colors";
-// Colors
 export { COMMENT_COLORS } from "./colors";
 export type {
   Highlighter,
@@ -11,11 +8,6 @@ export type {
   SelectionHandler,
 } from "./highlighter";
 export { createHighlighter } from "./highlighter";
-
-// Script builder (needed by IframeContainer)
-export { buildIframeScript } from "./script-builder";
-
-// Types (public API)
 export type {
   HighlightComment,
   HighlightPositions,

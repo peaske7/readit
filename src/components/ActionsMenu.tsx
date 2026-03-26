@@ -1,14 +1,13 @@
 import {
-  BotMessageSquare,
+  ClipboardCopy,
   FileDown,
   FileText,
   MoreHorizontal,
   RefreshCw,
   Settings,
-  TextQuote,
 } from "lucide-react";
 import { useState } from "react";
-import { useCommentContext } from "../contexts/CommentContext";
+import { useCommentData } from "../contexts/CommentContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { RawModal } from "./RawModal";
 import { SettingsModal } from "./SettingsModal";
@@ -23,18 +22,16 @@ import {
 
 interface ActionsMenuProps {
   onCopyAll: () => void;
-  onCopyAllRaw: () => void;
   onExportJson: () => void;
   onReload: () => void;
 }
 
 export function ActionsMenu({
   onCopyAll,
-  onCopyAllRaw,
   onExportJson,
   onReload,
 }: ActionsMenuProps) {
-  const { commentCount } = useCommentContext();
+  const { commentCount } = useCommentData();
   const { t } = useLocale();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -66,19 +63,9 @@ export function ActionsMenu({
           </DropdownMenuItem>
           {commentCount > 0 && (
             <>
-              <DropdownMenuItem
-                onSelect={() => onCopyAll()}
-                title={t("actions.copyAllAITitle")}
-              >
-                <BotMessageSquare />
-                {t("actions.copyAllAI")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => onCopyAllRaw()}
-                title={t("actions.copyAllRawTitle")}
-              >
-                <TextQuote />
-                {t("actions.copyAllRaw")}
+              <DropdownMenuItem onSelect={() => onCopyAll()}>
+                <ClipboardCopy />
+                {t("actions.copyAll")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => onExportJson()}>
                 <FileDown />

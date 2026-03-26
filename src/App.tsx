@@ -60,17 +60,9 @@ function AppContent({ document, reload }: AppContentProps) {
     pos.setPending(selection ? pendingSelectionTop : undefined);
   }, [pos, selection, pendingSelectionTop]);
 
-  const {
-    copyAll,
-    copyAllRaw,
-    exportJson,
-    copySelectionRaw,
-    copySelectionForLLM,
-  } = useClipboard({
+  const { copyAll, exportJson } = useClipboard({
     comments,
     document: document ?? undefined,
-    selection: selection ?? undefined,
-    clearSelection,
     t,
   });
 
@@ -200,7 +192,6 @@ function AppContent({ document, reload }: AppContentProps) {
       <Header
         fileName={document.fileName}
         onCopyAll={copyAll}
-        onCopyAllRaw={copyAllRaw}
         onExportJson={exportJson}
         onReload={reload}
       />
@@ -249,8 +240,6 @@ function AppContent({ document, reload }: AppContentProps) {
                   selectedText={selection.text}
                   onSubmit={handleAddComment}
                   onCancel={clearSelection}
-                  onCopyRaw={copySelectionRaw}
-                  onCopyForLLM={copySelectionForLLM}
                 />
               )}
             </div>
@@ -362,8 +351,6 @@ function App() {
           <CommentProvider
             filePath={document.filePath}
             clean={document.clean}
-            documentContent={document.content}
-            fileName={document.fileName}
             documentType={document.type}
           >
             <AppContent document={document} reload={reload} />

@@ -17,10 +17,7 @@ export const en: Translations = {
   "actions.fullscreen": "Fullscreen",
   "actions.settings": "Settings",
   "actions.reload": "Reload",
-  "actions.copyAllAI": "Copy All (AI)",
-  "actions.copyAllAITitle": "Copy in prompt format for AI assistants",
-  "actions.copyAllRaw": "Copy All (Raw)",
-  "actions.copyAllRawTitle": "Copy as plain text",
+  "actions.copyAll": "Copy All",
   "actions.exportJson": "Export JSON",
   "actions.viewRaw": "View Raw",
 
@@ -47,19 +44,12 @@ export const en: Translations = {
   "comment.cancel": "Cancel",
   "comment.addNote": "Add Note",
   "comment.highlight": "Highlight",
-  "comment.copyRawTitle": "Copy raw text (⌘C)",
-  "comment.copyRawLabel": "Copy raw text",
-  "comment.copyLLMTitle": "Copy with context for LLM (⌘⇧C)",
-  "comment.copyLLMLabel": "Copy for LLM",
 
   // Margin note
   "marginNote.addNote": "Add note",
   "marginNote.delete": "Delete",
   "marginNote.edit": "Edit",
   "marginNote.copy": "Copy",
-  "marginNote.copyTitle": "Copy raw text (⌘C)",
-  "marginNote.llm": "LLM",
-  "marginNote.llmTitle": "Copy with context for LLM (⌘⇧C)",
 
   // Comment manager
   "commentManager.unresolved": "unresolved",

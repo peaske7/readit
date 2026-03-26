@@ -1,6 +1,7 @@
 import {
   type ComponentPropsWithoutRef,
   type MutableRefObject,
+  memo,
   useEffect,
   useMemo,
   useRef,
@@ -26,6 +27,28 @@ import {
 } from "../../types";
 import { IframeContainer } from "./IframeContainer";
 import { createCodeComponent } from "./InlineCode";
+
+const REMARK_PLUGINS = [remarkGfm];
+const REHYPE_PLUGINS = [rehypeRaw];
+
+/** Memoized Markdown renderer — skips reconciliation when only comments change. */
+const MemoizedMarkdown = memo(function MemoizedMarkdown({
+  content,
+  components,
+}: {
+  content: string;
+  components: ComponentPropsWithoutRef<typeof Markdown>["components"];
+}) {
+  return (
+    <Markdown
+      components={components}
+      remarkPlugins={REMARK_PLUGINS}
+      rehypePlugins={REHYPE_PLUGINS}
+    >
+      {content}
+    </Markdown>
+  );
+});
 
 function createHeadingComponent(
   level: 1 | 2 | 3 | 4 | 5 | 6,
@@ -228,13 +251,7 @@ export function DocumentViewer({
           fontFamily === FontFamilies.SANS_SERIF ? "prose-sans" : "prose-serif",
         )}
       >
-        <Markdown
-          components={markdownComponents}
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeRaw]}
-        >
-          {content}
-        </Markdown>
+        <MemoizedMarkdown content={content} components={markdownComponents} />
       </article>
     </div>
   );

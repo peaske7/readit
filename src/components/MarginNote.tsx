@@ -52,8 +52,7 @@ export const MarginNote = memo(function MarginNote({
   const {
     editComment,
     deleteComment,
-    copyCommentRaw,
-    copyCommentForLLM,
+    copyComment,
     setHoveredCommentId,
     scrollToHighlight,
   } = useCommentActions();
@@ -74,9 +73,7 @@ export const MarginNote = memo(function MarginNote({
 
   const hasNote = comment.comment.trim().length > 0;
 
-  const handleCopy = () => {
-    copyCommentRaw(comment);
-  };
+  const handleCopy = () => copyComment(comment);
 
   const createdAtFormatted = new Date(comment.createdAt).toLocaleString();
 
@@ -174,18 +171,8 @@ export const MarginNote = memo(function MarginNote({
                 {t("marginNote.delete")}
               </ActionLink>
               <SeparatorDot />
-              <ActionLink
-                onClick={handleCopy}
-                title={t("marginNote.copyTitle")}
-              >
+              <ActionLink onClick={handleCopy}>
                 {t("marginNote.copy")}
-              </ActionLink>
-              <SeparatorDot />
-              <ActionLink
-                onClick={() => copyCommentForLLM(comment)}
-                title={t("marginNote.llmTitle")}
-              >
-                {t("marginNote.llm")}
               </ActionLink>
             </ActionBar>
           </>

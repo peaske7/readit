@@ -1,4 +1,4 @@
-import { useCommentContext } from "../contexts/CommentContext";
+import { useCommentData } from "../contexts/CommentContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { ActionsMenu } from "./ActionsMenu";
 import { CommentBadge } from "./comments/CommentBadge";
@@ -7,7 +7,6 @@ import { Text } from "./ui/Text";
 interface HeaderProps {
   fileName: string;
   onCopyAll: () => void;
-  onCopyAllRaw: () => void;
   onExportJson: () => void;
   onReload: () => void;
 }
@@ -15,11 +14,10 @@ interface HeaderProps {
 export function Header({
   fileName,
   onCopyAll,
-  onCopyAllRaw,
   onExportJson,
   onReload,
 }: HeaderProps) {
-  const { reanchorTarget } = useCommentContext();
+  const { reanchorTarget } = useCommentData();
   const { t } = useLocale();
 
   return (
@@ -46,7 +44,6 @@ export function Header({
 
           <ActionsMenu
             onCopyAll={onCopyAll}
-            onCopyAllRaw={onCopyAllRaw}
             onExportJson={onExportJson}
             onReload={onReload}
           />

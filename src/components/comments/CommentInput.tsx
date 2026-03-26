@@ -1,4 +1,3 @@
-import { BotMessageSquare, Copy } from "lucide-react";
 import { use, useEffect, useRef, useState } from "react";
 import { useLocale } from "../../contexts/LocaleContext";
 import { SettingsContext } from "../../contexts/SettingsContext";
@@ -11,16 +10,12 @@ interface CommentInputProps {
   selectedText: string | null;
   onSubmit: (commentText: string) => void;
   onCancel: () => void;
-  onCopyRaw: () => void;
-  onCopyForLLM: () => void;
 }
 
 export function CommentInput({
   selectedText,
   onSubmit,
   onCancel,
-  onCopyRaw,
-  onCopyForLLM,
 }: CommentInputProps) {
   const { t } = useLocale();
   const settings = use(SettingsContext);
@@ -34,7 +29,6 @@ export function CommentInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    // Only auto-focus on devices with precise pointing (desktop)
     if (textareaRef.current && window.matchMedia("(pointer: fine)").matches) {
       textareaRef.current.focus();
     }
@@ -80,28 +74,6 @@ export function CommentInput({
         onKeyDown={handleKeyDown}
       />
       <div className="flex justify-end items-center gap-3 mt-2 text-sm">
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400"
-            onClick={onCopyRaw}
-            title={t("comment.copyRawTitle")}
-            aria-label={t("comment.copyRawLabel")}
-          >
-            <Copy size={14} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400"
-            onClick={onCopyForLLM}
-            title={t("comment.copyLLMTitle")}
-            aria-label={t("comment.copyLLMLabel")}
-          >
-            <BotMessageSquare size={14} />
-          </Button>
-        </div>
         <Button variant="ghost" size="sm" onClick={onCancel}>
           {t("comment.cancel")}
         </Button>

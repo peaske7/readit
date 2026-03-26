@@ -1,7 +1,13 @@
 import { Copy, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { useCommentContext } from "../../contexts/CommentContext";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
+import {
+  useCommentActions,
+  useCommentData,
+} from "../../contexts/CommentContext";
 import { useLocale } from "../../contexts/LocaleContext";
+import { generatePrompt } from "../../lib/export";
+import { useAppStore } from "../../store";
 import { Button } from "../ui/Button";
 import { Text } from "../ui/Text";
 import { CommentListItem } from "./CommentListItem";
@@ -12,7 +18,17 @@ interface CommentManagerProps {
 
 export function CommentManager({ onClose }: CommentManagerProps) {
   const { t } = useLocale();
-  const { comments, copyAllForLLM, deleteAll } = useCommentContext();
+  const { comments } = useCommentData();
+  const { deleteAll } = useCommentActions();
+  const fileName = useAppStore(
+    (s) => s.getActiveDocumentState()?.document.fileName ?? "",
+  );
+
+  const copyAll = useCallback(() => {
+    const text = generatePrompt(comments, fileName);
+    navigator.clipboard.writeText(text);
+    toast.success(t("toast.copiedAllComments"));
+  }, [comments, fileName, t]);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const unresolvedCount = comments.filter(
@@ -76,7 +92,7 @@ export function CommentManager({ onClose }: CommentManagerProps) {
             <button
               type="button"
               className="p-1 rounded hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
-              onClick={copyAllForLLM}
+              onClick={copyAll}
               title={t("commentManager.copyAllTitle")}
             >
               <Copy size={13} />
