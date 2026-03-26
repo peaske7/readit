@@ -36,7 +36,6 @@ export function CommentManager({ onClose }: CommentManagerProps) {
   ).length;
   const resolvedCount = comments.length - unresolvedCount;
 
-  // Sort: resolved first, then unresolved
   const sortedComments = [...comments].sort((a, b) => {
     const aUnresolved = a.anchorConfidence === "unresolved";
     const bUnresolved = b.anchorConfidence === "unresolved";

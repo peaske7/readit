@@ -15,7 +15,6 @@ import type { Comment } from "../schema";
 import { appStore, useAppStore } from "../store";
 import { useLocale } from "./LocaleContext";
 
-// Stable callbacks — never causes re-renders
 interface CommentActionsValue {
   addComment: (
     selectedText: string,
@@ -40,6 +39,10 @@ interface CommentActionsValue {
   cancelReanchor: () => void;
   copyComment: (comment: Comment) => void;
   scrollToHighlight: (commentId: string) => void;
+  registerHighlighter: (
+    setFocused: (id: string | undefined) => void,
+    scrollToComment: (id: string) => void,
+  ) => void;
 }
 
 const CommentActionsContext = createContext<CommentActionsValue | null>(null);
@@ -52,7 +55,6 @@ export function useCommentActions(): CommentActionsValue {
   return value;
 }
 
-// Volatile — re-renders consumers on change
 interface CommentDataValue {
   comments: Comment[];
   commentCount: number;
@@ -110,6 +112,7 @@ export function CommentProvider({
     navigateToComment,
     navigatePrevious,
     navigateNext,
+    registerHighlighter,
   } = useCommentNavigation(sortedComments);
 
   const reanchorTarget = useAppStore(
@@ -137,14 +140,12 @@ export function CommentProvider({
     [t],
   );
 
-  const scrollToHighlight = useCallback((commentId: string) => {
-    const mark = window.document.querySelector(
-      `mark[data-comment-id="${commentId}"]`,
-    );
-    if (mark) {
-      mark.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, []);
+  const scrollToHighlight = useCallback(
+    (commentId: string) => {
+      navigateToComment(commentId);
+    },
+    [navigateToComment],
+  );
 
   const actions = useMemo<CommentActionsValue>(
     () => ({
@@ -161,6 +162,7 @@ export function CommentProvider({
       cancelReanchor,
       copyComment,
       scrollToHighlight,
+      registerHighlighter,
     }),
     [
       addComment,
@@ -176,6 +178,7 @@ export function CommentProvider({
       cancelReanchor,
       copyComment,
       scrollToHighlight,
+      registerHighlighter,
     ],
   );
 

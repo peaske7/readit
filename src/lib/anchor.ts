@@ -222,7 +222,6 @@ export function findAnchorNormalized({
     const originalStart = windowStart + toOriginal[normalizedIndex];
     const endNormIndex = normalizedIndex + normalizedText.length - 1;
     let originalEnd = windowStart + toOriginal[endNormIndex] + 1;
-    // Extend past trailing whitespace that was collapsed during normalization
     while (originalEnd < source.length && /\s/.test(source[originalEnd])) {
       originalEnd++;
     }
@@ -318,7 +317,6 @@ export function findAnchorFuzzy({
   return bestMatch;
 }
 
-/** Fallback chain: exact → normalized → fuzzy. */
 export function findAnchorWithFallback({
   source,
   selectedText,

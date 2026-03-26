@@ -1,4 +1,4 @@
-import type { HighlightStyle, TextNodeInfo } from "./types";
+import type { TextNodeInfo } from "./types";
 
 const BLOCK_ELEMENTS = new Set([
   "P",
@@ -24,7 +24,6 @@ function findBlockParent(node: Node): Element | null {
   return parent;
 }
 
-/** Accounts for newlines between block elements to match getDOMTextContent. */
 export function getTextOffset(
   root: Node,
   targetNode: Node,
@@ -58,7 +57,6 @@ export function getTextOffset(
   return offset;
 }
 
-/** Inserts newlines between block-level elements to match browser selection behavior. */
 export function getDOMTextContent(root: Node): string {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let text = "";
@@ -69,7 +67,6 @@ export function getDOMTextContent(root: Node): string {
     const blockParent = findBlockParent(node);
 
     if (lastBlockParent && blockParent && lastBlockParent !== blockParent) {
-      // Only add newline if blocks are siblings (not nested)
       if (
         !lastBlockParent.contains(blockParent) &&
         !blockParent.contains(lastBlockParent)
@@ -120,232 +117,71 @@ export function collectTextNodes(root: Node): TextNodeInfo[] {
   return textNodes;
 }
 
-export interface ExtendedHighlightStyle extends HighlightStyle {
-  colorIndex?: number;
-  isBracketMode?: boolean;
-  isBracketStart?: boolean;
-  isBracketEnd?: boolean;
-}
+export function collectTextNodesWithContent(root: Node): {
+  text: string;
+  nodes: TextNodeInfo[];
+} {
+  const nodes: TextNodeInfo[] = [];
+  let text = "";
+  let currentOffset = 0;
+  let lastBlockParent: Element | null = null;
 
-interface BatchedHighlightSegment {
-  startOffset: number;
-  endOffset: number;
-  style: ExtendedHighlightStyle;
-}
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
 
-interface NodeSegment {
-  start: number;
-  end: number;
-  style: ExtendedHighlightStyle;
-  order: number;
-}
+  while (node) {
+    const blockParent = findBlockParent(node);
 
-const BRACKET_MODE_LINE_THRESHOLD = 5;
+    if (lastBlockParent && blockParent && lastBlockParent !== blockParent) {
+      if (
+        !lastBlockParent.contains(blockParent) &&
+        !blockParent.contains(lastBlockParent)
+      ) {
+        text += "\n";
+        currentOffset += 1;
+      }
+    }
 
-export function countLinesInRange(
-  textContent: string,
-  startOffset: number,
-  endOffset: number,
-): number {
-  const slice = textContent.slice(startOffset, endOffset);
-  return (slice.match(/\n/g) || []).length + 1;
-}
-
-// Note: applyHighlightToRange and applyHighlightWithStyle share similar logic intentionally.
-// They differ in styling: applyHighlightToRange is for simple pending selections,
-// applyHighlightWithStyle adds color indices and bracket mode for saved comments.
-// Keeping them separate avoids unnecessary complexity in a shared abstraction.
-
-export function applyHighlightToRange(
-  root: HTMLElement,
-  startOffset: number,
-  endOffset: number,
-  style: HighlightStyle,
-): void {
-  const textNodes = collectTextNodes(root);
-  const overlappingNodes = textNodes.filter(
-    (n) => n.end > startOffset && n.start < endOffset,
-  );
-
-  if (overlappingNodes.length === 0) {
-    return;
+    const content = node.textContent ?? "";
+    text += content;
+    const length = content.length;
+    nodes.push({
+      node: node as Text,
+      start: currentOffset,
+      end: currentOffset + length,
+    });
+    currentOffset += length;
+    lastBlockParent = blockParent;
+    node = walker.nextNode();
   }
 
-  for (const { node: textNode, start } of overlappingNodes) {
-    const nodeStart = Math.max(0, startOffset - start);
-    const nodeEnd = Math.min(textNode.length, endOffset - start);
+  return { text, nodes };
+}
 
-    if (nodeStart >= nodeEnd) {
-      continue;
-    }
+export function createRangesForHighlight(
+  root: Node,
+  startOffset: number,
+  endOffset: number,
+): Range[] {
+  const textNodes = collectTextNodes(root);
+  return createRangesFromNodes(textNodes, startOffset, endOffset);
+}
+
+export function createRangesFromNodes(
+  textNodes: TextNodeInfo[],
+  startOffset: number,
+  endOffset: number,
+): Range[] {
+  const ranges: Range[] = [];
+
+  for (const { node, start, end } of textNodes) {
+    if (end <= startOffset || start >= endOffset) continue;
 
     const range = document.createRange();
-    range.setStart(textNode, nodeStart);
-    range.setEnd(textNode, nodeEnd);
-
-    const mark = document.createElement("mark");
-    mark.setAttribute(style.attribute, style.attributeValue);
-
-    try {
-      range.surroundContents(mark);
-    } catch {
-      // Range crosses element boundaries - use extractContents fallback
-      try {
-        const fragment = range.extractContents();
-        mark.appendChild(fragment);
-        range.insertNode(mark);
-      } catch (err) {
-        console.warn("[highlight] Failed to apply highlight to range:", err);
-      }
-    }
-  }
-}
-
-function createStyledMark(
-  text: string,
-  style: ExtendedHighlightStyle,
-): HTMLElement {
-  const mark = document.createElement("mark");
-  mark.setAttribute(style.attribute, style.attributeValue);
-
-  if (style.colorIndex !== undefined) {
-    mark.setAttribute("data-color-index", String(style.colorIndex % 4));
+    range.setStart(node, Math.max(0, startOffset - start));
+    range.setEnd(node, Math.min(node.length, endOffset - start));
+    ranges.push(range);
   }
 
-  if (style.isBracketMode) {
-    mark.setAttribute("data-bracket-mode", "true");
-    if (style.isBracketStart) {
-      mark.setAttribute("data-bracket-start", "true");
-    }
-    if (style.isBracketEnd) {
-      mark.setAttribute("data-bracket-end", "true");
-    }
-  }
-
-  mark.textContent = text;
-  return mark;
-}
-
-function normalizeNodeSegments(segments: NodeSegment[]): NodeSegment[] {
-  const sorted = [...segments].sort((a, b) => {
-    if (a.start !== b.start) return a.start - b.start;
-    if (a.end !== b.end) return b.end - a.end;
-    return a.order - b.order;
-  });
-
-  const normalized: NodeSegment[] = [];
-  let coveredUntil = 0;
-
-  for (const segment of sorted) {
-    const start = Math.max(segment.start, coveredUntil);
-    if (start >= segment.end) continue;
-
-    normalized.push({ ...segment, start });
-    coveredUntil = segment.end;
-  }
-
-  return normalized;
-}
-
-export function applyHighlightBatch(
-  root: HTMLElement,
-  textContent: string,
-  highlights: BatchedHighlightSegment[],
-): void {
-  if (highlights.length === 0) return;
-
-  const textNodes = collectTextNodes(root);
-  const segmentsByNode = new Map<Text, NodeSegment[]>();
-
-  for (
-    let highlightIndex = 0;
-    highlightIndex < highlights.length;
-    highlightIndex++
-  ) {
-    const highlight = highlights[highlightIndex];
-    const overlappingNodes = textNodes.filter(
-      (n) => n.end > highlight.startOffset && n.start < highlight.endOffset,
-    );
-
-    if (overlappingNodes.length === 0) continue;
-
-    const lineCount = countLinesInRange(
-      textContent,
-      highlight.startOffset,
-      highlight.endOffset,
-    );
-    const useBracketMode =
-      highlight.style.isBracketMode ?? lineCount >= BRACKET_MODE_LINE_THRESHOLD;
-
-    for (let nodeIndex = 0; nodeIndex < overlappingNodes.length; nodeIndex++) {
-      const { node, start } = overlappingNodes[nodeIndex];
-      const localStart = Math.max(0, highlight.startOffset - start);
-      const localEnd = Math.min(node.length, highlight.endOffset - start);
-
-      if (localStart >= localEnd) continue;
-
-      const nodeSegments = segmentsByNode.get(node) ?? [];
-      nodeSegments.push({
-        start: localStart,
-        end: localEnd,
-        order: highlightIndex,
-        style: {
-          ...highlight.style,
-          isBracketMode: useBracketMode,
-          isBracketStart: useBracketMode && nodeIndex === 0,
-          isBracketEnd:
-            useBracketMode && nodeIndex === overlappingNodes.length - 1,
-        },
-      });
-      segmentsByNode.set(node, nodeSegments);
-    }
-  }
-
-  for (const { node } of textNodes) {
-    const segments = segmentsByNode.get(node);
-    if (!segments || segments.length === 0) continue;
-
-    const normalized = normalizeNodeSegments(segments);
-    if (normalized.length === 0) continue;
-
-    const text = node.textContent ?? "";
-    const fragment = document.createDocumentFragment();
-    let cursor = 0;
-
-    for (const segment of normalized) {
-      if (cursor < segment.start) {
-        fragment.appendChild(
-          document.createTextNode(text.slice(cursor, segment.start)),
-        );
-      }
-
-      fragment.appendChild(
-        createStyledMark(text.slice(segment.start, segment.end), segment.style),
-      );
-      cursor = segment.end;
-    }
-
-    if (cursor < text.length) {
-      fragment.appendChild(document.createTextNode(text.slice(cursor)));
-    }
-
-    node.replaceWith(fragment);
-  }
-}
-
-export function clearHighlights(
-  root: HTMLElement,
-  selector = "mark[data-comment-id], mark[data-pending]",
-): void {
-  const marks = root.querySelectorAll(selector);
-
-  for (const mark of marks) {
-    const parent = mark.parentNode;
-    if (parent) {
-      while (mark.firstChild) {
-        parent.insertBefore(mark.firstChild, mark);
-      }
-      parent.removeChild(mark);
-    }
-  }
+  return ranges;
 }

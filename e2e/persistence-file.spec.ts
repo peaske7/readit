@@ -119,8 +119,14 @@ test.describe("File-Based Comment Persistence", () => {
       await expect(page.locator("body")).toContainText(commentText);
 
       // Verify highlight still exists
-      const highlight = article.locator("mark[data-comment-id]").first();
-      await expect(highlight).toBeVisible();
+      await page.waitForFunction(
+        () => {
+          const h = (window as unknown as Record<string, unknown>)
+            .__readitHighlights as { commentIds: string[] } | undefined;
+          return h && h.commentIds.length > 0;
+        },
+        { timeout: 10_000 },
+      );
     } finally {
       await cleanup();
     }
@@ -171,8 +177,14 @@ test.describe("File-Based Comment Persistence", () => {
       await expect(page.locator("body")).toContainText(commentText);
 
       // Highlight should still exist
-      const highlight = article.locator("mark[data-comment-id]").first();
-      await expect(highlight).toBeVisible();
+      await page.waitForFunction(
+        () => {
+          const h = (window as unknown as Record<string, unknown>)
+            .__readitHighlights as { commentIds: string[] } | undefined;
+          return h && h.commentIds.length > 0;
+        },
+        { timeout: 10_000 },
+      );
     } finally {
       await cleanup2();
     }
@@ -220,9 +232,13 @@ Pre-existing comment to be cleared.
       // Wait for clean operation to complete
       await page.waitForTimeout(500);
 
-      // Verify no comments in UI
-      const highlight = article.locator("mark[data-comment-id]");
-      await expect(highlight).toHaveCount(0);
+      // Verify no highlights via observability hook
+      const highlightCount = await page.evaluate(() => {
+        const h = (window as unknown as Record<string, unknown>)
+          .__readitHighlights as { commentIds: string[] } | undefined;
+        return h?.commentIds?.length ?? 0;
+      });
+      expect(highlightCount).toBe(0);
     } finally {
       await cleanup();
     }

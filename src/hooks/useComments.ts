@@ -41,7 +41,6 @@ export function useComments(
 
   const pendingOperations = useRef<Map<string, Comment[]>>(new Map());
 
-  // Capture filePath at call time so callbacks stay stable across renders
   const filePathRef = useRef(filePath);
   filePathRef.current = filePath;
 
@@ -105,7 +104,6 @@ export function useComments(
   useEffect(() => {
     if (!filePath) return;
 
-    // Skip fetch if comments were already pre-fetched by useDocument (parallel loading)
     const existing = appStore.getState().documents.get(filePath);
     if (!clean && existing && existing.comments.length > 0) return;
 

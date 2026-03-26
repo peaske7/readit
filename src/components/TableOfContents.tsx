@@ -1,6 +1,6 @@
 import { use, useMemo, useState } from "react";
 import { SettingsContext } from "../contexts/SettingsContext";
-import type { Heading } from "../hooks/useHeadings";
+import type { Heading } from "../lib/headings";
 import { cn } from "../lib/utils";
 import { FontFamilies } from "../schema";
 

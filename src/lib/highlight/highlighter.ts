@@ -1,12 +1,11 @@
 import {
-  applyHighlightBatch,
-  applyHighlightToRange,
-  clearHighlights,
-  getDOMTextContent,
+  collectTextNodesWithContent,
+  createRangesForHighlight,
+  createRangesFromNodes,
   getTextOffset,
 } from "./dom";
-import { Resolver } from "./resolver";
-import type { HighlightComment } from "./types";
+import { HighlightRegistry } from "./highlight-registry";
+import type { HighlightComment, TextNodeInfo } from "./types";
 
 export type SelectionHandler = (
   text: string,
@@ -16,11 +15,22 @@ export type SelectionHandler = (
 ) => void;
 export type HoverHandler = (commentId: string | undefined) => void;
 export type ClickHandler = (commentId: string) => void;
+export type CacheHandler = () => void;
+
 export interface Highlighter {
   applyHighlights(comments: HighlightComment[]): void;
   clearHighlights(): void;
   onHighlightHover(callback: HoverHandler): () => void;
   onHighlightClick(callback: ClickHandler): () => void;
+
+  setFocused(commentId: string | undefined): void;
+  scrollToComment(commentId: string): void;
+  getPositions(containerRect: DOMRect): Map<string, number>;
+  getHighlightedIds(): string[];
+  isPointInHighlight(x: number, y: number): boolean;
+
+  onCacheInvalidated(callback: CacheHandler): () => void;
+
   dispose(): void;
 }
 
@@ -35,14 +45,14 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
 
   let hoverCallback: HoverHandler | undefined;
   let clickCallback: ClickHandler | undefined;
+  let cacheCallback: CacheHandler | undefined;
 
-  // Incremental diffing state — avoids full clear+rebuild on every comment change
-  const activeHighlights = new Map<string, { start: number; end: number }>();
+  const activePositions = new Map<string, { start: number; end: number }>();
   let lastTextContent = "";
 
-  // Web Worker for anchor resolution (offloads indexOf from main thread)
-  const resolver = new Resolver();
-  let resolveGeneration = 0;
+  const registry = new HighlightRegistry();
+
+  let lastHoveredId: string | undefined;
 
   const handleMouseUp = () => {
     const selection = window.getSelection();
@@ -79,164 +89,111 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
 
     onSelect(text, startOffset, endOffset, selectionTop);
 
-    // Apply pending highlight directly (not through applyHighlights cycle)
-    // so it persists when native ::selection clears on textarea focus
-    clearHighlights(root, "mark[data-pending]");
-    applyHighlightToRange(root, startOffset, endOffset, {
-      attribute: "data-pending",
-      attributeValue: "true",
+    // Apply pending highlight after React re-render settles.
+    // onSelect triggers a state update that may cause React to re-render,
+    // replacing DOM nodes and invalidating pre-existing Range objects.
+    // Deferring to rAF ensures Ranges are created against the final DOM.
+    requestAnimationFrame(() => {
+      const pendingRanges = createRangesForHighlight(
+        root,
+        startOffset,
+        endOffset,
+      );
+      registry.setPending(pendingRanges);
     });
   };
 
-  const handleMouseOver = (e: Event) => {
+  const handleMouseMove = (e: MouseEvent) => {
     if (!hoverCallback) return;
-    const target = e.target as HTMLElement;
-    const mark = target.closest("mark[data-comment-id]");
-    if (mark) {
-      hoverCallback(mark.getAttribute("data-comment-id") ?? undefined);
+
+    const id = registry.hitTest(e.clientX, e.clientY);
+
+    if (id !== lastHoveredId) {
+      lastHoveredId = id;
+      hoverCallback(id);
     }
   };
 
-  const handleMouseOut = (e: Event) => {
-    if (!hoverCallback) return;
-    const target = e.target as HTMLElement;
-    const relatedTarget = (e as MouseEvent).relatedTarget as HTMLElement | null;
-    const mark = target.closest("mark[data-comment-id]");
-    if (mark) {
-      const relatedMark = relatedTarget?.closest("mark[data-comment-id]");
-      if (
-        !relatedMark ||
-        relatedMark.getAttribute("data-comment-id") !==
-          mark.getAttribute("data-comment-id")
-      ) {
-        hoverCallback(undefined);
-      }
-    }
-  };
-
-  const handleClick = (e: Event) => {
+  const handleClick = (e: MouseEvent) => {
     if (!clickCallback) return;
-    const target = e.target as HTMLElement;
-    const mark = target.closest("mark[data-comment-id]");
-    if (mark) {
-      const commentId = mark.getAttribute("data-comment-id");
-      if (commentId) {
-        clickCallback(commentId);
-      }
+
+    const commentId = registry.hitTest(e.clientX, e.clientY);
+    if (commentId) {
+      clickCallback(commentId);
     }
   };
 
   const applyDiff = (
-    textContent: string,
-    resolved: Map<
-      string,
-      { start: number; end: number; comment: HighlightComment }
-    >,
+    resolved: Map<string, { start: number; end: number; colorIndex: number }>,
+    textNodes: TextNodeInfo[],
   ) => {
-    const toRemove: string[] = [];
-    const toAdd: string[] = [];
+    let changed = false;
 
-    for (const [id, prev] of activeHighlights) {
+    for (const [id, prev] of activePositions) {
       const next = resolved.get(id);
-      if (!next) {
-        toRemove.push(id);
-      } else if (prev.start !== next.start || prev.end !== next.end) {
-        toRemove.push(id);
-        toAdd.push(id);
+      if (!next || prev.start !== next.start || prev.end !== next.end) {
+        registry.removeComment(id);
+        activePositions.delete(id);
+        changed = true;
       }
     }
 
-    for (const id of resolved.keys()) {
-      if (!activeHighlights.has(id)) {
-        toAdd.push(id);
+    for (const [id, entry] of resolved) {
+      if (!activePositions.has(id)) {
+        const ranges = createRangesFromNodes(textNodes, entry.start, entry.end);
+        if (ranges.length > 0) {
+          registry.updateComment(id, ranges, entry.colorIndex);
+          activePositions.set(id, { start: entry.start, end: entry.end });
+          changed = true;
+        }
       }
     }
 
-    if (toRemove.length === 0 && toAdd.length === 0) return;
-
-    for (const id of toRemove) {
-      clearHighlights(root, `mark[data-comment-id="${id}"]`);
-      activeHighlights.delete(id);
-    }
-
-    if (toAdd.length > 0) {
-      const newHighlights = toAdd
-        .map((id) => resolved.get(id)!)
-        .sort((a, b) => a.start - b.start);
-
-      applyHighlightBatch(
-        root,
-        textContent,
-        newHighlights.map((h) => ({
-          startOffset: h.start,
-          endOffset: h.end,
-          style: {
-            attribute: "data-comment-id",
-            attributeValue: h.comment.id,
-            colorIndex: 0,
-          },
-        })),
-      );
-
-      for (const id of toAdd) {
-        const range = resolved.get(id)!;
-        activeHighlights.set(id, { start: range.start, end: range.end });
-      }
+    if (changed) {
+      cacheCallback?.();
     }
   };
 
   root.addEventListener("mouseup", handleMouseUp);
-  root.addEventListener("mouseover", handleMouseOver);
-  root.addEventListener("mouseout", handleMouseOut);
+  root.addEventListener("mousemove", handleMouseMove);
   root.addEventListener("click", handleClick);
 
   return {
     applyHighlights(comments: HighlightComment[]) {
-      const textContent = getDOMTextContent(root);
+      const { text: textContent, nodes: textNodes } =
+        collectTextNodesWithContent(root);
 
-      // If DOM content changed (e.g. document reload), full rebuild is required
       const contentChanged = textContent !== lastTextContent;
       if (contentChanged) {
-        clearHighlights(root);
-        activeHighlights.clear();
+        registry.clearAll();
+        activePositions.clear();
         lastTextContent = textContent;
       }
 
-      // Bump generation so stale Worker responses are discarded
-      const generation = ++resolveGeneration;
-
-      // Resolve anchors off the main thread, then diff and apply
-      resolver.resolve(textContent, comments).then((anchorMap) => {
-        // Discard if a newer applyHighlights call has started
-        if (generation !== resolveGeneration) return;
-
-        const resolved = new Map<
-          string,
-          { start: number; end: number; comment: HighlightComment }
-        >();
-        for (const c of comments) {
-          const anchor = anchorMap.get(c.id);
-          if (anchor) {
-            resolved.set(c.id, {
-              start: anchor.start,
-              end: anchor.end,
-              comment: {
-                ...c,
-                startOffset: anchor.start,
-                endOffset: anchor.end,
-              },
-            });
-          }
+      const resolved = new Map<
+        string,
+        { start: number; end: number; colorIndex: number }
+      >();
+      let colorIdx = 0;
+      for (const c of comments) {
+        if (c.startOffset >= 0 && c.endOffset > c.startOffset) {
+          resolved.set(c.id, {
+            start: c.startOffset,
+            end: c.endOffset,
+            colorIndex: colorIdx % 4,
+          });
+          colorIdx++;
         }
+      }
 
-        applyDiff(textContent, resolved);
-      });
+      applyDiff(resolved, textNodes);
     },
 
     clearHighlights() {
-      clearHighlights(root);
-      activeHighlights.clear();
+      registry.clearAll();
+      activePositions.clear();
       lastTextContent = "";
+      cacheCallback?.();
     },
 
     onHighlightHover(callback: HoverHandler) {
@@ -253,15 +210,42 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
       };
     },
 
+    setFocused(commentId: string | undefined) {
+      registry.setFocused(commentId);
+    },
+
+    scrollToComment(commentId: string) {
+      registry.scrollToComment(commentId);
+    },
+
+    getPositions(containerRect: DOMRect): Map<string, number> {
+      return registry.getPositions(containerRect);
+    },
+
+    getHighlightedIds(): string[] {
+      return registry.getHighlightedIds();
+    },
+
+    isPointInHighlight(x: number, y: number): boolean {
+      return registry.isPointInHighlight(x, y);
+    },
+
+    onCacheInvalidated(callback: CacheHandler) {
+      cacheCallback = callback;
+      return () => {
+        cacheCallback = undefined;
+      };
+    },
+
     dispose() {
-      resolveGeneration++;
-      resolver.dispose();
+      registry.dispose();
       root.removeEventListener("mouseup", handleMouseUp);
-      root.removeEventListener("mouseover", handleMouseOver);
-      root.removeEventListener("mouseout", handleMouseOut);
+      root.removeEventListener("mousemove", handleMouseMove);
       root.removeEventListener("click", handleClick);
       hoverCallback = undefined;
       clickCallback = undefined;
+      cacheCallback = undefined;
+      lastHoveredId = undefined;
     },
   };
 }

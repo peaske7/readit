@@ -101,8 +101,8 @@ html {
   --comment-color-3-bg-focused: rgba(205, 145, 155, 0.65);
   --comment-color-3-border: #b86b78;
 
-  /* Pending - neutral gray */
-  --pending-bg: rgba(180, 180, 180, 0.3);
+  /* Pending - warm amber tint (matches comment highlight palette) */
+  --pending-bg: rgba(245, 222, 160, 0.45);
 }
 
 .dark {
@@ -151,127 +151,38 @@ html {
   --comment-color-3-bg-focused: rgba(184, 107, 120, 0.55);
   --comment-color-3-border: #d08a98;
 
-  --pending-bg: rgba(100, 100, 100, 0.3);
+  --pending-bg: rgba(202, 168, 74, 0.35);
 }
 
 /* ========================================
-   Comment Highlight Styles
+   Comment Highlight Styles (CSS Custom Highlight API)
    ======================================== */
 
-/* Base highlight - subtle by default */
-mark[data-comment-id] {
-  background-color: var(--highlight-bg, var(--comment-color-0-bg));
-  cursor: pointer;
-  transition:
-    background-color 150ms ease,
-    opacity 150ms ease;
+/* Color variants — paint-time only, zero DOM mutations */
+::highlight(comment-color-0) {
+  background-color: var(--comment-color-0-bg);
 }
 
-/* Color variants based on data-color-index */
-mark[data-comment-id][data-color-index="0"] {
-  --highlight-bg: var(--comment-color-0-bg);
-  --highlight-bg-focused: var(--comment-color-0-bg-focused);
-  --highlight-border: var(--comment-color-0-border);
+::highlight(comment-color-1) {
+  background-color: var(--comment-color-1-bg);
 }
 
-mark[data-comment-id][data-color-index="1"] {
-  --highlight-bg: var(--comment-color-1-bg);
-  --highlight-bg-focused: var(--comment-color-1-bg-focused);
-  --highlight-border: var(--comment-color-1-border);
+::highlight(comment-color-2) {
+  background-color: var(--comment-color-2-bg);
 }
 
-mark[data-comment-id][data-color-index="2"] {
-  --highlight-bg: var(--comment-color-2-bg);
-  --highlight-bg-focused: var(--comment-color-2-bg-focused);
-  --highlight-border: var(--comment-color-2-border);
+::highlight(comment-color-3) {
+  background-color: var(--comment-color-3-bg);
 }
 
-mark[data-comment-id][data-color-index="3"] {
-  --highlight-bg: var(--comment-color-3-bg);
-  --highlight-bg-focused: var(--comment-color-3-bg-focused);
-  --highlight-border: var(--comment-color-3-border);
+/* Focused state — higher priority, overrides color group */
+::highlight(comment-focused) {
+  background-color: var(--comment-color-0-bg-focused);
 }
 
-/* Focused state - this highlight is hovered */
-mark[data-comment-id][data-focused="true"] {
-  background-color: var(
-    --highlight-bg-focused,
-    var(--comment-color-0-bg-focused)
-  );
-}
-
-/* Hover on highlight itself */
-mark[data-comment-id]:hover {
-  background-color: var(
-    --highlight-bg-focused,
-    var(--comment-color-0-bg-focused)
-  );
-}
-
-/* ========================================
-   Bracket Mode for Long Selections
-   ======================================== */
-
-/* Container for bracket-mode highlights */
-mark[data-comment-id][data-bracket-mode="true"] {
-  background-color: transparent;
-  position: relative;
-}
-
-/* Only show background on first segment in bracket mode */
-mark[data-comment-id][data-bracket-start="true"] {
-  background-color: var(--highlight-bg, var(--comment-color-0-bg));
-  border-radius: 2px 2px 0 0;
-}
-
-/* Focused bracket mode shows full highlight */
-mark[data-comment-id][data-bracket-mode="true"][data-focused="true"],
-mark[data-comment-id][data-bracket-mode="true"]:hover {
-  background-color: var(
-    --highlight-bg-focused,
-    var(--comment-color-0-bg-focused)
-  );
-}
-
-/* Gutter line for bracket mode */
-.bracket-gutter-line {
-  position: absolute;
-  left: -20px;
-  width: 2px;
-  background-color: var(--bracket-color, var(--comment-color-0-border));
-  border-radius: 1px;
-  opacity: 0.6;
-  transition: opacity 150ms ease;
-  pointer-events: none;
-}
-
-.bracket-gutter-line[data-focused="true"],
-.bracket-gutter-line:hover {
-  opacity: 1;
-}
-
-/* Bracket markers */
-.bracket-marker {
-  position: absolute;
-  left: -24px;
-  font-family: monospace;
-  font-size: 10px;
-  color: var(--bracket-color, var(--comment-color-0-border));
-  opacity: 0.6;
-  pointer-events: none;
-  transition: opacity 150ms ease;
-}
-
-.bracket-marker-start {
-  top: -2px;
-}
-
-.bracket-marker-end {
-  bottom: -2px;
-}
-
-.bracket-marker[data-focused="true"] {
-  opacity: 1;
+/* Pending selection highlight — neutral gray */
+::highlight(pending-selection) {
+  background-color: var(--pending-bg);
 }
 
 /* ========================================
@@ -299,64 +210,6 @@ mark[data-comment-id][data-bracket-mode="true"]:hover {
 
 .anchor-line-dot[data-visible="true"] {
   opacity: 0.7;
-}
-
-/* Pending selection highlight - neutral gray */
-mark[data-pending] {
-  background-color: var(--pending-bg);
-  cursor: text;
-}
-
-/* Ensure highlights are visible in all contexts including headings */
-.prose mark[data-pending],
-.prose h1 mark[data-pending],
-.prose h2 mark[data-pending],
-.prose h3 mark[data-pending],
-.prose h4 mark[data-pending],
-.prose h5 mark[data-pending],
-.prose h6 mark[data-pending] {
-  background-color: var(--pending-bg) !important;
-  display: inline !important;
-}
-
-/* Ensure comment highlights are visible inside headings (prose overrides) */
-.prose h1 mark[data-comment-id],
-.prose h2 mark[data-comment-id],
-.prose h3 mark[data-comment-id],
-.prose h4 mark[data-comment-id],
-.prose h5 mark[data-comment-id],
-.prose h6 mark[data-comment-id] {
-  background-color: var(--highlight-bg, var(--comment-color-0-bg)) !important;
-  display: inline !important;
-}
-
-/* Bracket mode in headings - override transparent background */
-.prose h1 mark[data-comment-id][data-bracket-mode="true"],
-.prose h2 mark[data-comment-id][data-bracket-mode="true"],
-.prose h3 mark[data-comment-id][data-bracket-mode="true"],
-.prose h4 mark[data-comment-id][data-bracket-mode="true"],
-.prose h5 mark[data-comment-id][data-bracket-mode="true"],
-.prose h6 mark[data-comment-id][data-bracket-mode="true"] {
-  background-color: var(--highlight-bg, var(--comment-color-0-bg)) !important;
-}
-
-/* Hover state for comment highlights in headings */
-.prose h1 mark[data-comment-id]:hover,
-.prose h2 mark[data-comment-id]:hover,
-.prose h3 mark[data-comment-id]:hover,
-.prose h4 mark[data-comment-id]:hover,
-.prose h5 mark[data-comment-id]:hover,
-.prose h6 mark[data-comment-id]:hover,
-.prose h1 mark[data-comment-id][data-focused="true"],
-.prose h2 mark[data-comment-id][data-focused="true"],
-.prose h3 mark[data-comment-id][data-focused="true"],
-.prose h4 mark[data-comment-id][data-focused="true"],
-.prose h5 mark[data-comment-id][data-focused="true"],
-.prose h6 mark[data-comment-id][data-focused="true"] {
-  background-color: var(
-    --highlight-bg-focused,
-    var(--comment-color-0-bg-focused)
-  ) !important;
 }
 
 /* Toast animation */
@@ -577,6 +430,23 @@ mark[data-pending] {
 
 .prose pre {
   margin: 1.75em 0;
+}
+
+/* Shiki syntax-highlighted code blocks (server-rendered) */
+.prose pre.shiki {
+  margin: 1.5em 0;
+  border-radius: 0.5em;
+  font-size: 0.875em;
+  padding: 1em;
+  overflow-x: auto;
+}
+
+.prose pre.shiki code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+  font-weight: 400;
+  color: inherit;
 }
 
 .prose pre code {

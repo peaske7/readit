@@ -17,10 +17,10 @@ import { useLocale } from "./contexts/LocaleContext";
 import { PositionsProvider, usePositions } from "./contexts/PositionsContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { useDocument } from "./hooks/useDocument";
-import { useHeadings } from "./hooks/useHeadings";
 import { useScrollSpy } from "./hooks/useScrollSpy";
 import { useTextSelection } from "./hooks/useTextSelection";
 import { exportCommentsAsJson, generatePrompt } from "./lib/export";
+import type { Heading } from "./lib/headings";
 import { cn } from "./lib/utils";
 import { appStore, useAppStore } from "./store";
 
@@ -71,7 +71,9 @@ function AppContent({ document, reload, isActive }: AppContentProps) {
     exportCommentsAsJson(comments, document);
   }, [comments, document]);
 
-  const headings = useHeadings(document?.content ?? null);
+  const headings = useAppStore(
+    (s) => s.documents.get(document.filePath)?.headings ?? ([] as Heading[]),
+  );
   const headingIds = useMemo(() => headings.map((h) => h.id), [headings]);
   const activeHeadingId = useScrollSpy(headingIds, isActive);
 
@@ -93,7 +95,6 @@ function AppContent({ document, reload, isActive }: AppContentProps) {
     }
   }, []);
 
-  // Scroll save/restore for tab switching (visibility-based, not mount-based)
   const setScrollY = useAppStore((s) => s.setScrollY);
   const savedScrollY = useAppStore(
     (s) => s.documents.get(document.filePath)?.scrollY ?? 0,
@@ -105,12 +106,10 @@ function AppContent({ document, reload, isActive }: AppContentProps) {
     prevActiveRef.current = isActive;
 
     if (wasActive && !isActive) {
-      // Tab becoming hidden — save scroll position
       setScrollY(window.scrollY, document.filePath);
     }
 
     if (!wasActive && isActive) {
-      // Tab becoming visible — restore scroll after layout recalc
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           window.scrollTo(0, savedScrollY);
@@ -186,9 +185,8 @@ function AppContent({ document, reload, isActive }: AppContentProps) {
 
         <div className="flex-1 px-6 py-6">
           <DocumentViewer
-            content={document.content}
+            content={document.html}
             comments={comments}
-            headings={headings}
             isActive={isActive}
             onTextSelect={onTextSelect}
             onHighlightHover={setHoveredCommentId}
@@ -237,7 +235,6 @@ function useTabKeyboardShortcuts() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!event.metaKey) return;
 
-      // Cmd+1-9: switch to tab by index
       const digit = Number.parseInt(event.key, 10);
       if (digit >= 1 && digit <= 9) {
         const { documentOrder } = appStore.getState();
@@ -321,12 +318,10 @@ function App() {
         {documentOrder.map((filePath) => {
           const docState = documents.get(filePath);
           const isActive = filePath === activeDocumentPath;
-          const hasContent = !!docState?.document.content;
+          const hasContent = !!docState?.document.html;
 
-          // Don't mount inactive tabs that haven't loaded content yet
           if (!hasContent && !isActive) return null;
 
-          // Active tab without content — show loading placeholder
           if (!hasContent) {
             return (
               <div

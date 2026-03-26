@@ -23,9 +23,9 @@ test(`add-comment: ${tier.name} (${tier.lines} lines, ${tier.comments} comments)
 
     // Capture actual highlight count as baseline (may differ from tier.comments)
     const baselineCount = await page.evaluate(() => {
-      const marks = document.querySelectorAll("mark[data-comment-id]");
-      return new Set([...marks].map((m) => m.getAttribute("data-comment-id")))
-        .size;
+      const h = (window as unknown as Record<string, unknown>)
+        .__readitHighlights as { commentIds: string[] } | undefined;
+      return h?.commentIds?.length ?? 0;
     });
 
     // Find a text that isn't already highlighted — use a line near the end
@@ -90,11 +90,9 @@ test(`add-comment: ${tier.name} (${tier.lines} lines, ${tier.comments} comments)
       },
       async () => {
         await page.waitForFunction((expected) => {
-          const marks = document.querySelectorAll("mark[data-comment-id]");
-          const ids = new Set(
-            [...marks].map((m) => m.getAttribute("data-comment-id")),
-          );
-          return ids.size > expected;
+          const h = (window as unknown as Record<string, unknown>)
+            .__readitHighlights as { commentIds: string[] } | undefined;
+          return (h?.commentIds?.length ?? 0) > expected;
         }, baselineCount);
       },
     );
@@ -107,9 +105,9 @@ test(`add-comment: ${tier.name} (${tier.lines} lines, ${tier.comments} comments)
 
     // Verify the highlight actually appeared
     const finalCount = await page.evaluate(() => {
-      const marks = document.querySelectorAll("mark[data-comment-id]");
-      return new Set([...marks].map((m) => m.getAttribute("data-comment-id")))
-        .size;
+      const h = (window as unknown as Record<string, unknown>)
+        .__readitHighlights as { commentIds: string[] } | undefined;
+      return h?.commentIds?.length ?? 0;
     });
     expect(finalCount).toBeGreaterThan(tier.comments);
   } finally {

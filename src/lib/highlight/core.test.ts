@@ -31,18 +31,14 @@ describe("findTextPosition", () => {
   describe("multiple occurrences", () => {
     it("finds closest occurrence to hint (before)", () => {
       const text = "the cat and the dog and the bird";
-      // "the" occurs at: 0, 12, 24
 
-      // Hint at 10 should find "the" at 12 (closest)
       const result = findTextPosition(text, "the", 10);
       expect(result?.start).toBe(12);
     });
 
     it("finds closest occurrence to hint (after)", () => {
       const text = "the cat and the dog and the bird";
-      // "the" occurs at: 0, 12, 24
 
-      // Hint at 30 should find "the" at 24 (closest)
       const result = findTextPosition(text, "the", 30);
       expect(result?.start).toBe(24);
     });
@@ -61,7 +57,6 @@ describe("findTextPosition", () => {
 
     it("handles exact match at hint position", () => {
       const text = "abc abc abc";
-      // "abc" occurs at: 0, 4, 8
       const result = findTextPosition(text, "abc", 4);
       expect(result?.start).toBe(4);
     });

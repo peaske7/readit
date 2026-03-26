@@ -1,8 +1,3 @@
-export interface HighlightStyle {
-  attribute: string;
-  attributeValue: string;
-}
-
 export interface TextPosition {
   start: number;
   end: number;

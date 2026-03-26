@@ -13,6 +13,9 @@ import {
   serializeComments,
   truncateSelection,
 } from "./lib/comment-storage.js";
+import { findTextPosition } from "./lib/highlight/resolver.js";
+import { extractTextFromHtml } from "./lib/html-text.js";
+import { renderMarkdown } from "./lib/markdown-renderer.js";
 import { isMarkdownFile } from "./lib/utils.js";
 import {
   AnchorConfidences,
@@ -63,6 +66,7 @@ async function canonicalPath(filePath: string): Promise<string> {
 async function readCommentsFromFile(
   filePath: string,
   sourceContent: string,
+  renderedHtml?: string,
 ): Promise<Comment[]> {
   const commentPath = getCommentPath(filePath);
   const sourceHash = computeHash(sourceContent);
@@ -80,27 +84,46 @@ async function readCommentsFromFile(
 
     const content = await fs.readFile(commentPath, "utf-8");
     const file = parseCommentFile(content);
+
+    const domText = renderedHtml ? extractTextFromHtml(renderedHtml) : null;
+
     const resolvedComments = file.comments.map((comment) => {
       const textForMatching = comment.anchorPrefix || comment.selectedText;
+
       const anchor = findAnchorWithFallback({
         source: sourceContent,
         selectedText: textForMatching,
         lineHint: comment.lineHint || "L1",
       });
 
-      if (anchor) {
+      if (!anchor) {
         return {
           ...comment,
-          startOffset: anchor.start,
-          endOffset: anchor.end,
-          lineHint: `L${anchor.line}`,
-          anchorConfidence: anchor.confidence,
+          anchorConfidence: AnchorConfidences.UNRESOLVED,
         };
+      }
+
+      let startOffset = anchor.start;
+      let endOffset = anchor.end;
+
+      if (domText) {
+        const domPos = findTextPosition(
+          domText,
+          comment.selectedText,
+          anchor.start, // markdown offset as hint
+        );
+        if (domPos) {
+          startOffset = domPos.start;
+          endOffset = domPos.end;
+        }
       }
 
       return {
         ...comment,
-        anchorConfidence: AnchorConfidences.UNRESOLVED,
+        startOffset,
+        endOffset,
+        lineHint: `L${anchor.line}`,
+        anchorConfidence: anchor.confidence,
       };
     });
 
@@ -226,10 +249,17 @@ interface RouteContext {
   getCurrentContent: () => Promise<string>;
 }
 
-async function getComments(ctx: RouteContext): Promise<Response> {
+async function getComments(
+  ctx: RouteContext,
+  renderedHtml?: string,
+): Promise<Response> {
   try {
     const currentContent = await ctx.getCurrentContent();
-    const comments = await readCommentsFromFile(ctx.filePath, currentContent);
+    const comments = await readCommentsFromFile(
+      ctx.filePath,
+      currentContent,
+      renderedHtml,
+    );
     return json({ comments });
   } catch (err) {
     console.error("Failed to read comments:", err);
@@ -530,7 +560,6 @@ async function serveStaticFile(
     return new Response(file);
   }
 
-  // SPA fallback: serve index.html for non-API routes
   const indexFile = Bun.file(join(distPath, "index.html"));
   if (await indexFile.exists()) {
     return new Response(indexFile);
@@ -572,7 +601,6 @@ async function isViteReady(): Promise<boolean> {
 }
 
 async function spawnViteDev(): Promise<() => void> {
-  // If Vite is already running (e.g. after bun --watch restart), reuse it
   if (await isViteReady()) {
     return () => {};
   }
@@ -601,6 +629,8 @@ function extractCommentId(pathname: string): string | undefined {
 
 interface FileState {
   content: string | null;
+  renderedHtml: string | null;
+  headings: import("./lib/headings").Heading[] | null;
   isLoaded: boolean;
   debounceTimer: ReturnType<typeof setTimeout> | null;
 }
@@ -617,6 +647,8 @@ function createServer(options: ServerOptions): ServerWithWatchers {
   for (const entry of options.files) {
     fileMap.set(entry.filePath, {
       content: entry.content ?? null,
+      renderedHtml: null,
+      headings: null,
       isLoaded: entry.content !== undefined,
       debounceTimer: null,
     });
@@ -680,6 +712,28 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     return content;
   }
 
+  async function ensureRenderedHtml(
+    filePath: string,
+  ): Promise<{ html: string; headings: import("./lib/headings").Heading[] }> {
+    const state = fileMap.get(filePath);
+    if (!state) throw new Error(`File not found: ${filePath}`);
+
+    if (state.renderedHtml !== null && state.headings !== null) {
+      return { html: state.renderedHtml, headings: state.headings };
+    }
+
+    const content = await ensureFileContent(filePath);
+
+    if (isMarkdownFile(filePath)) {
+      const result = await renderMarkdown(content);
+      state.renderedHtml = result.html;
+      state.headings = result.headings;
+      return result;
+    }
+
+    return { html: content, headings: [] };
+  }
+
   function resolveContext(url: URL): RouteContext | null {
     const requestedPath = url.searchParams.get("path") ?? defaultPath;
     const state = fileMap.get(requestedPath);
@@ -715,6 +769,8 @@ function createServer(options: ServerOptions): ServerWithWatchers {
             const newContent = await fs.readFile(targetPath, "utf-8");
             if (!state.isLoaded || newContent !== state.content) {
               state.content = newContent;
+              state.renderedHtml = null;
+              state.headings = null;
               state.isLoaded = true;
               invalidateResolvedComments(targetPath);
               console.log(`File changed: ${basename(targetPath)}`);
@@ -789,6 +845,8 @@ function createServer(options: ServerOptions): ServerWithWatchers {
           } else {
             fileMap.set(filePath, {
               content: null,
+              renderedHtml: null,
+              headings: null,
               isLoaded: false,
               debounceTimer: null,
             });
@@ -818,9 +876,10 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       if (pathname === "/api/document" && method === "GET") {
         const ctxOrRes = requireContext(url);
         if (ctxOrRes instanceof Response) return ctxOrRes;
-        const content = await ctxOrRes.getCurrentContent();
+        const { html, headings } = await ensureRenderedHtml(ctxOrRes.filePath);
         return json({
-          content,
+          html,
+          headings,
           filePath: ctxOrRes.filePath,
           fileName: basename(ctxOrRes.filePath),
           clean: options.clean || false,
@@ -842,7 +901,8 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       if (pathname === "/api/comments" && method === "GET") {
         const ctxOrRes = requireContext(url);
         if (ctxOrRes instanceof Response) return ctxOrRes;
-        return getComments(ctxOrRes);
+        const rendered = await ensureRenderedHtml(ctxOrRes.filePath);
+        return getComments(ctxOrRes, rendered.html);
       }
 
       if (pathname === "/api/comments/raw" && method === "GET") {
@@ -894,8 +954,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     },
   });
 
-  // Set up per-file watchers after Bun.serve() succeeds to avoid
-  // leaking FSWatcher handles if the server fails to bind.
   const watchers: FSWatcher[] = [];
   for (const fp of fileOrder) {
     const watcher = watchFile(fp);

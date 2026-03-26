@@ -1,21 +1,26 @@
-import { useMemo } from "react";
-import { slugify } from "../lib/utils";
-
 export interface Heading {
   id: string;
   text: string;
   level: 1 | 2 | 3 | 4 | 5 | 6;
 }
 
-function stripCodeBlocks(content: string): string {
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+export function stripCodeBlocks(content: string): string {
   let result = content.replace(/^(`{3,}|~{3,}).*$[\s\S]*?^\1\s*$/gm, "");
-  // Only remove indented blocks preceded by a blank line (avoids removing list items)
   result = result.replace(/(?:^|\n\n)((?:(?:[ ]{4}|\t).+\n?)+)/g, "\n\n");
 
   return result;
 }
 
-function parseMarkdownHeadings(content: string): Heading[] {
+export function parseMarkdownHeadings(content: string): Heading[] {
   const headings: Heading[] = [];
   const seenIds = new Map<string, number>();
   const contentWithoutCode = stripCodeBlocks(content);
@@ -36,11 +41,4 @@ function parseMarkdownHeadings(content: string): Heading[] {
   }
 
   return headings;
-}
-
-export function useHeadings(content: string | null): Heading[] {
-  return useMemo(() => {
-    if (!content) return [];
-    return parseMarkdownHeadings(content);
-  }, [content]);
 }

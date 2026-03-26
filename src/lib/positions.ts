@@ -1,11 +1,8 @@
+import type { Highlighter } from "./highlight/highlighter";
 import { resolveMarginNotePositions } from "./margin-layout";
 
 type Listener = () => void;
 
-/**
- * Positions managed outside React. Scroll-invariant — only recalculates
- * on highlight mutation (MutationObserver) and resize.
- */
 export class Positions {
   private relative = new Map<string, number>();
   private absolute = new Map<string, number>();
@@ -16,39 +13,49 @@ export class Positions {
   private listeners = new Set<Listener>();
   private root: HTMLElement | null = null;
   private container: HTMLElement | null = null;
+  private highlighter: Highlighter | null = null;
   private resizeRaf: number | null = null;
-  private mutationRaf: number | null = null;
-  private observer: MutationObserver | null = null;
+  private cacheRaf: number | null = null;
+  private unsubCache: (() => void) | null = null;
 
-  attach(root: HTMLElement, container: HTMLElement) {
+  attach(root: HTMLElement, container: HTMLElement, highlighter: Highlighter) {
     this.root = root;
     this.container = container;
+    this.highlighter = highlighter;
     window.addEventListener("resize", this.onResize);
 
-    this.observer = new MutationObserver(() => {
-      if (this.mutationRaf !== null) return;
-      this.mutationRaf = requestAnimationFrame(() => {
-        this.mutationRaf = null;
+    // Defer to next frame: synchronous getBoundingClientRect() after
+    // CSS.highlights.set() would force a full style recalc.
+    this.unsubCache = highlighter.onCacheInvalidated(() => {
+      if (this.cacheRaf !== null) return;
+      this.cacheRaf = requestAnimationFrame(() => {
+        this.cacheRaf = null;
         this.cache();
       });
     });
-    this.observer.observe(root, { childList: true, subtree: true });
   }
 
   detach() {
     window.removeEventListener("resize", this.onResize);
     if (this.resizeRaf !== null) cancelAnimationFrame(this.resizeRaf);
-    if (this.mutationRaf !== null) cancelAnimationFrame(this.mutationRaf);
+    if (this.cacheRaf !== null) cancelAnimationFrame(this.cacheRaf);
     this.resizeRaf = null;
-    this.mutationRaf = null;
-    this.observer?.disconnect();
-    this.observer = null;
+    this.cacheRaf = null;
+    this.unsubCache?.();
+    this.unsubCache = null;
     this.root = null;
     this.container = null;
+    this.highlighter = null;
   }
 
   cache() {
-    if (!this.root || !this.container) return;
+    if (!this.root || !this.container || !this.highlighter) return;
+
+    // Skip layout-forcing getBoundingClientRect when there are no highlights.
+    // The initial render inserts 10k+ DOM elements; reading layout before any
+    // highlights exist would force style recalculation on the entire DOM for nothing.
+    const highlightedIds = this.highlighter.getHighlightedIds();
+    if (highlightedIds.length === 0) return;
 
     const ref = this.container.getBoundingClientRect();
     const scrollY = window.scrollY;
@@ -56,13 +63,10 @@ export class Positions {
     this.relative.clear();
     this.absolute.clear();
 
-    for (const mark of this.root.querySelectorAll("mark[data-comment-id]")) {
-      const id = mark.getAttribute("data-comment-id");
-      if (!id || this.relative.has(id)) continue;
-
-      const rect = mark.getBoundingClientRect();
-      this.relative.set(id, rect.top - ref.top);
-      this.absolute.set(id, rect.top + scrollY);
+    const positions = this.highlighter.getPositions(ref);
+    for (const [id, relTop] of positions) {
+      this.relative.set(id, relTop);
+      this.absolute.set(id, relTop + ref.top + scrollY);
     }
 
     const snap: Record<string, number> = {};
@@ -71,6 +75,7 @@ export class Positions {
 
     this.apply();
     this.notify();
+    this.exposeReady();
   }
 
   setIds(ids: string[]) {
@@ -146,5 +151,12 @@ export class Positions {
 
   private notify() {
     for (const fn of this.listeners) fn();
+  }
+
+  private exposeReady() {
+    if (typeof window !== "undefined") {
+      (window as unknown as Record<string, unknown>).__readitPositionsReady =
+        performance.now();
+    }
   }
 }

@@ -2,13 +2,9 @@ import { useCallback, useEffect } from "react";
 import type { Selection } from "../schema";
 import { appStore, useAppStore } from "../store";
 
-/** Remove pending highlight marks from the DOM without triggering a full clear/reapply cycle. */
-function clearPendingMarks() {
-  for (const mark of document.querySelectorAll("mark[data-pending]")) {
-    const parent = mark.parentNode;
-    if (!parent) continue;
-    while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
-    parent.removeChild(mark);
+function clearPendingHighlight() {
+  if (typeof CSS !== "undefined" && CSS.highlights) {
+    CSS.highlights.delete("pending-selection");
   }
 }
 
@@ -38,12 +34,10 @@ export function useTextSelection(): UseTextSelectionResult {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest("[data-comment-input]")) return;
-      if (target.closest("mark[data-pending]")) return;
-      if (target.closest("mark[data-comment-id]")) return;
 
       appStore.getState().setSelection(null);
       appStore.getState().setPendingSelectionTop(undefined);
-      clearPendingMarks();
+      clearPendingHighlight();
       requestAnimationFrame(() => {
         const sel = window.getSelection();
         if (sel?.isCollapsed) {
@@ -52,7 +46,6 @@ export function useTextSelection(): UseTextSelectionResult {
       });
     };
 
-    // Use mousedown to catch clicks before text selection
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [selection]);
@@ -73,7 +66,7 @@ export function useTextSelection(): UseTextSelectionResult {
   const clearSelection = useCallback(() => {
     appStore.getState().setSelection(null);
     appStore.getState().setPendingSelectionTop(undefined);
-    clearPendingMarks();
+    clearPendingHighlight();
     window.getSelection()?.removeAllRanges();
   }, []);
 

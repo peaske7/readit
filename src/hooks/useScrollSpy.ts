@@ -48,7 +48,6 @@ export function useScrollSpy(
         }
       },
       {
-        // Observe when headings are in the top 30% of viewport
         rootMargin: "-10% 0px -70% 0px",
         threshold: 0,
       },
