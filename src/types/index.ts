@@ -67,16 +67,6 @@ export interface Document {
   clean: boolean;
 }
 
-// Editor scheme options - const object pattern per style guide 6.3
-export const EditorSchemes = {
-  NONE: "none",
-  VSCODE: "vscode",
-  VSCODE_INSIDERS: "vscode-insiders",
-  CURSOR: "cursor",
-} as const;
-
-export type EditorScheme = (typeof EditorSchemes)[keyof typeof EditorSchemes];
-
 // Font family options - const object pattern per style guide 6.3
 export const FontFamilies = {
   SERIF: "serif",
@@ -94,34 +84,9 @@ export const ThemeModes = {
 
 export type ThemeMode = (typeof ThemeModes)[keyof typeof ThemeModes];
 
-// Layout mode options - const object pattern per style guide 6.3
-export const LayoutModes = {
-  CENTERED: "centered",
-  FULLSCREEN: "fullscreen",
-} as const;
-
-export type LayoutMode = (typeof LayoutModes)[keyof typeof LayoutModes];
-
-// Keyboard shortcut binding
-export interface ShortcutBinding {
-  key: string; // KeyboardEvent.key value, e.g. "c", "ArrowUp"
-  alt?: boolean;
-  meta?: boolean; // ⌘ on Mac, Ctrl on Windows/Linux
-  shift?: boolean;
-}
-
-// User override for a shortcut
-export interface KeybindingOverride {
-  id: string;
-  binding?: ShortcutBinding; // undefined = use default
-  enabled: boolean;
-}
-
 // Document settings stored per-file
 export interface DocumentSettings {
   version: number;
   fontFamily: FontFamily;
-  editorScheme?: EditorScheme;
-  keybindings?: KeybindingOverride[];
   onboarded?: boolean;
 }
