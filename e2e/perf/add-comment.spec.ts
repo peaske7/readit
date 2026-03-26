@@ -21,6 +21,13 @@ test(`add-comment: ${tier.name} (${tier.lines} lines, ${tier.comments} comments)
     await waitForHighlightCount(page, tier.comments);
     await page.waitForTimeout(300);
 
+    // Capture actual highlight count as baseline (may differ from tier.comments)
+    const baselineCount = await page.evaluate(() => {
+      const marks = document.querySelectorAll("mark[data-comment-id]");
+      return new Set([...marks].map((m) => m.getAttribute("data-comment-id")))
+        .size;
+    });
+
     // Find a text that isn't already highlighted — use a line near the end
     const selectionText = await page.evaluate(() => {
       const article = document.querySelector("article");
@@ -88,7 +95,7 @@ test(`add-comment: ${tier.name} (${tier.lines} lines, ${tier.comments} comments)
             [...marks].map((m) => m.getAttribute("data-comment-id")),
           );
           return ids.size > expected;
-        }, tier.comments);
+        }, baselineCount);
       },
     );
 

@@ -152,39 +152,30 @@ export function DocumentViewer({
     };
   }, [onTextSelect, onHighlightHover, onHighlightClick]);
 
-  // Apply highlights — only when tab is visible and comments exist.
-  // Skip when comments is empty to avoid wasted Worker round-trip + DOM walk.
-  // When becoming active again, reapply to catch changes made while hidden.
+  // Apply highlights after React commit completes (single rAF).
+  // Skip when comments is empty to avoid wasted DOM walk.
   // biome-ignore lint/correctness/useExhaustiveDependencies: must reapply highlights when content or components change
   useEffect(() => {
     if (!isActive) return;
     if (comments.length === 0) return;
 
-    let outerFrameId: number;
-    let innerFrameId: number;
+    const rafId = requestAnimationFrame(() => {
+      const adapter = adapterRef.current;
+      if (!adapter) return;
 
-    outerFrameId = requestAnimationFrame(() => {
-      innerFrameId = requestAnimationFrame(() => {
-        const adapter = adapterRef.current;
-        if (!adapter) return;
+      const highlightComments: HighlightComment[] = comments
+        .filter((c) => c.anchorConfidence !== AnchorConfidences.UNRESOLVED)
+        .map((c) => ({
+          id: c.id,
+          selectedText: c.selectedText,
+          startOffset: c.startOffset,
+          endOffset: c.endOffset,
+        }));
 
-        const highlightComments: HighlightComment[] = comments
-          .filter((c) => c.anchorConfidence !== AnchorConfidences.UNRESOLVED)
-          .map((c) => ({
-            id: c.id,
-            selectedText: c.selectedText,
-            startOffset: c.startOffset,
-            endOffset: c.endOffset,
-          }));
-
-        adapter.applyHighlights(highlightComments);
-      });
+      adapter.applyHighlights(highlightComments);
     });
 
-    return () => {
-      cancelAnimationFrame(outerFrameId);
-      cancelAnimationFrame(innerFrameId);
-    };
+    return () => cancelAnimationFrame(rafId);
   }, [comments, content, isActive, pos]);
 
   useEffect(() => {

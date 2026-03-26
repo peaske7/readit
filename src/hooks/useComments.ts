@@ -105,6 +105,10 @@ export function useComments(
   useEffect(() => {
     if (!filePath) return;
 
+    // Skip fetch if comments were already pre-fetched by useDocument (parallel loading)
+    const existing = appStore.getState().documents.get(filePath);
+    if (!clean && existing && existing.comments.length > 0) return;
+
     const loadComments = async () => {
       appStore.getState().setCommentsError(null, filePath);
       const query = `?path=${encodeURIComponent(filePath)}`;

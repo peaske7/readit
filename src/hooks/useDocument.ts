@@ -65,23 +65,38 @@ export function useDocument(): UseDocumentResult {
     const state = appStore.getState().documents.get(activeDocumentPath);
     if (!state || state.document.content) return;
 
-    async function loadContent() {
-      try {
-        const res = await fetch(
-          `/api/document?path=${encodeURIComponent(activeDocumentPath!)}`,
-        );
-        if (!res.ok) throw new Error(`Server error: ${res.status}`);
-        const data = await res.json();
-        appStore
-          .getState()
-          .updateDocumentContent(data.content, activeDocumentPath!);
-      } catch (err) {
+    const path = activeDocumentPath;
+    const query = `?path=${encodeURIComponent(path)}`;
+    const isClean = state.document.clean;
+
+    // Fetch document content and comments in parallel so highlights
+    // can apply immediately when CommentProvider mounts.
+    const docFetch = fetch(`/api/document${query}`).then((r) => {
+      if (!r.ok) throw new Error(`Server error: ${r.status}`);
+      return r.json();
+    });
+
+    const commentsFetch = isClean
+      ? fetch(`/api/comments${query}`, { method: "DELETE" }).then(
+          () => [] as unknown[],
+        )
+      : fetch(`/api/comments${query}`)
+          .then((r) => (r.ok ? r.json() : { comments: [] }))
+          .then((d) => d.comments || []);
+
+    Promise.all([docFetch, commentsFetch]).then(
+      ([docData, comments]) => {
+        // Set comments BEFORE content: content triggers CommentProvider mount,
+        // so comments must already be in the store to avoid a wasted empty render.
+        appStore.getState().setComments(comments, path);
+        appStore.getState().updateDocumentContent(docData.content, path);
+      },
+      (err) => {
         setError(
           err instanceof Error ? err.message : "Failed to load document",
         );
-      }
-    }
-    loadContent();
+      },
+    );
   }, [activeDocumentPath]);
 
   // SSE: register new documents without stealing focus; reload already-loaded docs on updates
