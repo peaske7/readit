@@ -1,6 +1,6 @@
 import { BotMessageSquare, Copy } from "lucide-react";
 import { use, useEffect, useRef, useState } from "react";
-import { LayoutContext } from "../../contexts/LayoutContext";
+import { SettingsContext } from "../../contexts/SettingsContext";
 import { useLocale } from "../../contexts/LocaleContext";
 import { cn } from "../../lib/utils";
 import { FontFamilies } from "../../types";
@@ -23,9 +23,9 @@ export function CommentInput({
   onCopyForLLM,
 }: CommentInputProps) {
   const { t } = useLocale();
-  const layout = use(LayoutContext);
-  const fontClass = layout
-    ? layout.fontFamily === FontFamilies.SANS_SERIF
+  const settings = use(SettingsContext);
+  const fontClass = settings
+    ? settings.fontFamily === FontFamilies.SANS_SERIF
       ? "font-sans"
       : "font-serif"
     : undefined;

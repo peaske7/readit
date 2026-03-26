@@ -1,7 +1,5 @@
 import { useCommentContext } from "../contexts/CommentContext";
-import { useLayoutContext } from "../contexts/LayoutContext";
 import { useLocale } from "../contexts/LocaleContext";
-import { cn } from "../lib/utils";
 import { ActionsMenu } from "./ActionsMenu";
 import { CommentBadge } from "./comments/CommentBadge";
 import { Text } from "./ui/Text";
@@ -22,17 +20,11 @@ export function Header({
   onReload,
 }: HeaderProps) {
   const { reanchorTarget } = useCommentContext();
-  const { isFullscreen } = useLayoutContext();
   const { t } = useLocale();
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm border-b border-zinc-100 dark:border-zinc-800">
-      <div
-        className={cn(
-          "px-6 py-3 flex items-center justify-between",
-          !isFullscreen && "max-w-7xl mx-auto",
-        )}
-      >
+      <div className="px-6 py-3 flex items-center justify-between max-w-7xl mx-auto">
         <div className="flex items-center gap-3">
           <Text variant="title" asChild>
             <h1>readit</h1>

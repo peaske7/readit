@@ -2,8 +2,6 @@ import {
   BotMessageSquare,
   FileDown,
   FileText,
-  Maximize2,
-  Minimize2,
   MoreHorizontal,
   RefreshCw,
   Settings,
@@ -11,7 +9,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useCommentContext } from "../contexts/CommentContext";
-import { useLayoutContext } from "../contexts/LayoutContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { RawModal } from "./RawModal";
 import { SettingsModal } from "./SettingsModal";
@@ -38,7 +35,6 @@ export function ActionsMenu({
   onReload,
 }: ActionsMenuProps) {
   const { commentCount } = useCommentContext();
-  const { isFullscreen, toggleLayoutMode } = useLayoutContext();
   const { t } = useLocale();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -59,10 +55,6 @@ export function ActionsMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[160px]">
-          <DropdownMenuItem onSelect={() => toggleLayoutMode()}>
-            {isFullscreen ? <Minimize2 /> : <Maximize2 />}
-            {isFullscreen ? t("actions.centered") : t("actions.fullscreen")}
-          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
             <Settings />
             {t("actions.settings")}
