@@ -10,10 +10,10 @@ import { toast } from "sonner";
 import { useCommentNavigation } from "../hooks/useCommentNavigation";
 import { useComments } from "../hooks/useComments";
 import { useReanchorMode } from "../hooks/useReanchorMode";
-import { formatSingleComment } from "../lib/export";
+import { formatComment } from "../lib/export";
 import { truncate } from "../lib/utils";
 import { useAppStore } from "../store";
-import type { Comment, DocumentType } from "../types";
+import type { Comment } from "../types";
 import { useLocale } from "./LocaleContext";
 
 // ─── Actions Context (stable callbacks — never causes re-renders) ───
@@ -87,14 +87,12 @@ export const CommentContext = CommentDataContext;
 interface CommentProviderProps {
   filePath: string;
   clean: boolean;
-  documentType: DocumentType;
   children: ReactNode;
 }
 
 export function CommentProvider({
   filePath,
   clean,
-  documentType,
   children,
 }: CommentProviderProps) {
   const {
@@ -130,31 +128,20 @@ export function CommentProvider({
 
   const copyComment = useCallback(
     (comment: Comment) => {
-      navigator.clipboard.writeText(formatSingleComment(comment));
+      navigator.clipboard.writeText(formatComment(comment));
       toast.success(t("toast.copied", { text: truncate(comment.comment) }));
     },
     [t],
   );
 
-  const scrollToHighlight = useCallback(
-    (commentId: string) => {
-      if (documentType === "html") {
-        const iframe = window.document.querySelector("iframe");
-        iframe?.contentWindow?.postMessage(
-          { type: "scrollToHighlight", commentId },
-          "*",
-        );
-      } else {
-        const mark = window.document.querySelector(
-          `mark[data-comment-id="${commentId}"]`,
-        );
-        if (mark) {
-          mark.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      }
-    },
-    [documentType],
-  );
+  const scrollToHighlight = useCallback((commentId: string) => {
+    const mark = window.document.querySelector(
+      `mark[data-comment-id="${commentId}"]`,
+    );
+    if (mark) {
+      mark.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, []);
 
   const actions = useMemo<CommentActionsValue>(
     () => ({

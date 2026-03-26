@@ -57,11 +57,8 @@ export interface Selection extends SelectionRange {
   text: string;
 }
 
-export type DocumentType = "markdown" | "html";
-
 export interface Document {
   content: string;
-  type: DocumentType;
   filePath: string;
   fileName: string;
   clean: boolean;

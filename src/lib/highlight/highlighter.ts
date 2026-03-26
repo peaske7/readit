@@ -43,7 +43,7 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
   return createMarkdownHighlighter(options);
 }
 
-function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
+function createMarkdownHighlighter(options: HighlighterOptions): Highlighter {
   const { root, container, onSelect } = options;
 
   let hoverCallback: HoverHandler | undefined;
@@ -291,4 +291,3 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
     },
   };
 }
-

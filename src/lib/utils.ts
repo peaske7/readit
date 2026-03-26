@@ -1,16 +1,9 @@
 import { type ClassValue, clsx } from "clsx";
 import type { ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
-import type { DocumentType } from "../types";
 
-export function getFileType(filePath: string): DocumentType | null {
-  if (filePath.endsWith(".md") || filePath.endsWith(".markdown")) {
-    return "markdown";
-  }
-  if (filePath.endsWith(".html") || filePath.endsWith(".htm")) {
-    return "html";
-  }
-  return null;
+export function isMarkdownFile(filePath: string): boolean {
+  return filePath.endsWith(".md") || filePath.endsWith(".markdown");
 }
 
 export function cn(...inputs: ReadonlyArray<ClassValue>) {

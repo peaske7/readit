@@ -13,7 +13,6 @@ interface UseDocumentResult {
 interface DocListItem {
   path: string;
   fileName: string;
-  type: Document["type"];
 }
 
 /**
@@ -32,7 +31,7 @@ export function useDocument(): UseDocumentResult {
   // Active document — null until content is loaded
   const document = useAppStore((s) => {
     const ds = s.getActiveDocumentState();
-    if (!ds || !ds.document.content) return null;
+    if (!ds?.document.content) return null;
     return ds.document;
   });
 
@@ -52,7 +51,6 @@ export function useDocument(): UseDocumentResult {
           appStore.getState().openDocument(
             {
               content: "", // Content loaded lazily on tab activation
-              type: file.type,
               filePath: file.path,
               fileName: file.fileName,
               clean,
@@ -106,7 +104,6 @@ export function useDocument(): UseDocumentResult {
           appStore.getState().openDocument(
             {
               content: "", // Lazy-loaded when tab activated
-              type: data.fileType,
               filePath: data.path,
               fileName: data.fileName,
               clean: false,
@@ -118,7 +115,7 @@ export function useDocument(): UseDocumentResult {
         if (data.type === "document-updated" && data.path) {
           // Only reload if content was previously loaded
           const state = appStore.getState().documents.get(data.path);
-          if (!state || !state.document.content) return;
+          if (!state?.document.content) return;
 
           const res = await fetch(
             `/api/document?path=${encodeURIComponent(data.path)}`,

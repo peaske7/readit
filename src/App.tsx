@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
 import { CommentInput } from "./components/comments/CommentInput";
 import { CommentNav } from "./components/comments/CommentNav";
 import { DocumentViewer } from "./components/DocumentViewer";
@@ -16,11 +16,11 @@ import {
 import { useLocale } from "./contexts/LocaleContext";
 import { PositionsProvider, usePositions } from "./contexts/PositionsContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
-import { useClipboard } from "./hooks/useClipboard";
 import { useDocument } from "./hooks/useDocument";
 import { useHeadings } from "./hooks/useHeadings";
 import { useScrollSpy } from "./hooks/useScrollSpy";
 import { useTextSelection } from "./hooks/useTextSelection";
+import { exportCommentsAsJson, generatePrompt } from "./lib/export";
 import { calculateScrollTarget, getElementTopInDocument } from "./lib/scroll";
 import { cn } from "./lib/utils";
 import { appStore, useAppStore } from "./store";
@@ -60,50 +60,37 @@ function AppContent({ document, reload }: AppContentProps) {
     pos.setPending(selection ? pendingSelectionTop : undefined);
   }, [pos, selection, pendingSelectionTop]);
 
-  const { copyAll, exportJson } = useClipboard({
-    comments,
-    document: document ?? undefined,
-    t,
-  });
+  const copyAll = useCallback(() => {
+    if (!document) return;
+    navigator.clipboard.writeText(generatePrompt(comments, document.fileName));
+    toast.success(t("toast.copiedAllComments"));
+  }, [comments, document, t]);
 
-  const headings = useHeadings(
-    document?.content ?? null,
-    document?.type ?? null,
-  );
+  const exportJson = useCallback(() => {
+    if (!document) return;
+    exportCommentsAsJson(comments, document);
+  }, [comments, document]);
+
+  const headings = useHeadings(document?.content ?? null);
   const headingIds = useMemo(() => headings.map((h) => h.id), [headings]);
   const activeHeadingId = useScrollSpy(headingIds);
 
-  const scrollToHeading = useCallback(
-    (id: string) => {
-      let elementRect: DOMRect | undefined;
-      let iframeTopOffset: number | undefined;
+  const scrollToHeading = useCallback((id: string) => {
+    const elementRect = window.document
+      .getElementById(id)
+      ?.getBoundingClientRect();
+    if (!elementRect) return;
 
-      if (document?.type === "html") {
-        const iframe = window.document.querySelector("iframe");
-        const el = iframe?.contentDocument?.getElementById(id);
-        if (!el || !iframe) return;
-        elementRect = el.getBoundingClientRect();
-        iframeTopOffset = iframe.getBoundingClientRect().top;
-      } else {
-        elementRect = window.document
-          .getElementById(id)
-          ?.getBoundingClientRect();
-      }
-      if (!elementRect) return;
-
-      const elementTop = getElementTopInDocument({
-        elementRect,
-        scrollY: window.scrollY,
-        iframeTopOffset,
-      });
-      const scrollTarget = calculateScrollTarget({
-        elementTop,
-        viewportHeight: window.innerHeight,
-      });
-      window.scrollTo({ top: scrollTarget, behavior: "smooth" });
-    },
-    [document?.type],
-  );
+    const elementTop = getElementTopInDocument({
+      elementRect,
+      scrollY: window.scrollY,
+    });
+    const scrollTarget = calculateScrollTarget({
+      elementTop,
+      viewportHeight: window.innerHeight,
+    });
+    window.scrollTo({ top: scrollTarget, behavior: "smooth" });
+  }, []);
 
   const handleHighlightClick = useCallback((commentId: string) => {
     const marginNote = window.document.querySelector(
@@ -212,10 +199,8 @@ function AppContent({ document, reload }: AppContentProps) {
         <div className="flex-1 px-6 py-6">
           <DocumentViewer
             content={document.content}
-            type={document.type}
             comments={comments}
             headings={headings}
-            pendingSelection={selection ?? undefined}
             onTextSelect={onTextSelect}
             onHighlightHover={setHoveredCommentId}
             onHighlightClick={handleHighlightClick}
@@ -348,11 +333,7 @@ function App() {
       <TabBar />
       <SettingsProvider>
         <PositionsProvider>
-          <CommentProvider
-            filePath={document.filePath}
-            clean={document.clean}
-            documentType={document.type}
-          >
+          <CommentProvider filePath={document.filePath} clean={document.clean}>
             <AppContent document={document} reload={reload} />
           </CommentProvider>
         </PositionsProvider>

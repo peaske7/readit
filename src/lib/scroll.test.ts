@@ -75,21 +75,6 @@ describe("getElementTopInDocument", () => {
     expect(getElementTopInDocument({ elementRect, scrollY: 300 })).toBe(500);
   });
 
-  it("calculates position for element inside iframe", () => {
-    // Iframe at 100px from viewport top
-    // Element at 150px from iframe top (inside iframe)
-    // Scrolled 50px
-    // Absolute position = 50 + 100 + 150 = 300px
-    const elementRect = { top: 150 };
-    expect(
-      getElementTopInDocument({
-        elementRect,
-        scrollY: 50,
-        iframeTopOffset: 100,
-      }),
-    ).toBe(300);
-  });
-
   it("handles element at viewport top with scroll", () => {
     // Element at 0px from viewport top, scrolled 1000px
     const elementRect = { top: 0 };
@@ -100,19 +85,5 @@ describe("getElementTopInDocument", () => {
     // Element scrolled past viewport top
     const elementRect = { top: -100 };
     expect(getElementTopInDocument({ elementRect, scrollY: 500 })).toBe(400);
-  });
-
-  it("handles iframe with element above iframe viewport", () => {
-    // Iframe at 200px, element at -50px within iframe (scrolled past)
-    // scrollY = 100
-    // Absolute position = 100 + 200 + (-50) = 250px
-    const elementRect = { top: -50 };
-    expect(
-      getElementTopInDocument({
-        elementRect,
-        scrollY: 100,
-        iframeTopOffset: 200,
-      }),
-    ).toBe(250);
   });
 });

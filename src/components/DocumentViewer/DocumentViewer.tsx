@@ -18,14 +18,7 @@ import {
   type Highlighter,
 } from "../../lib/highlight";
 import { cn, getTextContent } from "../../lib/utils";
-import {
-  AnchorConfidences,
-  type Comment,
-  type DocumentType,
-  FontFamilies,
-  type SelectionRange,
-} from "../../types";
-import { IframeContainer } from "./IframeContainer";
+import { AnchorConfidences, type Comment, FontFamilies } from "../../types";
 import { createCodeComponent } from "./InlineCode";
 
 const REMARK_PLUGINS = [remarkGfm];
@@ -95,10 +88,8 @@ function createHeadingComponent(
 
 interface DocumentViewerProps {
   content: string;
-  type: DocumentType;
   comments: Comment[];
   headings: Heading[];
-  pendingSelection?: SelectionRange;
   onTextSelect: (
     text: string,
     startOffset: number,
@@ -111,10 +102,8 @@ interface DocumentViewerProps {
 
 export function DocumentViewer({
   content,
-  type,
   comments,
   headings,
-  pendingSelection,
   onTextSelect,
   onHighlightHover,
   onHighlightClick,
@@ -128,18 +117,15 @@ export function DocumentViewer({
 
   // Attach/detach pos to DOM elements for direct position reads
   useEffect(() => {
-    if (type !== "markdown") return;
     if (!contentRef.current || !containerRef.current) return;
     pos.attach(contentRef.current, containerRef.current);
     return () => pos.detach();
-  }, [type, pos]);
+  }, [pos]);
 
   useEffect(() => {
-    if (type !== "markdown") return;
     if (!contentRef.current || !containerRef.current) return;
 
     const adapter = createHighlighter({
-      type: "markdown",
       root: contentRef.current,
       container: containerRef.current,
       onSelect: onTextSelect,
@@ -161,14 +147,12 @@ export function DocumentViewer({
       adapter.dispose();
       adapterRef.current = null;
     };
-  }, [type, onTextSelect, onHighlightHover, onHighlightClick]);
+  }, [onTextSelect, onHighlightHover, onHighlightClick]);
 
   // Double RAF: ensures React commit phase completes before DOM queries.
   // See: https://github.com/facebook/react/issues/20863
   // biome-ignore lint/correctness/useExhaustiveDependencies: must reapply highlights when content or components change
   useEffect(() => {
-    if (type !== "markdown") return;
-
     let outerFrameId: number;
     let innerFrameId: number;
 
@@ -195,11 +179,9 @@ export function DocumentViewer({
       cancelAnimationFrame(outerFrameId);
       cancelAnimationFrame(innerFrameId);
     };
-  }, [comments, content, type, pos]);
+  }, [comments, content, pos]);
 
   useEffect(() => {
-    if (type !== "markdown") return;
-
     const handleTestSelect = (e: Event) => {
       const { text, startOffset, endOffset } = (e as CustomEvent).detail;
       onTextSelect(text, startOffset, endOffset, 0);
@@ -208,7 +190,7 @@ export function DocumentViewer({
     window.addEventListener("test:select-text", handleTestSelect);
     return () =>
       window.removeEventListener("test:select-text", handleTestSelect);
-  }, [type, onTextSelect]);
+  }, [onTextSelect]);
 
   // Memoized to prevent DOM node replacement (breaks highlight persistence)
   const markdownComponents = useMemo(
@@ -223,22 +205,6 @@ export function DocumentViewer({
     }),
     [headings],
   );
-
-  if (type === "html") {
-    return (
-      <main className="flex-1 min-w-0 flex flex-col">
-        <IframeContainer
-          html={content}
-          comments={comments}
-          pendingSelection={pendingSelection}
-          onTextSelect={onTextSelect}
-          onHighlightHover={onHighlightHover}
-          onHighlightClick={onHighlightClick}
-          fontFamily={fontFamily}
-        />
-      </main>
-    );
-  }
 
   headingIndexRef.current = 0;
 

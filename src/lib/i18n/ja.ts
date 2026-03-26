@@ -44,19 +44,12 @@ export const ja: Translations = {
   "comment.cancel": "キャンセル",
   "comment.addNote": "メモを追加",
   "comment.highlight": "ハイライト",
-  "comment.copyRawTitle": "テキストをコピー (⌘C)",
-  "comment.copyRawLabel": "テキストをコピー",
-  "comment.copyLLMTitle": "LLM用にコンテキスト付きでコピー (⌘⇧C)",
-  "comment.copyLLMLabel": "LLM用にコピー",
 
   // Margin note
   "marginNote.addNote": "メモを追加",
   "marginNote.delete": "削除",
   "marginNote.edit": "編集",
   "marginNote.copy": "コピー",
-  "marginNote.copyTitle": "テキストをコピー (⌘C)",
-  "marginNote.llm": "LLM",
-  "marginNote.llmTitle": "LLM用にコンテキスト付きでコピー (⌘⇧C)",
 
   // Comment manager
   "commentManager.unresolved": "未解決",
@@ -107,27 +100,18 @@ export const ja: Translations = {
   "shortcutCapture.pressKeys": "キーを入力...",
 
   // Shortcut labels
-  "shortcut.copyAll.label": "全てコピー (AI)",
-  "shortcut.copyAll.description": "全コメントをAIプロンプト形式でコピー",
-  "shortcut.copyAllRaw.label": "全てコピー (テキスト)",
-  "shortcut.copyAllRaw.description": "全コメントをテキストとしてコピー",
+  "shortcut.copyAll.label": "全てコピー",
+  "shortcut.copyAll.description": "全コメントをクリップボードにコピー",
   "shortcut.navigateNext.label": "次のコメント",
   "shortcut.navigateNext.description": "次のコメントに移動",
   "shortcut.navigatePrevious.label": "前のコメント",
   "shortcut.navigatePrevious.description": "前のコメントに移動",
-  "shortcut.copySelectionRaw.label": "選択をコピー",
-  "shortcut.copySelectionRaw.description": "選択テキストをコピー",
-  "shortcut.copySelectionLLM.label": "選択をコピー (LLM)",
-  "shortcut.copySelectionLLM.description":
-    "選択テキストをLLM用コンテキスト付きでコピー",
   "shortcut.clearSelection.label": "選択を解除",
   "shortcut.clearSelection.description": "テキスト選択を解除",
 
   // Toast messages
   "toast.copied": 'コピーしました: "{{text}}"',
-  "toast.copiedForLLM": 'LLM用にコピーしました: "{{text}}"',
   "toast.copiedAllComments": "全てのコメントをコピーしました",
-  "toast.copiedAllRaw": "全てのコメントをテキストとしてコピーしました",
 
   // Floating TOC
   "floatingTOC.label": "目次",

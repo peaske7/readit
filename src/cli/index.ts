@@ -14,10 +14,9 @@ import { join, resolve } from "node:path";
 import { Command } from "commander";
 import open from "open";
 import { getCommentPath, parseCommentFile } from "../lib/comment-storage.js";
-import { getFileType } from "../lib/utils.js";
+import { isMarkdownFile } from "../lib/utils.js";
 import type { FileEntry } from "../server/index.js";
 import { removeServerInfo, startServer } from "../server/index.js";
-import type { DocumentType } from "../types/index.js";
 
 const program = new Command();
 
@@ -160,7 +159,7 @@ async function discoverServer(): Promise<ServerInfo | null> {
 
 async function attachFiles(
   server: ServerInfo,
-  files: { path: string; type: DocumentType }[],
+  files: { path: string }[],
 ): Promise<void> {
   for (const file of files) {
     try {
@@ -178,9 +177,9 @@ async function attachFiles(
 
       const data = await res.json();
       if (data.status === "added") {
-        console.log(`Added: ${data.fileName} (${data.type})`);
+        console.log(`Added: ${data.fileName}`);
       } else {
-        console.log(`Present: ${data.fileName} (${data.type})`);
+        console.log(`Present: ${data.fileName}`);
       }
     } catch (err) {
       console.error(
@@ -251,7 +250,7 @@ function findCommentFiles(dir: string): string[] {
 }
 
 /**
- * Recursively find reviewable files (.md, .markdown, .html, .htm) in a directory.
+ * Recursively find reviewable files (.md, .markdown) in a directory.
  */
 function findReviewableFiles(dir: string): FileEntry[] {
   const results: FileEntry[] = [];
@@ -268,14 +267,8 @@ function findReviewableFiles(dir: string): FileEntry[] {
         if (lstat.isSymbolicLink()) continue;
         if (lstat.isDirectory()) {
           results.push(...findReviewableFiles(fullPath));
-        } else {
-          const type = getFileType(entry);
-          if (type) {
-            results.push({
-              type,
-              filePath: fullPath,
-            });
-          }
+        } else if (isMarkdownFile(entry)) {
+          results.push({ filePath: fullPath });
         }
       } catch (err) {
         if (isPermissionError(err)) {
@@ -322,19 +315,15 @@ function resolveFiles(args: string[]): FileEntry[] {
     } else {
       if (seen.has(filePath)) continue;
 
-      const type = getFileType(filePath);
-      if (!type) {
+      if (!isMarkdownFile(filePath)) {
         console.error(
-          `error: unsupported file type: ${arg} (expected .md, .markdown, .html, or .htm)`,
+          `error: unsupported file type: ${arg} (expected .md or .markdown)`,
         );
         process.exit(1);
       }
 
       seen.add(filePath);
-      files.push({
-        type,
-        filePath,
-      });
+      files.push({ filePath });
     }
   }
 
@@ -451,7 +440,7 @@ const WELCOME_PATH = join(os.homedir(), ".readit", "welcome.md");
 
 program
   .name("readit")
-  .description("Review Markdown and HTML documents with inline comments")
+  .description("Review Markdown documents with inline comments")
   .version("0.1.3");
 
 // List command: show all commented files
@@ -539,7 +528,7 @@ program
 
 // Main review command (default) — accepts zero or more files/directories
 program
-  .argument("[files...]", "Markdown or HTML files/directories to review")
+  .argument("[files...]", "Markdown files/directories to review")
   .option("-p, --port <number>", "Port to run server on", "4567")
   .option("--host <address>", "Host address to bind to", "127.0.0.1")
   .option("--no-open", "Don't automatically open browser")
@@ -563,7 +552,6 @@ program
           files = [
             {
               content: WELCOME_CONTENT,
-              type: "markdown" as DocumentType,
               filePath: WELCOME_PATH,
             },
           ];
@@ -608,7 +596,7 @@ readit - Document Review Tool
   Server running. Press Ctrl+C to stop.
 `);
         } else {
-          const fileList = files.map((f) => `  ${f.filePath} (${f.type})`);
+          const fileList = files.map((f) => `  ${f.filePath}`);
 
           console.log(`
 readit - Document Review Tool
@@ -651,14 +639,14 @@ ${fileList.join("\n")}
 // Open command: add files to running server or start new one
 program
   .command("open")
-  .argument("<files...>", "Markdown or HTML files to add to running server")
+  .argument("<files...>", "Markdown files to add to running server")
   .description("Add files to a running readit server, or start a new one")
   .option("-p, --port <number>", "Port for new server (if starting)", "4567")
   .option("--host <address>", "Host for new server (if starting)", "127.0.0.1")
   .action(
     async (fileArgs: string[], options: { port: string; host: string }) => {
       // Resolve and validate files
-      const resolvedFiles: { path: string; type: DocumentType }[] = [];
+      const resolvedFiles: { path: string }[] = [];
       for (const arg of fileArgs) {
         const inputPath = resolve(process.cwd(), arg);
 
@@ -669,19 +657,17 @@ program
 
         const filePath = realpathSync(inputPath);
 
-        const type = getFileType(filePath);
-        if (!type) {
+        if (!isMarkdownFile(filePath)) {
           console.error(
-            `error: unsupported file type: ${arg} (expected .md, .markdown, .html, or .htm)`,
+            `error: unsupported file type: ${arg} (expected .md or .markdown)`,
           );
           process.exit(1);
         }
 
-        resolvedFiles.push({ path: filePath, type });
+        resolvedFiles.push({ path: filePath });
       }
 
       const files = resolvedFiles.map((f) => ({
-        type: f.type,
         filePath: f.path,
       }));
 
@@ -702,7 +688,7 @@ program
           return;
         }
 
-        const fileList = files.map((f) => `  ${f.filePath} (${f.type})`);
+        const fileList = files.map((f) => `  ${f.filePath}`);
         console.log(`
 readit - Document Review Tool
 

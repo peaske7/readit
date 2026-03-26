@@ -13,12 +13,11 @@ import {
   serializeComments,
   truncateSelection,
 } from "../lib/comment-storage.js";
-import { getFileType } from "../lib/utils.js";
+import { isMarkdownFile } from "../lib/utils.js";
 import {
   AnchorConfidences,
   type Comment,
   type DocumentSettings,
-  type DocumentType,
   FontFamilies,
   type FontFamily,
 } from "../types/index.js";
@@ -31,7 +30,6 @@ function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
 
 export interface FileEntry {
   content?: string;
-  type: DocumentType;
   filePath: string;
 }
 
@@ -625,7 +623,6 @@ function extractCommentId(pathname: string): string | undefined {
 interface FileState {
   content: string | null;
   isLoaded: boolean;
-  type: DocumentType;
   debounceTimer: ReturnType<typeof setTimeout> | null;
 }
 
@@ -646,7 +643,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     fileMap.set(entry.filePath, {
       content: entry.content ?? null,
       isLoaded: entry.content !== undefined,
-      type: entry.type,
       debounceTimer: null,
     });
     fileOrder.push(entry.filePath);
@@ -776,14 +772,10 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 
       // Document list (multi-file)
       if (pathname === "/api/documents" && method === "GET") {
-        const files = fileOrder.map((fp) => {
-          const state = fileMap.get(fp)!;
-          return {
-            path: fp,
-            fileName: basename(fp),
-            type: state.type,
-          };
-        });
+        const files = fileOrder.map((fp) => ({
+          path: fp,
+          fileName: basename(fp),
+        }));
         return json({
           files,
           clean: options.clean || false,
@@ -809,11 +801,9 @@ function createServer(options: ServerOptions): ServerWithWatchers {
             }
             throw err;
           }
-          const fileType = getFileType(filePath);
-
-          if (!fileType) {
+          if (!isMarkdownFile(filePath)) {
             return errorResponse(
-              `Unsupported file type: ${filePath} (expected .md, .markdown, .html, or .htm)`,
+              `Unsupported file type: ${filePath} (expected .md or .markdown)`,
               400,
             );
           }
@@ -824,7 +814,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
             return json({
               path: filePath,
               fileName: basename(filePath),
-              type: fileType,
               status: "present",
             });
           } else {
@@ -832,7 +821,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
             fileMap.set(filePath, {
               content: null,
               isLoaded: false,
-              type: fileType,
               debounceTimer: null,
             });
             fileOrder.push(filePath);
@@ -844,14 +832,12 @@ function createServer(options: ServerOptions): ServerWithWatchers {
               type: "document-added",
               path: filePath,
               fileName: basename(filePath),
-              fileType,
             });
           }
 
           return json({
             path: filePath,
             fileName: basename(filePath),
-            type: fileType,
             status: "added",
           });
         } catch (err) {
@@ -864,11 +850,9 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       if (pathname === "/api/document" && method === "GET") {
         const ctxOrRes = requireContext(url);
         if (ctxOrRes instanceof Response) return ctxOrRes;
-        const state = fileMap.get(ctxOrRes.filePath)!;
         const content = await ctxOrRes.getCurrentContent();
         return json({
           content,
-          type: state.type,
           filePath: ctxOrRes.filePath,
           fileName: basename(ctxOrRes.filePath),
           clean: options.clean || false,

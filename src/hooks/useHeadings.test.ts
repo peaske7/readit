@@ -2,13 +2,13 @@ import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { useHeadings } from "./useHeadings";
 
-describe("useHeadings - markdown", () => {
+describe("useHeadings", () => {
   it("extracts basic headings", () => {
     const content = `# Heading 1
 ## Heading 2
 ### Heading 3`;
 
-    const { result } = renderHook(() => useHeadings(content, "markdown"));
+    const { result } = renderHook(() => useHeadings(content));
 
     expect(result.current).toEqual([
       { id: "heading-1", text: "Heading 1", level: 1 },
@@ -22,7 +22,7 @@ describe("useHeadings - markdown", () => {
 ## Section
 ## Section`;
 
-    const { result } = renderHook(() => useHeadings(content, "markdown"));
+    const { result } = renderHook(() => useHeadings(content));
 
     expect(result.current).toEqual([
       { id: "section", text: "Section", level: 2 },
@@ -41,7 +41,7 @@ echo "hello"
 
 ## Another Real Heading`;
 
-    const { result } = renderHook(() => useHeadings(content, "markdown"));
+    const { result } = renderHook(() => useHeadings(content));
 
     expect(result.current).toEqual([
       { id: "real-heading", text: "Real Heading", level: 1 },
@@ -60,7 +60,7 @@ def foo():
 
 ## Another Real Heading`;
 
-    const { result } = renderHook(() => useHeadings(content, "markdown"));
+    const { result } = renderHook(() => useHeadings(content));
 
     expect(result.current).toEqual([
       { id: "real-heading", text: "Real Heading", level: 1 },
@@ -83,7 +83,7 @@ def foo():
 
 ## Results`;
 
-    const { result } = renderHook(() => useHeadings(content, "markdown"));
+    const { result } = renderHook(() => useHeadings(content));
 
     expect(result.current).toEqual([
       { id: "introduction", text: "Introduction", level: 1 },
@@ -102,7 +102,7 @@ npx readit document.md --port 3000
 
 ## Usage`;
 
-    const { result } = renderHook(() => useHeadings(content, "markdown"));
+    const { result } = renderHook(() => useHeadings(content));
 
     expect(result.current).toEqual([
       { id: "setup", text: "Setup", level: 1 },
@@ -111,49 +111,7 @@ npx readit document.md --port 3000
   });
 
   it("returns empty array for null content", () => {
-    const { result } = renderHook(() => useHeadings(null, "markdown"));
+    const { result } = renderHook(() => useHeadings(null));
     expect(result.current).toEqual([]);
-  });
-
-  it("returns empty array for null type", () => {
-    const { result } = renderHook(() => useHeadings("# Heading", null));
-    expect(result.current).toEqual([]);
-  });
-});
-
-describe("useHeadings - html", () => {
-  it("extracts basic headings", () => {
-    const content = `<h1>Heading 1</h1>
-<h2>Heading 2</h2>
-<h3>Heading 3</h3>`;
-
-    const { result } = renderHook(() => useHeadings(content, "html"));
-
-    expect(result.current).toEqual([
-      { id: "heading-1", text: "Heading 1", level: 1 },
-      { id: "heading-2", text: "Heading 2", level: 2 },
-      { id: "heading-3", text: "Heading 3", level: 3 },
-    ]);
-  });
-
-  it("uses existing id attribute", () => {
-    const content = `<h1 id="custom-id">Heading 1</h1>`;
-
-    const { result } = renderHook(() => useHeadings(content, "html"));
-
-    expect(result.current).toEqual([
-      { id: "custom-id", text: "Heading 1", level: 1 },
-    ]);
-  });
-
-  it("decodes HTML entities", () => {
-    const content = `<h1>Hello &amp; World</h1>`;
-
-    const { result } = renderHook(() => useHeadings(content, "html"));
-
-    // Note: & is stripped, leaving "Hello  World" → "hello-world" (hyphens collapsed)
-    expect(result.current).toEqual([
-      { id: "hello-world", text: "Hello & World", level: 1 },
-    ]);
   });
 });

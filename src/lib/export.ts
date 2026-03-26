@@ -1,16 +1,12 @@
 import type { Comment, Document } from "../types";
 
-function formatComment(c: Comment): string {
+export function formatComment(c: Comment): string {
   const line = c.lineHint ? `[${c.lineHint}] ` : "";
   return `${line}"${c.selectedText}"\n${c.comment}`;
 }
 
 export function generatePrompt(comments: Comment[], fileName: string): string {
   return `# Review Comments for ${fileName}\n\n${comments.map(formatComment).join("\n\n---\n\n")}`;
-}
-
-export function formatSingleComment(c: Comment): string {
-  return formatComment(c);
 }
 
 export function exportCommentsAsJson(

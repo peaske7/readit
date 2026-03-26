@@ -98,27 +98,18 @@ export const en: Translations = {
   "shortcutCapture.pressKeys": "Press keys...",
 
   // Shortcut labels
-  "shortcut.copyAll.label": "Copy All (AI)",
-  "shortcut.copyAll.description": "Copy all comments in AI prompt format",
-  "shortcut.copyAllRaw.label": "Copy All (Raw)",
-  "shortcut.copyAllRaw.description": "Copy all comments as raw text",
+  "shortcut.copyAll.label": "Copy All",
+  "shortcut.copyAll.description": "Copy all comments to clipboard",
   "shortcut.navigateNext.label": "Next Comment",
   "shortcut.navigateNext.description": "Navigate to next comment",
   "shortcut.navigatePrevious.label": "Previous Comment",
   "shortcut.navigatePrevious.description": "Navigate to previous comment",
-  "shortcut.copySelectionRaw.label": "Copy Selection",
-  "shortcut.copySelectionRaw.description": "Copy selected text",
-  "shortcut.copySelectionLLM.label": "Copy Selection (LLM)",
-  "shortcut.copySelectionLLM.description":
-    "Copy selected text with context for LLM",
   "shortcut.clearSelection.label": "Clear Selection",
   "shortcut.clearSelection.description": "Clear text selection",
 
   // Toast messages
   "toast.copied": 'Copied: "{{text}}"',
-  "toast.copiedForLLM": 'Copied for LLM: "{{text}}"',
   "toast.copiedAllComments": "Copied all comments",
-  "toast.copiedAllRaw": "Copied all comments as raw text",
 
   // Floating TOC
   "floatingTOC.label": "Table of Contents",

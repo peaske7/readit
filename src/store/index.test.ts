@@ -4,17 +4,15 @@ import { createAppStore } from "./index";
 
 const mockDoc: Document = {
   content: "# Hello",
-  type: "markdown",
   filePath: "/test/file.md",
   fileName: "file.md",
   clean: false,
 };
 
 const mockDoc2: Document = {
-  content: "<h1>Hello</h1>",
-  type: "html",
-  filePath: "/test/file.html",
-  fileName: "file.html",
+  content: "# Hello Two",
+  filePath: "/test/file2.md",
+  fileName: "file2.md",
   clean: false,
 };
 
@@ -55,13 +53,13 @@ describe("AppStore", () => {
     it("activates existing document without overwriting", () => {
       store.getState().openDocument(mockDoc);
       store.getState().openDocument(mockDoc2);
-      expect(store.getState().activeDocumentPath).toBe("/test/file.html");
+      expect(store.getState().activeDocumentPath).toBe("/test/file2.md");
       store.getState().openDocument(mockDoc);
       expect(store.getState().activeDocumentPath).toBe("/test/file.md");
       // Order unchanged
       expect(store.getState().documentOrder).toEqual([
         "/test/file.md",
-        "/test/file.html",
+        "/test/file2.md",
       ]);
     });
 
@@ -71,7 +69,7 @@ describe("AppStore", () => {
       expect(store.getState().activeDocumentPath).toBe("/test/file.md");
       expect(store.getState().documentOrder).toEqual([
         "/test/file.md",
-        "/test/file.html",
+        "/test/file2.md",
       ]);
     });
 
@@ -81,7 +79,7 @@ describe("AppStore", () => {
       store
         .getState()
         .openDocument({ ...mockDoc, content: "# Updated" }, { active: false });
-      expect(store.getState().activeDocumentPath).toBe("/test/file.html");
+      expect(store.getState().activeDocumentPath).toBe("/test/file2.md");
       expect(
         store.getState().documents.get("/test/file.md")!.document.content,
       ).toBe("# Updated");
@@ -95,14 +93,14 @@ describe("AppStore", () => {
       store.getState().setActiveDocument("/test/file.md");
       store.getState().closeDocument("/test/file.md");
       expect(store.getState().documents.has("/test/file.md")).toBe(false);
-      expect(store.getState().activeDocumentPath).toBe("/test/file.html");
+      expect(store.getState().activeDocumentPath).toBe("/test/file2.md");
     });
 
     it("activates left neighbor when closing last in order", () => {
       store.getState().openDocument(mockDoc);
       store.getState().openDocument(mockDoc2);
       // mockDoc2 is active (last opened)
-      store.getState().closeDocument("/test/file.html");
+      store.getState().closeDocument("/test/file2.md");
       expect(store.getState().activeDocumentPath).toBe("/test/file.md");
     });
 
@@ -118,13 +116,12 @@ describe("AppStore", () => {
       store.getState().openDocument(mockDoc2);
       // mockDoc2 is active
       store.getState().closeDocument("/test/file.md");
-      expect(store.getState().activeDocumentPath).toBe("/test/file.html");
+      expect(store.getState().activeDocumentPath).toBe("/test/file2.md");
     });
 
     it("activates right neighbor when closing middle tab", () => {
       const mockDoc3: Document = {
         content: "# Third",
-        type: "markdown",
         filePath: "/test/third.md",
         fileName: "third.md",
         clean: false,
@@ -132,8 +129,8 @@ describe("AppStore", () => {
       store.getState().openDocument(mockDoc);
       store.getState().openDocument(mockDoc2);
       store.getState().openDocument(mockDoc3);
-      store.getState().setActiveDocument("/test/file.html");
-      store.getState().closeDocument("/test/file.html");
+      store.getState().setActiveDocument("/test/file2.md");
+      store.getState().closeDocument("/test/file2.md");
       expect(store.getState().activeDocumentPath).toBe("/test/third.md");
       expect(store.getState().documentOrder).toEqual([
         "/test/file.md",
@@ -169,9 +166,9 @@ describe("AppStore", () => {
     it("setComments with explicit filePath targets that document", () => {
       store.getState().openDocument(mockDoc);
       store.getState().openDocument(mockDoc2);
-      store.getState().setComments([mockComment], "/test/file.html");
+      store.getState().setComments([mockComment], "/test/file2.md");
       expect(
-        store.getState().documents.get("/test/file.html")!.comments,
+        store.getState().documents.get("/test/file2.md")!.comments,
       ).toEqual([mockComment]);
       expect(store.getState().documents.get("/test/file.md")!.comments).toEqual(
         [],

@@ -5,7 +5,7 @@
 
 /**
  * Parameters for scroll target calculation.
- * Using object destructuring per style guide §3.5 for clarity.
+ * Using object destructuring per style guide 3.5 for clarity.
  */
 export interface CalculateScrollTargetParams {
   elementTop: number;
@@ -16,7 +16,6 @@ export interface CalculateScrollTargetParams {
 export interface GetElementTopParams {
   elementRect: { top: number };
   scrollY: number;
-  iframeTopOffset?: number;
 }
 
 /**
@@ -34,14 +33,10 @@ export function calculateScrollTarget({
 
 /**
  * Get an element's absolute position in the main document.
- *
- * For elements directly in the document: pass scrollY and the element.
- * For elements inside an iframe: also pass the iframe's top offset.
  */
 export function getElementTopInDocument({
   elementRect,
   scrollY,
-  iframeTopOffset,
 }: GetElementTopParams): number {
-  return scrollY + (iframeTopOffset ?? 0) + elementRect.top;
+  return scrollY + elementRect.top;
 }
