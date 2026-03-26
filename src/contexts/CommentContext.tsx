@@ -9,18 +9,14 @@ import {
 import { toast } from "sonner";
 import { useCommentNavigation } from "../hooks/useCommentNavigation";
 import { useComments } from "../hooks/useComments";
-import { useReanchorMode } from "../hooks/useReanchorMode";
-import { extractContext, formatForLLM } from "../lib/context";
-import { generatePrompt } from "../lib/export";
+import { formatComment } from "../lib/export";
 import { truncate } from "../lib/utils";
-import { useAppStore } from "../store";
-import type { Comment, DocumentType } from "../types";
+import type { Comment } from "../schema";
+import { appStore, useAppStore } from "../store";
 import { useLocale } from "./LocaleContext";
 
-interface CommentContextValue {
-  // From useComments
-  comments: Comment[];
-  commentCount: number;
+// Stable callbacks — never causes re-renders
+interface CommentActionsValue {
   addComment: (
     selectedText: string,
     comment: string,
@@ -36,52 +32,62 @@ interface CommentContextValue {
     startOffset: number,
     endOffset: number,
   ) => void;
-  // Derived
-  sortedComments: Comment[];
-  // From useCommentNavigation
-  currentIndex: number;
-  hoveredCommentId: string | undefined;
   setHoveredCommentId: (id: string | undefined) => void;
   navigateToComment: (commentId: string) => void;
   navigatePrevious: () => void;
   navigateNext: () => void;
-  // From useReanchorMode
-  reanchorTarget: { commentId: string } | null;
   startReanchor: (commentId: string) => void;
   cancelReanchor: () => void;
-  // Copy operations
-  copyCommentRaw: (comment: Comment) => void;
-  copyCommentForLLM: (comment: Comment) => void;
-  copyAllForLLM: () => void;
-  // Scroll to highlight
+  copyComment: (comment: Comment) => void;
   scrollToHighlight: (commentId: string) => void;
 }
 
-export const CommentContext = createContext<CommentContextValue | null>(null);
+const CommentActionsContext = createContext<CommentActionsValue | null>(null);
 
-export function useCommentContext(): CommentContextValue {
-  const value = use(CommentContext);
+export function useCommentActions(): CommentActionsValue {
+  const value = use(CommentActionsContext);
   if (!value) {
-    throw new Error("useCommentContext must be used within a CommentProvider");
+    throw new Error("useCommentActions must be used within a CommentProvider");
   }
   return value;
 }
 
+// Volatile — re-renders consumers on change
+interface CommentDataValue {
+  comments: Comment[];
+  commentCount: number;
+  sortedComments: Comment[];
+  currentIndex: number;
+  reanchorTarget: { commentId: string } | null;
+}
+
+const CommentDataContext = createContext<CommentDataValue | null>(null);
+
+export function useCommentData(): CommentDataValue {
+  const value = use(CommentDataContext);
+  if (!value) {
+    throw new Error("useCommentData must be used within a CommentProvider");
+  }
+  return value;
+}
+
+export type CommentContextValue = CommentActionsValue & CommentDataValue;
+
+export function useCommentContext(): CommentContextValue {
+  return { ...useCommentActions(), ...useCommentData() };
+}
+
+export const CommentContext = CommentDataContext;
+
 interface CommentProviderProps {
   filePath: string;
   clean: boolean;
-  documentContent: string;
-  fileName: string;
-  documentType: DocumentType;
   children: ReactNode;
 }
 
 export function CommentProvider({
   filePath,
   clean,
-  documentContent,
-  fileName,
-  documentType,
   children,
 }: CommentProviderProps) {
   const {
@@ -94,136 +100,99 @@ export function CommentProvider({
     reanchorComment,
   } = useComments(filePath, { clean });
 
-  // sortedComments from store (already sorted by setComments)
   const sortedComments = useAppStore(
     (s) => s.documents.get(filePath)?.sortedComments ?? [],
   );
 
   const {
     currentIndex,
-    hoveredCommentId,
     setHoveredCommentId,
     navigateToComment,
     navigatePrevious,
     navigateNext,
   } = useCommentNavigation(sortedComments);
 
-  const { reanchorTarget, startReanchor, cancelReanchor } = useReanchorMode();
+  const reanchorTarget = useAppStore(
+    (s) => s.getActiveDocumentState()?.reanchorTarget ?? null,
+  );
+  const startReanchor = useCallback((commentId: string) => {
+    appStore.getState().setReanchorTarget({ commentId });
+  }, []);
+  const cancelReanchor = useCallback(() => {
+    appStore.getState().setReanchorTarget(null);
+  }, []);
   const { t } = useLocale();
 
-  // Show comments errors as toast
   useEffect(() => {
     if (commentsError) {
       toast.error(commentsError);
     }
   }, [commentsError]);
 
-  const copyCommentRaw = useCallback(
+  const copyComment = useCallback(
     (comment: Comment) => {
-      const raw = `${comment.selectedText}\n\n${comment.comment}`;
-      navigator.clipboard.writeText(raw);
+      navigator.clipboard.writeText(formatComment(comment));
       toast.success(t("toast.copied", { text: truncate(comment.comment) }));
     },
     [t],
   );
 
-  const copyCommentForLLM = useCallback(
-    (comment: Comment) => {
-      const context = extractContext({
-        content: documentContent,
-        startOffset: comment.startOffset,
-        endOffset: comment.endOffset,
-      });
-      const formatted = formatForLLM({
-        context,
-        fileName,
-        comment: comment.comment,
-      });
+  const scrollToHighlight = useCallback((commentId: string) => {
+    const mark = window.document.querySelector(
+      `mark[data-comment-id="${commentId}"]`,
+    );
+    if (mark) {
+      mark.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, []);
 
-      navigator.clipboard.writeText(formatted);
-      toast.success(
-        t("toast.copiedForLLM", { text: truncate(comment.comment) }),
-      );
-    },
-    [documentContent, fileName, t],
-  );
-
-  const copyAllForLLM = useCallback(() => {
-    const prompt = generatePrompt(comments, fileName);
-    navigator.clipboard.writeText(prompt);
-    toast.success(t("toast.copiedAllComments"));
-  }, [comments, fileName, t]);
-
-  const scrollToHighlight = useCallback(
-    (commentId: string) => {
-      if (documentType === "html") {
-        const iframe = window.document.querySelector("iframe");
-        iframe?.contentWindow?.postMessage(
-          { type: "scrollToHighlight", commentId },
-          "*",
-        );
-      } else {
-        const mark = window.document.querySelector(
-          `mark[data-comment-id="${commentId}"]`,
-        );
-        if (mark) {
-          mark.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      }
-    },
-    [documentType],
-  );
-
-  const commentCount = comments.length;
-
-  const value = useMemo<CommentContextValue>(
+  const actions = useMemo<CommentActionsValue>(
     () => ({
-      comments,
-      commentCount,
       addComment,
       editComment,
       deleteComment,
       deleteAll,
       reanchorComment,
-      sortedComments,
-      currentIndex,
-      hoveredCommentId,
       setHoveredCommentId,
       navigateToComment,
       navigatePrevious,
       navigateNext,
-      reanchorTarget,
       startReanchor,
       cancelReanchor,
-      copyCommentRaw,
-      copyCommentForLLM,
-      copyAllForLLM,
+      copyComment,
       scrollToHighlight,
     }),
     [
-      comments,
-      commentCount,
       addComment,
       editComment,
       deleteComment,
       deleteAll,
       reanchorComment,
-      sortedComments,
-      currentIndex,
-      hoveredCommentId,
       setHoveredCommentId,
       navigateToComment,
       navigatePrevious,
       navigateNext,
-      reanchorTarget,
       startReanchor,
       cancelReanchor,
-      copyCommentRaw,
-      copyCommentForLLM,
-      copyAllForLLM,
+      copyComment,
       scrollToHighlight,
     ],
   );
 
-  return <CommentContext value={value}>{children}</CommentContext>;
+  const data = useMemo<CommentDataValue>(
+    () => ({
+      comments,
+      commentCount: comments.length,
+      sortedComments,
+      currentIndex,
+      reanchorTarget,
+    }),
+    [comments, sortedComments, currentIndex, reanchorTarget],
+  );
+
+  return (
+    <CommentActionsContext value={actions}>
+      <CommentDataContext value={data}>{children}</CommentDataContext>
+    </CommentActionsContext>
+  );
 }

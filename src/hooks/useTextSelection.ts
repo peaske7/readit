@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
+import type { Selection } from "../schema";
 import { appStore, useAppStore } from "../store";
-import type { Selection } from "../types";
 
 /** Remove pending highlight marks from the DOM without triggering a full clear/reapply cycle. */
 function clearPendingMarks() {
@@ -14,8 +14,6 @@ function clearPendingMarks() {
 
 interface UseTextSelectionResult {
   selection: Selection | null;
-  highlightPositions: Record<string, number>;
-  documentPositions: Record<string, number>;
   pendingSelectionTop: number | undefined;
   onTextSelect: (
     text: string,
@@ -23,27 +21,12 @@ interface UseTextSelectionResult {
     endOffset: number,
     selectionTop: number,
   ) => void;
-  onPositionsChange: (
-    positions: Record<string, number>,
-    docPositions: Record<string, number>,
-    pendingTop?: number,
-  ) => void;
   clearSelection: () => void;
 }
 
-/**
- * Manage text selection state, highlight positions, and click-outside dismissal.
- * State lives in the Zustand store for tab-switch preservation.
- */
 export function useTextSelection(): UseTextSelectionResult {
   const selection = useAppStore(
     (s) => s.getActiveDocumentState()?.selection ?? null,
-  );
-  const highlightPositions = useAppStore(
-    (s) => s.getActiveDocumentState()?.highlightPositions ?? {},
-  );
-  const documentPositions = useAppStore(
-    (s) => s.getActiveDocumentState()?.documentPositions ?? {},
   );
   const pendingSelectionTop = useAppStore(
     (s) => s.getActiveDocumentState()?.pendingSelectionTop,
@@ -54,15 +37,10 @@ export function useTextSelection(): UseTextSelectionResult {
 
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-
-      // Don't clear if clicking inside the comment input area
       if (target.closest("[data-comment-input]")) return;
-
-      // Don't clear if clicking on any highlight (pending or comment)
       if (target.closest("mark[data-pending]")) return;
       if (target.closest("mark[data-comment-id]")) return;
 
-      // Clear selection state and pending marks
       appStore.getState().setSelection(null);
       appStore.getState().setPendingSelectionTop(undefined);
       clearPendingMarks();
@@ -92,18 +70,6 @@ export function useTextSelection(): UseTextSelectionResult {
     [],
   );
 
-  const onPositionsChange = useCallback(
-    (
-      positions: Record<string, number>,
-      docPositions: Record<string, number>,
-      _pendingTop?: number,
-    ) => {
-      appStore.getState().setHighlightPositions(positions);
-      appStore.getState().setDocumentPositions(docPositions);
-    },
-    [],
-  );
-
   const clearSelection = useCallback(() => {
     appStore.getState().setSelection(null);
     appStore.getState().setPendingSelectionTop(undefined);
@@ -113,11 +79,8 @@ export function useTextSelection(): UseTextSelectionResult {
 
   return {
     selection,
-    highlightPositions,
-    documentPositions,
     pendingSelectionTop,
     onTextSelect,
-    onPositionsChange,
     clearSelection,
   };
 }

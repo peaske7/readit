@@ -1,9 +1,5 @@
 import { type RefObject, useEffect } from "react";
 
-/**
- * Close a dropdown/popover when clicking outside or pressing Escape.
- * Only attaches listeners when `active` is true.
- */
 export function useClickOutside(
   ref: RefObject<HTMLElement | null>,
   onClose: () => void,

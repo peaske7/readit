@@ -1,9 +1,8 @@
-import { BotMessageSquare, Copy } from "lucide-react";
 import { use, useEffect, useRef, useState } from "react";
-import { LayoutContext } from "../../contexts/LayoutContext";
 import { useLocale } from "../../contexts/LocaleContext";
+import { SettingsContext } from "../../contexts/SettingsContext";
 import { cn } from "../../lib/utils";
-import { FontFamilies } from "../../types";
+import { FontFamilies } from "../../schema";
 import { Button } from "../ui/Button";
 import { Text } from "../ui/Text";
 
@@ -11,21 +10,17 @@ interface CommentInputProps {
   selectedText: string | null;
   onSubmit: (commentText: string) => void;
   onCancel: () => void;
-  onCopyRaw: () => void;
-  onCopyForLLM: () => void;
 }
 
 export function CommentInput({
   selectedText,
   onSubmit,
   onCancel,
-  onCopyRaw,
-  onCopyForLLM,
 }: CommentInputProps) {
   const { t } = useLocale();
-  const layout = use(LayoutContext);
-  const fontClass = layout
-    ? layout.fontFamily === FontFamilies.SANS_SERIF
+  const settings = use(SettingsContext);
+  const fontClass = settings
+    ? settings.fontFamily === FontFamilies.SANS_SERIF
       ? "font-sans"
       : "font-serif"
     : undefined;
@@ -34,7 +29,6 @@ export function CommentInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    // Only auto-focus on devices with precise pointing (desktop)
     if (textareaRef.current && window.matchMedia("(pointer: fine)").matches) {
       textareaRef.current.focus();
     }
@@ -64,8 +58,8 @@ export function CommentInput({
       data-comment-input
       className="border-t border-zinc-200 dark:border-zinc-700 pt-3 pb-2"
     >
-      <Text variant="caption" asChild>
-        <div className="italic mb-2 line-clamp-2">"{selectedText}"</div>
+      <Text variant="caption" as="div" className="italic mb-2 line-clamp-2">
+        "{selectedText}"
       </Text>
       <textarea
         ref={textareaRef}
@@ -80,28 +74,6 @@ export function CommentInput({
         onKeyDown={handleKeyDown}
       />
       <div className="flex justify-end items-center gap-3 mt-2 text-sm">
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400"
-            onClick={onCopyRaw}
-            title={t("comment.copyRawTitle")}
-            aria-label={t("comment.copyRawLabel")}
-          >
-            <Copy size={14} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400"
-            onClick={onCopyForLLM}
-            title={t("comment.copyLLMTitle")}
-            aria-label={t("comment.copyLLMLabel")}
-          >
-            <BotMessageSquare size={14} />
-          </Button>
-        </div>
         <Button variant="ghost" size="sm" onClick={onCancel}>
           {t("comment.cancel")}
         </Button>

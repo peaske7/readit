@@ -20,8 +20,8 @@ export function ReanchorConfirm({
       <Text variant="body" className="mb-2">
         {t("reanchor.question")}
       </Text>
-      <Text variant="caption" asChild>
-        <p className="italic line-clamp-2 mb-2">"{selectionText}"</p>
+      <Text variant="caption" className="italic line-clamp-2 mb-2">
+        "{selectionText}"
       </Text>
       <div className="flex gap-3 text-sm">
         <Button variant="link" size="sm" onClick={onConfirm}>

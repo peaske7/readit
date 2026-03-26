@@ -7,6 +7,7 @@ dist
 
 # Logs
 *.log
+*.gz
 
 # Editor
 .idea

@@ -1,9 +1,5 @@
-import type { HighlightPositions, HighlightStyle, TextNodeInfo } from "./types";
+import type { HighlightStyle, TextNodeInfo } from "./types";
 
-/**
- * Block-level elements that should have newlines between them.
- * Used to normalize whitespace in text extraction.
- */
 const BLOCK_ELEMENTS = new Set([
   "P",
   "DIV",
@@ -20,9 +16,6 @@ const BLOCK_ELEMENTS = new Set([
   "BR",
 ]);
 
-/**
- * Find the closest block-level ancestor of a node.
- */
 function findBlockParent(node: Node): Element | null {
   let parent = node.parentElement;
   while (parent && !BLOCK_ELEMENTS.has(parent.tagName)) {
@@ -31,10 +24,7 @@ function findBlockParent(node: Node): Element | null {
   return parent;
 }
 
-/**
- * Calculate text offset from root to a specific node position.
- * Accounts for newlines between block elements to match getDOMTextContent.
- */
+/** Accounts for newlines between block elements to match getDOMTextContent. */
 export function getTextOffset(
   root: Node,
   targetNode: Node,
@@ -48,13 +38,12 @@ export function getTextOffset(
   while (node) {
     const blockParent = findBlockParent(node);
 
-    // Add newline when transitioning between different block parents
     if (lastBlockParent && blockParent && lastBlockParent !== blockParent) {
       if (
         !lastBlockParent.contains(blockParent) &&
         !blockParent.contains(lastBlockParent)
       ) {
-        offset += 1; // Account for the newline
+        offset += 1;
       }
     }
 
@@ -69,10 +58,7 @@ export function getTextOffset(
   return offset;
 }
 
-/**
- * Extract all text content from a DOM tree.
- * Inserts newlines between block-level elements to match browser selection behavior.
- */
+/** Inserts newlines between block-level elements to match browser selection behavior. */
 export function getDOMTextContent(root: Node): string {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let text = "";
@@ -82,7 +68,6 @@ export function getDOMTextContent(root: Node): string {
   while (node) {
     const blockParent = findBlockParent(node);
 
-    // Insert newline when transitioning between different block parents
     if (lastBlockParent && blockParent && lastBlockParent !== blockParent) {
       // Only add newline if blocks are siblings (not nested)
       if (
@@ -101,10 +86,6 @@ export function getDOMTextContent(root: Node): string {
   return text;
 }
 
-/**
- * Collect all text nodes with their cumulative offset ranges.
- * Accounts for newlines between block elements to match getDOMTextContent.
- */
 export function collectTextNodes(root: Node): TextNodeInfo[] {
   const textNodes: TextNodeInfo[] = [];
   let currentOffset = 0;
@@ -116,14 +97,12 @@ export function collectTextNodes(root: Node): TextNodeInfo[] {
   while (node) {
     const blockParent = findBlockParent(node);
 
-    // Account for newline when transitioning between different block parents
-    // (same logic as getDOMTextContent)
     if (lastBlockParent && blockParent && lastBlockParent !== blockParent) {
       if (
         !lastBlockParent.contains(blockParent) &&
         !blockParent.contains(lastBlockParent)
       ) {
-        currentOffset += 1; // Account for the newline
+        currentOffset += 1;
       }
     }
 
@@ -141,9 +120,6 @@ export function collectTextNodes(root: Node): TextNodeInfo[] {
   return textNodes;
 }
 
-/**
- * Extended style configuration for highlight marks with color and bracket mode support.
- */
 export interface ExtendedHighlightStyle extends HighlightStyle {
   colorIndex?: number;
   isBracketMode?: boolean;
@@ -164,9 +140,6 @@ interface NodeSegment {
   order: number;
 }
 
-/**
- * Line threshold for bracket mode (selections spanning this many lines or more)
- */
 const BRACKET_MODE_LINE_THRESHOLD = 5;
 
 export function countLinesInRange(
@@ -183,9 +156,6 @@ export function countLinesInRange(
 // applyHighlightWithStyle adds color indices and bracket mode for saved comments.
 // Keeping them separate avoids unnecessary complexity in a shared abstraction.
 
-/**
- * Apply highlight mark elements to a text range (for pending selections).
- */
 export function applyHighlightToRange(
   root: HTMLElement,
   startOffset: number,
@@ -225,7 +195,6 @@ export function applyHighlightToRange(
         mark.appendChild(fragment);
         range.insertNode(mark);
       } catch (err) {
-        // Skip if fallback also fails, but log for debugging
         console.warn("[highlight] Failed to apply highlight to range:", err);
       }
     }
@@ -379,36 +348,4 @@ export function clearHighlights(
       parent.removeChild(mark);
     }
   }
-}
-
-/**
- * Collect highlight positions relative to a container and document.
- */
-export function collectHighlightPositions(
-  root: HTMLElement,
-  containerRect: DOMRect,
-  scrollY = 0,
-): HighlightPositions {
-  const positions: Record<string, number> = {};
-  const documentPositions: Record<string, number> = {};
-
-  // Collect comment highlight positions
-  const marks = root.querySelectorAll("mark[data-comment-id]");
-  for (const mark of marks) {
-    const commentId = mark.getAttribute("data-comment-id");
-    if (!commentId) continue;
-
-    // Get position relative to container (for margin notes)
-    const markRect = mark.getBoundingClientRect();
-    const relativeTop = markRect.top - containerRect.top;
-
-    // Use first occurrence of each comment id
-    if (!(commentId in positions)) {
-      positions[commentId] = relativeTop;
-      // Document-absolute position (for minimap)
-      documentPositions[commentId] = markRect.top + scrollY;
-    }
-  }
-
-  return { positions, documentPositions };
 }

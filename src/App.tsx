@@ -1,28 +1,26 @@
-import { use, useCallback, useEffect, useRef } from "react";
-import { Toaster } from "sonner";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { Toaster, toast } from "sonner";
 import { CommentInput } from "./components/comments/CommentInput";
-import { CommentMinimap } from "./components/comments/CommentMinimap";
 import { CommentNav } from "./components/comments/CommentNav";
-import { DocumentViewer } from "./components/DocumentViewer";
-import { FloatingTOC } from "./components/FloatingTOC";
+import { DocumentViewer } from "./components/DocumentViewer/DocumentViewer";
 import { Header } from "./components/Header";
 import { MarginNotes } from "./components/MarginNotes";
 import { ReanchorConfirm } from "./components/ReanchorConfirm";
 import { TabBar } from "./components/TabBar";
 import { TableOfContents } from "./components/TableOfContents";
-import { textVariants } from "./components/ui/Text";
-import { CommentContext, CommentProvider } from "./contexts/CommentContext";
-import { LayoutContext, LayoutProvider } from "./contexts/LayoutContext";
+import {
+  CommentProvider,
+  useCommentActions,
+  useCommentData,
+} from "./contexts/CommentContext";
 import { useLocale } from "./contexts/LocaleContext";
-import { useClipboard } from "./hooks/useClipboard";
+import { PositionsProvider, usePositions } from "./contexts/PositionsContext";
+import { SettingsProvider } from "./contexts/SettingsContext";
 import { useDocument } from "./hooks/useDocument";
 import { useHeadings } from "./hooks/useHeadings";
-import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
-import { useScrollMetrics } from "./hooks/useScrollMetrics";
 import { useScrollSpy } from "./hooks/useScrollSpy";
 import { useTextSelection } from "./hooks/useTextSelection";
-import { calculateScrollTarget, getElementTopInDocument } from "./lib/scroll";
-import { ShortcutActions } from "./lib/shortcut-registry";
+import { exportCommentsAsJson, generatePrompt } from "./lib/export";
 import { cn } from "./lib/utils";
 import { appStore, useAppStore } from "./store";
 
@@ -33,7 +31,7 @@ const TOASTER_OPTIONS = {
   classNames: {
     toast: cn(
       "backdrop-blur-sm bg-white/90 dark:bg-zinc-900/90 border border-zinc-100 dark:border-zinc-800 px-3 py-2 shadow-sm rounded-md",
-      textVariants({ variant: "caption" }),
+      "text-xs text-zinc-500 dark:text-zinc-400",
     ),
   },
 };
@@ -41,98 +39,50 @@ const TOASTER_OPTIONS = {
 interface AppContentProps {
   document: NonNullable<ReturnType<typeof useDocument>["document"]>;
   reload: ReturnType<typeof useDocument>["reload"];
+  isActive: boolean;
 }
 
-function AppContent({ document, reload }: AppContentProps) {
+function AppContent({ document, reload, isActive }: AppContentProps) {
   const { t } = useLocale();
-  const {
-    comments,
-    sortedComments,
-    addComment,
-    reanchorComment,
-    reanchorTarget,
-    cancelReanchor,
-    hoveredCommentId,
-    setHoveredCommentId,
-    navigatePrevious,
-    navigateNext,
-  } = use(CommentContext)!;
+  const { comments, sortedComments, reanchorTarget } = useCommentData();
+  const { addComment, reanchorComment, cancelReanchor, setHoveredCommentId } =
+    useCommentActions();
 
-  const {
-    selection,
-    highlightPositions,
-    documentPositions,
-    pendingSelectionTop,
-    onTextSelect,
-    onPositionsChange,
-    clearSelection,
-  } = useTextSelection();
+  const { selection, pendingSelectionTop, onTextSelect, clearSelection } =
+    useTextSelection();
 
-  const {
-    copyAll,
-    copyAllRaw,
-    exportJson,
-    copySelectionRaw,
-    copySelectionForLLM,
-  } = useClipboard({
-    comments,
-    document: document ?? undefined,
-    selection: selection ?? undefined,
-    clearSelection,
-    t,
-  });
+  const pos = usePositions();
 
-  const { shortcuts, isFullscreen } = use(LayoutContext)!;
+  useEffect(() => {
+    pos.setIds(sortedComments.map((c) => c.id));
+  }, [pos, sortedComments]);
+  useEffect(() => {
+    pos.setPending(selection ? pendingSelectionTop : undefined);
+  }, [pos, selection, pendingSelectionTop]);
 
-  useKeyboardShortcuts(shortcuts, {
-    [ShortcutActions.COPY_ALL]: copyAll,
-    [ShortcutActions.COPY_ALL_RAW]: copyAllRaw,
-    [ShortcutActions.NAVIGATE_NEXT]: navigateNext,
-    [ShortcutActions.NAVIGATE_PREVIOUS]: navigatePrevious,
-    [ShortcutActions.COPY_SELECTION_RAW]: copySelectionRaw,
-    [ShortcutActions.COPY_SELECTION_LLM]: copySelectionForLLM,
-    [ShortcutActions.CLEAR_SELECTION]: clearSelection,
-  });
+  const copyAll = useCallback(() => {
+    if (!document) return;
+    navigator.clipboard.writeText(generatePrompt(comments, document.fileName));
+    toast.success(t("toast.copiedAllComments"));
+  }, [comments, document, t]);
 
-  const scrollMetrics = useScrollMetrics();
+  const exportJson = useCallback(() => {
+    if (!document) return;
+    exportCommentsAsJson(comments, document);
+  }, [comments, document]);
 
-  const headings = useHeadings(
-    document?.content ?? null,
-    document?.type ?? null,
-  );
-  const activeHeadingId = useScrollSpy(headings.map((h) => h.id));
+  const headings = useHeadings(document?.content ?? null);
+  const headingIds = useMemo(() => headings.map((h) => h.id), [headings]);
+  const activeHeadingId = useScrollSpy(headingIds, isActive);
 
-  const scrollToHeading = useCallback(
-    (id: string) => {
-      let elementRect: DOMRect | undefined;
-      let iframeTopOffset: number | undefined;
+  const scrollToHeading = useCallback((id: string) => {
+    const rect = window.document.getElementById(id)?.getBoundingClientRect();
+    if (!rect) return;
 
-      if (document?.type === "html") {
-        const iframe = window.document.querySelector("iframe");
-        const el = iframe?.contentDocument?.getElementById(id);
-        if (!el || !iframe) return;
-        elementRect = el.getBoundingClientRect();
-        iframeTopOffset = iframe.getBoundingClientRect().top;
-      } else {
-        elementRect = window.document
-          .getElementById(id)
-          ?.getBoundingClientRect();
-      }
-      if (!elementRect) return;
-
-      const elementTop = getElementTopInDocument({
-        elementRect,
-        scrollY: window.scrollY,
-        iframeTopOffset,
-      });
-      const scrollTarget = calculateScrollTarget({
-        elementTop,
-        viewportHeight: window.innerHeight,
-      });
-      window.scrollTo({ top: scrollTarget, behavior: "smooth" });
-    },
-    [document?.type],
-  );
+    const elementTop = window.scrollY + rect.top;
+    const scrollTarget = Math.max(0, elementTop - window.innerHeight * 0.25);
+    window.scrollTo({ top: scrollTarget, behavior: "smooth" });
+  }, []);
 
   const handleHighlightClick = useCallback((commentId: string) => {
     const marginNote = window.document.querySelector(
@@ -143,30 +93,31 @@ function AppContent({ document, reload }: AppContentProps) {
     }
   }, []);
 
-  // Scroll save/restore for tab switching
+  // Scroll save/restore for tab switching (visibility-based, not mount-based)
   const setScrollY = useAppStore((s) => s.setScrollY);
   const savedScrollY = useAppStore(
-    (s) => s.getActiveDocumentState()?.scrollY ?? 0,
+    (s) => s.documents.get(document.filePath)?.scrollY ?? 0,
   );
-  const scrollRestored = useRef(false);
+  const prevActiveRef = useRef(isActive);
 
-  // Save scroll position on unmount
   useEffect(() => {
-    return () => {
-      setScrollY(window.scrollY);
-    };
-  }, [setScrollY]);
+    const wasActive = prevActiveRef.current;
+    prevActiveRef.current = isActive;
 
-  // Restore scroll position on mount (after highlights paint)
-  useEffect(() => {
-    if (savedScrollY === 0 || scrollRestored.current) return;
-    scrollRestored.current = true;
-    requestAnimationFrame(() => {
+    if (wasActive && !isActive) {
+      // Tab becoming hidden — save scroll position
+      setScrollY(window.scrollY, document.filePath);
+    }
+
+    if (!wasActive && isActive) {
+      // Tab becoming visible — restore scroll after layout recalc
       requestAnimationFrame(() => {
-        window.scrollTo(0, savedScrollY);
+        requestAnimationFrame(() => {
+          window.scrollTo(0, savedScrollY);
+        });
       });
-    });
-  }, [savedScrollY]);
+    }
+  }, [isActive, savedScrollY, setScrollY, document.filePath]);
 
   const handleAddComment = useCallback(
     (commentText: string) => {
@@ -213,23 +164,15 @@ function AppContent({ document, reload }: AppContentProps) {
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col">
-      <Toaster
-        position="bottom-right"
-        icons={TOASTER_ICONS}
-        toastOptions={TOASTER_OPTIONS}
-      />
       <Header
         fileName={document.fileName}
         onCopyAll={copyAll}
-        onCopyAllRaw={copyAllRaw}
         onExportJson={exportJson}
         onReload={reload}
       />
 
-      <div
-        className={`flex-1 flex gap-4 w-full ${!isFullscreen ? "max-w-7xl mx-auto" : ""} ${hoveredCommentId ? "has-comment-focus" : ""}`}
-      >
-        {!isFullscreen && headings.length > 0 && (
+      <div className="flex-1 flex gap-4 w-full max-w-7xl mx-auto">
+        {headings.length > 0 && (
           <aside className="w-48 flex-shrink-0 py-6 pl-6 hidden xl:block">
             <div className="sticky top-64 max-h-[calc(100vh-17rem)] overflow-y-auto">
               <TableOfContents
@@ -240,23 +183,14 @@ function AppContent({ document, reload }: AppContentProps) {
             </div>
           </aside>
         )}
-        {isFullscreen && (
-          <FloatingTOC
-            headings={headings}
-            activeId={activeHeadingId}
-            onHeadingClick={scrollToHeading}
-          />
-        )}
 
         <div className="flex-1 px-6 py-6">
           <DocumentViewer
             content={document.content}
-            type={document.type}
             comments={comments}
             headings={headings}
-            pendingSelection={selection ?? undefined}
+            isActive={isActive}
             onTextSelect={onTextSelect}
-            onHighlightPositionsChange={onPositionsChange}
             onHighlightHover={setHoveredCommentId}
             onHighlightClick={handleHighlightClick}
           />
@@ -280,26 +214,14 @@ function AppContent({ document, reload }: AppContentProps) {
                   selectedText={selection.text}
                   onSubmit={handleAddComment}
                   onCancel={clearSelection}
-                  onCopyRaw={copySelectionRaw}
-                  onCopyForLLM={copySelectionForLLM}
                 />
               )}
             </div>
           )}
 
-          <MarginNotes
-            sortedComments={sortedComments}
-            highlightPositions={highlightPositions}
-            pendingSelectionTop={selection ? pendingSelectionTop : undefined}
-          />
+          <MarginNotes sortedComments={sortedComments} />
         </div>
       </div>
-
-      <CommentMinimap
-        documentPositions={documentPositions}
-        documentHeight={scrollMetrics.documentHeight}
-        viewportHeight={scrollMetrics.viewportHeight}
-      />
 
       <CommentNav />
 
@@ -336,8 +258,10 @@ function useTabKeyboardShortcuts() {
 
 function App() {
   const { t } = useLocale();
-  const { document, error, isInitialized, reload } = useDocument();
+  const { error, isInitialized, reload } = useDocument();
   const documentOrder = useAppStore((s) => s.documentOrder);
+  const activeDocumentPath = useAppStore((s) => s.activeDocumentPath);
+  const documents = useAppStore((s) => s.documents);
 
   useTabKeyboardShortcuts();
 
@@ -385,30 +309,58 @@ function App() {
     );
   }
 
-  if (!document) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
-        <div className="text-zinc-500 dark:text-zinc-400">
-          {t("app.loading")}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       <TabBar />
-      <LayoutProvider>
-        <CommentProvider
-          filePath={document.filePath}
-          clean={document.clean}
-          documentContent={document.content}
-          fileName={document.fileName}
-          documentType={document.type}
-        >
-          <AppContent document={document} reload={reload} />
-        </CommentProvider>
-      </LayoutProvider>
+      <Toaster
+        position="bottom-right"
+        icons={TOASTER_ICONS}
+        toastOptions={TOASTER_OPTIONS}
+      />
+      <SettingsProvider>
+        {documentOrder.map((filePath) => {
+          const docState = documents.get(filePath);
+          const isActive = filePath === activeDocumentPath;
+          const hasContent = !!docState?.document.content;
+
+          // Don't mount inactive tabs that haven't loaded content yet
+          if (!hasContent && !isActive) return null;
+
+          // Active tab without content — show loading placeholder
+          if (!hasContent) {
+            return (
+              <div
+                key={filePath}
+                className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center"
+              >
+                <div className="text-zinc-500 dark:text-zinc-400">
+                  {t("app.loading")}
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={filePath}
+              style={isActive ? undefined : { display: "none" }}
+            >
+              <PositionsProvider>
+                <CommentProvider
+                  filePath={filePath}
+                  clean={docState.document.clean}
+                >
+                  <AppContent
+                    document={docState.document}
+                    reload={reload}
+                    isActive={isActive}
+                  />
+                </CommentProvider>
+              </PositionsProvider>
+            </div>
+          );
+        })}
+      </SettingsProvider>
     </>
   );
 }

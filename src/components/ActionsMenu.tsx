@@ -1,17 +1,13 @@
 import {
-  BotMessageSquare,
+  ClipboardCopy,
   FileDown,
   FileText,
-  Maximize2,
-  Minimize2,
   MoreHorizontal,
   RefreshCw,
   Settings,
-  TextQuote,
 } from "lucide-react";
 import { useState } from "react";
-import { useCommentContext } from "../contexts/CommentContext";
-import { useLayoutContext } from "../contexts/LayoutContext";
+import { useCommentData } from "../contexts/CommentContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { RawModal } from "./RawModal";
 import { SettingsModal } from "./SettingsModal";
@@ -26,19 +22,16 @@ import {
 
 interface ActionsMenuProps {
   onCopyAll: () => void;
-  onCopyAllRaw: () => void;
   onExportJson: () => void;
   onReload: () => void;
 }
 
 export function ActionsMenu({
   onCopyAll,
-  onCopyAllRaw,
   onExportJson,
   onReload,
 }: ActionsMenuProps) {
-  const { commentCount } = useCommentContext();
-  const { isFullscreen, toggleLayoutMode } = useLayoutContext();
+  const { commentCount } = useCommentData();
   const { t } = useLocale();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -59,10 +52,6 @@ export function ActionsMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[160px]">
-          <DropdownMenuItem onSelect={() => toggleLayoutMode()}>
-            {isFullscreen ? <Minimize2 /> : <Maximize2 />}
-            {isFullscreen ? t("actions.centered") : t("actions.fullscreen")}
-          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
             <Settings />
             {t("actions.settings")}
@@ -74,19 +63,9 @@ export function ActionsMenu({
           </DropdownMenuItem>
           {commentCount > 0 && (
             <>
-              <DropdownMenuItem
-                onSelect={() => onCopyAll()}
-                title={t("actions.copyAllAITitle")}
-              >
-                <BotMessageSquare />
-                {t("actions.copyAllAI")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => onCopyAllRaw()}
-                title={t("actions.copyAllRawTitle")}
-              >
-                <TextQuote />
-                {t("actions.copyAllRaw")}
+              <DropdownMenuItem onSelect={() => onCopyAll()}>
+                <ClipboardCopy />
+                {t("actions.copyAll")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => onExportJson()}>
                 <FileDown />

@@ -13,9 +13,21 @@ export default defineConfig({
     trace: "on-first-retry",
   },
 
+  globalSetup: process.env.PERF_SETUP ? "./e2e/perf/perf.setup.ts" : undefined,
+  globalTeardown: process.env.PERF_SETUP
+    ? "./e2e/perf/perf.teardown.ts"
+    : undefined,
+
   projects: [
     {
       name: "chromium",
+      testIgnore: "**/perf/**",
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "perf",
+      testDir: "./e2e/perf",
+      timeout: 120_000,
       use: { ...devices["Desktop Chrome"] },
     },
   ],

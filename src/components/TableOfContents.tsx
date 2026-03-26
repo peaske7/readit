@@ -1,8 +1,8 @@
 import { use, useMemo, useState } from "react";
-import { LayoutContext } from "../contexts/LayoutContext";
+import { SettingsContext } from "../contexts/SettingsContext";
 import type { Heading } from "../hooks/useHeadings";
 import { cn } from "../lib/utils";
-import { FontFamilies } from "../types";
+import { FontFamilies } from "../schema";
 
 interface TableOfContentsProps {
   headings: Heading[];
@@ -15,9 +15,9 @@ export function TableOfContents({
   activeId,
   onHeadingClick,
 }: TableOfContentsProps) {
-  const layout = use(LayoutContext);
-  const fontClass = layout
-    ? layout.fontFamily === FontFamilies.SANS_SERIF
+  const settings = use(SettingsContext);
+  const fontClass = settings
+    ? settings.fontFamily === FontFamilies.SANS_SERIF
       ? "font-sans"
       : "font-serif"
     : undefined;

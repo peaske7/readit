@@ -8,7 +8,6 @@ import {
   Dialog,
   DialogBody,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "./ui/Dialog";
@@ -88,7 +87,7 @@ export function RawModal({ isOpen, onClose }: RawModalProps) {
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-w-2xl max-h-[80vh]">
+      <DialogContent className="max-w-2xl max-h-[80vh]" onClose={onClose}>
         <DialogHeader>
           <DialogTitle>{t("rawModal.title")}</DialogTitle>
           {state.status === "success" && (
@@ -105,9 +104,9 @@ export function RawModal({ isOpen, onClose }: RawModalProps) {
         </DialogHeader>
 
         {(state.status === "success" || state.status === "empty") && (
-          <DialogDescription className="px-4 py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs text-zinc-400 dark:text-zinc-500 font-mono truncate">
+          <div className="px-4 py-2 border-b border-zinc-50 dark:border-zinc-800 text-xs text-zinc-400 dark:text-zinc-500 font-mono truncate">
             {state.path}
-          </DialogDescription>
+          </div>
         )}
 
         <DialogBody>
@@ -130,10 +129,12 @@ export function RawModal({ isOpen, onClose }: RawModalProps) {
           )}
 
           {state.status === "success" && (
-            <Text variant="body" asChild>
-              <pre className="text-xs font-mono whitespace-pre-wrap break-words leading-relaxed">
-                {state.content}
-              </pre>
+            <Text
+              variant="body"
+              as="pre"
+              className="text-xs font-mono whitespace-pre-wrap break-words leading-relaxed"
+            >
+              {state.content}
             </Text>
           )}
         </DialogBody>

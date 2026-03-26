@@ -13,7 +13,7 @@ export function TabBar() {
 
   return (
     <div
-      className="flex border-b border-zinc-200 bg-zinc-50 px-2 overflow-x-auto"
+      className="flex border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-2 overflow-x-auto"
       role="tablist"
     >
       {documentOrder.map((filePath) => {
@@ -30,8 +30,8 @@ export function TabBar() {
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 text-sm border-b-2 whitespace-nowrap cursor-pointer select-none",
               isActive
-                ? "border-zinc-900 text-zinc-900"
-                : "border-transparent text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100",
+                ? "border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100"
+                : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800",
             )}
             onClick={() => setActiveDocument(filePath)}
             onKeyDown={(e) => {
@@ -44,7 +44,7 @@ export function TabBar() {
             <span>{docState.document.fileName}</span>
             <button
               type="button"
-              className="ml-1 rounded p-0.5 hover:bg-zinc-200"
+              className="ml-1 rounded p-0.5 hover:bg-zinc-200 dark:hover:bg-zinc-700"
               onClick={(e) => {
                 e.stopPropagation();
                 closeDocument(filePath);

@@ -6,9 +6,6 @@ A CLI tool to review Markdown and HTML documents with inline comments. Add margi
 
 ![CleanShot 2025-12-25 at 09 28 39](https://github.com/user-attachments/assets/f111da46-da64-4193-a2d5-49310ef9d060)
 
-
-
-
 Inspired by [difit](https://github.com/yoshiko-pg/difit).
 
 ## Requirements

@@ -1,16 +1,11 @@
-import { type Anchor, AnchorConfidences } from "../types";
+import { type Anchor, AnchorConfidences } from "../schema";
 import { getLineNumber } from "./comment-storage";
 
-// Anchor matching configuration
-const DEFAULT_SEARCH_WINDOW = 500; // chars before/after line hint for exact match
-const DEFAULT_FUZZY_THRESHOLD = 5; // max Levenshtein distance for fuzzy match
-const MAX_FUZZY_TEXT_LENGTH = 200; // skip fuzzy matching for texts longer than this
-const FUZZY_SEARCH_WINDOW = 2000; // larger window for fuzzy search near line hint
+const DEFAULT_SEARCH_WINDOW = 500;
+const DEFAULT_FUZZY_THRESHOLD = 5;
+const MAX_FUZZY_TEXT_LENGTH = 200;
+const FUZZY_SEARCH_WINDOW = 2000;
 
-/**
- * Common parameters for anchor finding functions.
- * Using object destructuring per style guide §3.5 for multiple string parameters.
- */
 export interface FindAnchorParams {
   source: string;
   selectedText: string;
@@ -32,27 +27,16 @@ export interface FindAnchorWithFallbackParams {
   fuzzyThreshold?: number;
 }
 
-/**
- * Normalize whitespace for comparison: collapse runs of whitespace to single space.
- * This allows matching text that was reformatted (line breaks, indentation changes).
- */
 export function normalizeWhitespace(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-/**
- * Calculate Levenshtein distance between two strings.
- * Uses Wagner-Fischer algorithm with O(min(m,n)) space.
- *
- * @param maxDistance Optional early exit threshold. If set, returns Infinity
- *                    when distance is guaranteed to exceed this value.
- */
+/** Wagner-Fischer with O(min(m,n)) space. Returns Infinity when > maxDistance. */
 export function levenshteinDistance(
   a: string,
   b: string,
   maxDistance?: number,
 ): number {
-  // Ensure a is the shorter string for space optimization
   if (a.length > b.length) {
     [a, b] = [b, a];
   }
@@ -60,20 +44,16 @@ export function levenshteinDistance(
   const m = a.length;
   const n = b.length;
 
-  // Early termination for empty strings
   if (m === 0) return n;
   if (n === 0) return m;
 
-  // Early exit: length difference alone exceeds threshold
   if (maxDistance !== undefined && Math.abs(m - n) > maxDistance) {
     return Number.POSITIVE_INFINITY;
   }
 
-  // Use single row for space optimization
   let prevRow = new Array(m + 1);
   let currRow = new Array(m + 1);
 
-  // Initialize first row
   for (let i = 0; i <= m; i++) {
     prevRow[i] = i;
   }
@@ -81,20 +61,18 @@ export function levenshteinDistance(
   for (let j = 1; j <= n; j++) {
     currRow[0] = j;
 
-    // Track minimum value in this row for early exit
     let rowMin = currRow[0];
 
     for (let i = 1; i <= m; i++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
       currRow[i] = Math.min(
-        prevRow[i] + 1, // deletion
-        currRow[i - 1] + 1, // insertion
-        prevRow[i - 1] + cost, // substitution
+        prevRow[i] + 1,
+        currRow[i - 1] + 1,
+        prevRow[i - 1] + cost,
       );
       rowMin = Math.min(rowMin, currRow[i]);
     }
 
-    // Early exit: minimum possible distance exceeds threshold
     if (maxDistance !== undefined && rowMin > maxDistance) {
       return Number.POSITIVE_INFINITY;
     }
@@ -105,9 +83,6 @@ export function levenshteinDistance(
   return prevRow[m];
 }
 
-/**
- * Get character offset for the start of a line number (1-indexed).
- */
 export function getLineOffset(content: string, lineNumber: number): number {
   if (lineNumber <= 1) return 0;
 
@@ -125,15 +100,12 @@ export function getLineOffset(content: string, lineNumber: number): number {
   return content.length;
 }
 
-/**
- * Parse line hint string to get line number(s).
- * Supports "L42" and "L42-45" formats.
- */
+/** Supports "L42", "L42-L55", and legacy "L42-45" format. */
 export function parseLineHint(lineHint: string): {
   start: number;
   end: number;
 } {
-  const match = lineHint.match(/^L(\d+)(?:-(\d+))?$/);
+  const match = lineHint.match(/^L(\d+)(?:-L?(\d+))?$/);
   if (!match) {
     return { start: 1, end: 1 };
   }
@@ -143,10 +115,6 @@ export function parseLineHint(lineHint: string): {
   return { start, end };
 }
 
-/**
- * Find anchor position for selected text in source content.
- * Uses line hint for fast lookup, falls back to global search.
- */
 export function findAnchor({
   source,
   selectedText,
@@ -158,7 +126,6 @@ export function findAnchor({
   }
   const { start: hintLine } = parseLineHint(lineHint);
 
-  // Fast path: search near line hint
   const lineOffset = getLineOffset(source, hintLine);
   const windowStart = Math.max(0, lineOffset - searchWindow);
   const windowEnd = Math.min(source.length, lineOffset + searchWindow);
@@ -176,7 +143,6 @@ export function findAnchor({
     };
   }
 
-  // Fallback: global search
   const globalIndex = source.indexOf(selectedText);
   if (globalIndex !== -1) {
     return {
@@ -190,10 +156,6 @@ export function findAnchor({
   return undefined;
 }
 
-/**
- * Build a position map from normalized string positions back to original positions.
- * Returns array where normalizedToOriginal[i] = original position for normalized char i.
- */
 function buildNormalizedPositionMap(text: string): {
   normalized: string;
   toOriginal: number[];
@@ -208,7 +170,6 @@ function buildNormalizedPositionMap(text: string): {
 
     if (isSpace) {
       if (!inWhitespace && normalized.length > 0) {
-        // First whitespace after content - emit single space
         normalized += " ";
         toOriginal.push(i);
       }
@@ -220,7 +181,6 @@ function buildNormalizedPositionMap(text: string): {
     }
   }
 
-  // Trim trailing space
   if (normalized.endsWith(" ")) {
     normalized = normalized.slice(0, -1);
     toOriginal.pop();
@@ -229,16 +189,6 @@ function buildNormalizedPositionMap(text: string): {
   return { normalized, toOriginal };
 }
 
-/**
- * Find anchor using whitespace-normalized matching.
- * Useful when document was reformatted but content is unchanged.
- * Returns "normalized" confidence level.
- *
- * Algorithm:
- * 1. Normalize source and build position map
- * 2. Find normalized text in normalized source (fast substring search)
- * 3. Map positions back to original source
- */
 export function findAnchorNormalized({
   source,
   selectedText,
@@ -254,31 +204,25 @@ export function findAnchorNormalized({
     return undefined;
   }
 
-  // Skip if text has no collapsible whitespace (exact match would have worked)
   if (normalizedText === selectedText) {
     return undefined;
   }
   const { start: hintLine } = parseLineHint(lineHint);
   const lineOffset = getLineOffset(source, hintLine);
 
-  // Define search window
   const windowStart = Math.max(0, lineOffset - searchWindow);
   const windowEnd = Math.min(source.length, lineOffset + searchWindow);
   const window = source.slice(windowStart, windowEnd);
 
-  // Build normalized version with position mapping
   const { normalized: normalizedWindow, toOriginal } =
     buildNormalizedPositionMap(window);
 
-  // Fast substring search on normalized text
   const normalizedIndex = normalizedWindow.indexOf(normalizedText);
   if (normalizedIndex !== -1) {
-    // Map back to original positions
     const originalStart = windowStart + toOriginal[normalizedIndex];
     const endNormIndex = normalizedIndex + normalizedText.length - 1;
-    // Find original end: scan forward from mapped position to include trailing whitespace
     let originalEnd = windowStart + toOriginal[endNormIndex] + 1;
-    // Extend to include any trailing whitespace that was collapsed
+    // Extend past trailing whitespace that was collapsed during normalization
     while (originalEnd < source.length && /\s/.test(source[originalEnd])) {
       originalEnd++;
     }
@@ -291,7 +235,6 @@ export function findAnchorNormalized({
     };
   }
 
-  // Global fallback (outside hint window)
   const { normalized: fullNormalized, toOriginal: fullToOriginal } =
     buildNormalizedPositionMap(source);
   const globalIndex = fullNormalized.indexOf(normalizedText);
@@ -314,10 +257,6 @@ export function findAnchorNormalized({
   return undefined;
 }
 
-/**
- * Find anchor using fuzzy matching with Levenshtein distance.
- * Scans the source for substrings similar to the selected text.
- */
 export function findAnchorFuzzy({
   source,
   selectedText,
@@ -330,7 +269,6 @@ export function findAnchorFuzzy({
 
   const textLen = selectedText.length;
 
-  // For very long texts, skip fuzzy matching (too expensive)
   if (textLen > MAX_FUZZY_TEXT_LENGTH) {
     return undefined;
   }
@@ -338,26 +276,22 @@ export function findAnchorFuzzy({
   let bestMatch: Anchor | undefined;
   let bestDistance = threshold + 1;
 
-  // Determine search range based on line hint
   let searchStart = 0;
   let searchEnd = source.length;
 
   if (lineHint) {
     const { start: hintLine } = parseLineHint(lineHint);
     const lineOffset = getLineOffset(source, hintLine);
-    // Search in a larger window for fuzzy matching
     searchStart = Math.max(0, lineOffset - FUZZY_SEARCH_WINDOW);
     searchEnd = Math.min(source.length, lineOffset + FUZZY_SEARCH_WINDOW);
   }
 
-  // Slide window of similar length through the search range
   const minLen = Math.max(1, textLen - threshold);
   const maxLen = textLen + threshold;
 
   for (let len = minLen; len <= maxLen; len++) {
     for (let i = searchStart; i <= searchEnd - len; i++) {
       const candidate = source.slice(i, i + len);
-      // Use early exit: only compute if distance could improve on current best
       const distance = levenshteinDistance(
         selectedText,
         candidate,
@@ -374,7 +308,6 @@ export function findAnchorFuzzy({
           distance,
         };
 
-        // Early exit if we found an exact match
         if (distance === 0) {
           return bestMatch;
         }
@@ -385,27 +318,18 @@ export function findAnchorFuzzy({
   return bestMatch;
 }
 
-/**
- * Find anchor with fallback chain: exact → normalized → fuzzy.
- *
- * Matching strategies in order of preference:
- * 1. Exact: Fast substring match (O(n))
- * 2. Normalized: Whitespace-collapsed match for reformatted text (O(n))
- * 3. Fuzzy: Levenshtein distance for small edits (O(n × m × threshold))
- */
+/** Fallback chain: exact → normalized → fuzzy. */
 export function findAnchorWithFallback({
   source,
   selectedText,
   lineHint,
   fuzzyThreshold,
 }: FindAnchorWithFallbackParams): Anchor | undefined {
-  // Try exact match first (fastest)
   const exactMatch = findAnchor({ source, selectedText, lineHint });
   if (exactMatch) {
     return exactMatch;
   }
 
-  // Try normalized match (handles reformatting)
   const normalizedMatch = findAnchorNormalized({
     source,
     selectedText,
@@ -415,7 +339,6 @@ export function findAnchorWithFallback({
     return normalizedMatch;
   }
 
-  // Fall back to fuzzy matching (handles small edits)
   return findAnchorFuzzy({
     source,
     selectedText,
@@ -424,9 +347,6 @@ export function findAnchorWithFallback({
   });
 }
 
-/**
- * Find the closest match when multiple occurrences exist.
- */
 export function findClosestOccurrence({
   source,
   selectedText,

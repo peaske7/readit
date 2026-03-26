@@ -1,87 +1,77 @@
-import { cva } from "class-variance-authority";
-import { useState } from "react";
-import { useCommentContext } from "../contexts/CommentContext";
-import { useLayoutContext } from "../contexts/LayoutContext";
+import { memo, useCallback, useState } from "react";
+import { useCommentActions } from "../contexts/CommentContext";
 import { useLocale } from "../contexts/LocaleContext";
+import { usePositions } from "../contexts/PositionsContext";
+import { useSettings } from "../contexts/SettingsContext";
 import { cn } from "../lib/utils";
-import { type Comment, FontFamilies } from "../types";
+import { type Comment, FontFamilies } from "../schema";
+import { useUI } from "../store";
 import { InlineEditor } from "./InlineEditor";
-import { ActionBar } from "./ui/ActionBar";
 import { ActionLink } from "./ui/ActionLink";
-import { SeparatorDot } from "./ui/SeparatorDot";
 
 interface MarginNoteProps {
   comment: Comment;
-  top: number;
   commentIndex?: number;
 }
 
-const selectedTextVariants = cva(
-  "text-sm italic mb-1 line-clamp-1 flex items-center gap-1 transition-colors duration-150",
-  {
-    variants: {
-      hovered: {
-        true: "text-zinc-600 dark:text-zinc-400",
-        false: "text-zinc-400 dark:text-zinc-500",
-      },
-    },
-    defaultVariants: { hovered: false },
-  },
-);
+function selectedTextClass(hovered: boolean) {
+  return cn(
+    "text-sm italic mb-1 line-clamp-1 flex items-center gap-1 transition-colors duration-150",
+    hovered
+      ? "text-zinc-600 dark:text-zinc-400"
+      : "text-zinc-400 dark:text-zinc-500",
+  );
+}
 
-const commentTextVariants = cva(
-  "text-sm whitespace-pre-wrap transition-colors duration-150",
-  {
-    variants: {
-      hovered: {
-        true: "text-zinc-800 dark:text-zinc-200",
-        false: "text-zinc-500 dark:text-zinc-400",
-      },
-    },
-    defaultVariants: { hovered: false },
-  },
-);
+function commentTextClass(hovered: boolean) {
+  return cn(
+    "text-sm whitespace-pre-wrap transition-colors duration-150",
+    hovered
+      ? "text-zinc-800 dark:text-zinc-200"
+      : "text-zinc-500 dark:text-zinc-400",
+  );
+}
 
-const badgeVariants = cva(
-  "absolute -left-4 top-2 text-xs tabular-nums transition-colors duration-150",
-  {
-    variants: {
-      hovered: {
-        true: "text-zinc-600 dark:text-zinc-400",
-        false: "text-zinc-400 dark:text-zinc-500",
-      },
-    },
-    defaultVariants: { hovered: false },
-  },
-);
+function badgeClass(hovered: boolean) {
+  return cn(
+    "absolute -left-4 top-2 text-xs tabular-nums transition-colors duration-150",
+    hovered
+      ? "text-zinc-600 dark:text-zinc-400"
+      : "text-zinc-400 dark:text-zinc-500",
+  );
+}
 
-export function MarginNote({
+export const MarginNote = memo(function MarginNote({
   comment,
-  top,
   commentIndex = 0,
 }: MarginNoteProps) {
-  const { fontFamily } = useLayoutContext();
+  const { fontFamily } = useSettings();
   const { t } = useLocale();
   const {
     editComment,
     deleteComment,
-    copyCommentRaw,
-    copyCommentForLLM,
-    hoveredCommentId,
+    copyComment,
     setHoveredCommentId,
     scrollToHighlight,
-  } = useCommentContext();
+  } = useCommentActions();
 
-  const isHovered = hoveredCommentId === comment.id;
+  const pos = usePositions();
+  const refCallback = useCallback(
+    (el: HTMLElement | null) => {
+      if (el) pos.register(comment.id, el);
+      else pos.unregister(comment.id);
+    },
+    [pos, comment.id],
+  );
+
+  const isHovered = useUI((s) => s.hoveredCommentId === comment.id);
   const fontClass =
     fontFamily === FontFamilies.SANS_SERIF ? "font-sans" : "font-serif";
   const [isEditing, setIsEditing] = useState(false);
 
   const hasNote = comment.comment.trim().length > 0;
 
-  const handleCopy = () => {
-    copyCommentRaw(comment);
-  };
+  const handleCopy = () => copyComment(comment);
 
   const createdAtFormatted = new Date(comment.createdAt).toLocaleString();
 
@@ -89,30 +79,39 @@ export function MarginNote({
   if (!hasNote && !isEditing) {
     return (
       <article
+        ref={refCallback}
         className="absolute left-0 right-0 group"
-        style={{ top }}
+        style={{
+          visibility: "hidden",
+          contentVisibility: "auto",
+          containIntrinsicSize: "auto 80px",
+        }}
         title={`Added: ${createdAtFormatted}`}
         data-comment-id={comment.id}
         onMouseEnter={() => setHoveredCommentId(comment.id)}
         onMouseLeave={() => setHoveredCommentId(undefined)}
       >
-        <span className={badgeVariants({ hovered: isHovered })}>—</span>
+        <span className={badgeClass(isHovered)}>—</span>
 
         <div className="pt-2 pb-2 pl-3">
-          <ActionBar
-            className={cn("gap-1.5 duration-150", isHovered && "opacity-100")}
+          <div
+            className={cn(
+              "flex items-center text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity",
+              "gap-1.5 duration-150",
+              isHovered && "opacity-100",
+            )}
           >
             <ActionLink onClick={() => setIsEditing(true)}>
               {t("marginNote.addNote")}
             </ActionLink>
-            <SeparatorDot />
+            <span aria-hidden="true">·</span>
             <ActionLink
               variant="destructive"
               onClick={() => deleteComment(comment.id)}
             >
               {t("marginNote.delete")}
             </ActionLink>
-          </ActionBar>
+          </div>
         </div>
       </article>
     );
@@ -120,16 +119,15 @@ export function MarginNote({
 
   return (
     <article
+      ref={refCallback}
       className="absolute left-0 right-0 group"
-      style={{ top }}
+      style={{ visibility: "hidden" }}
       title={`Added: ${createdAtFormatted}`}
       data-comment-id={comment.id}
       onMouseEnter={() => setHoveredCommentId(comment.id)}
       onMouseLeave={() => setHoveredCommentId(undefined)}
     >
-      <span className={badgeVariants({ hovered: isHovered })}>
-        {commentIndex + 1}
-      </span>
+      <span className={badgeClass(isHovered)}>{commentIndex + 1}</span>
 
       <div
         className={cn(
@@ -138,12 +136,7 @@ export function MarginNote({
         )}
       >
         {!isEditing && (
-          <div
-            className={cn(
-              fontClass,
-              selectedTextVariants({ hovered: isHovered }),
-            )}
-          >
+          <div className={cn(fontClass, selectedTextClass(isHovered))}>
             <button
               type="button"
               onClick={() => scrollToHighlight(comment.id)}
@@ -165,43 +158,28 @@ export function MarginNote({
           />
         ) : (
           <>
-            <p
-              className={cn(
-                fontClass,
-                commentTextVariants({ hovered: isHovered }),
-              )}
-            >
+            <p className={cn(fontClass, commentTextClass(isHovered))}>
               {comment.comment}
             </p>
-            <ActionBar className="gap-1.5 mt-2">
+            <div className="flex items-center text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity gap-1.5 mt-2">
               <ActionLink onClick={() => setIsEditing(true)}>
                 {t("marginNote.edit")}
               </ActionLink>
-              <SeparatorDot />
+              <span aria-hidden="true">·</span>
               <ActionLink
                 variant="destructive"
                 onClick={() => deleteComment(comment.id)}
               >
                 {t("marginNote.delete")}
               </ActionLink>
-              <SeparatorDot />
-              <ActionLink
-                onClick={handleCopy}
-                title={t("marginNote.copyTitle")}
-              >
+              <span aria-hidden="true">·</span>
+              <ActionLink onClick={handleCopy}>
                 {t("marginNote.copy")}
               </ActionLink>
-              <SeparatorDot />
-              <ActionLink
-                onClick={() => copyCommentForLLM(comment)}
-                title={t("marginNote.llmTitle")}
-              >
-                {t("marginNote.llm")}
-              </ActionLink>
-            </ActionBar>
+            </div>
           </>
         )}
       </div>
     </article>
   );
-}
+});

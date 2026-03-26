@@ -2,15 +2,13 @@ import { useState } from "react";
 import { useCommentContext } from "../../contexts/CommentContext";
 import { useLocale } from "../../contexts/LocaleContext";
 import { cn } from "../../lib/utils";
-import type { Comment } from "../../types";
+import type { Comment } from "../../schema";
 import { InlineEditor } from "../InlineEditor";
-import { ActionBar } from "../ui/ActionBar";
 import { ActionLink } from "../ui/ActionLink";
 import { Text } from "../ui/Text";
 
 interface CommentListItemProps {
   comment: Comment;
-  /** Called after navigation actions (Go to, Re-anchor) to close parent dropdown */
   onAction?: () => void;
 }
 
@@ -42,12 +40,12 @@ export function CommentListItem({ comment, onAction }: CommentListItemProps) {
       )}
     >
       <div className="flex items-center gap-1.5 mb-1">
-        <Text variant="caption" asChild>
-          <span className="italic line-clamp-1">"{comment.selectedText}"</span>
+        <Text variant="caption" as="span" className="italic line-clamp-1">
+          "{comment.selectedText}"
         </Text>
         {isUnresolved && (
-          <Text variant="caption" asChild>
-            <span className="shrink-0">· {t("commentList.unresolved")}</span>
+          <Text variant="caption" as="span" className="shrink-0">
+            · {t("commentList.unresolved")}
           </Text>
         )}
       </div>
@@ -63,11 +61,11 @@ export function CommentListItem({ comment, onAction }: CommentListItemProps) {
         />
       ) : (
         <>
-          <Text variant="body" asChild>
-            <p className="line-clamp-2">{comment.comment}</p>
+          <Text variant="body" className="line-clamp-2">
+            {comment.comment}
           </Text>
 
-          <ActionBar className="gap-3 mt-1.5">
+          <div className="flex items-center text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity gap-3 mt-1.5">
             <ActionLink onClick={() => setIsEditing(true)}>
               {t("commentList.edit")}
             </ActionLink>
@@ -84,7 +82,7 @@ export function CommentListItem({ comment, onAction }: CommentListItemProps) {
                 {t("commentList.reanchor")}
               </ActionLink>
             )}
-          </ActionBar>
+          </div>
         </>
       )}
     </div>

@@ -1,6 +1,7 @@
 import {
   type ComponentPropsWithoutRef,
   type MutableRefObject,
+  memo,
   useEffect,
   useMemo,
   useRef,
@@ -8,24 +9,39 @@ import {
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
-import { useLayoutContext } from "../../contexts/LayoutContext";
+import { usePositions } from "../../contexts/PositionsContext";
+import { useSettings } from "../../contexts/SettingsContext";
 import type { Heading } from "../../hooks/useHeadings";
 import {
   createHighlighter,
-  type HighlightComment,
   type Highlighter,
-} from "../../lib/highlight";
+} from "../../lib/highlight/highlighter";
+import type { HighlightComment } from "../../lib/highlight/types";
 import { cn, getTextContent } from "../../lib/utils";
-import { useAppStore } from "../../store";
-import {
-  AnchorConfidences,
-  type Comment,
-  type DocumentType,
-  FontFamilies,
-  type SelectionRange,
-} from "../../types";
-import { IframeContainer } from "./IframeContainer";
-import { createCodeComponent } from "./InlineCode";
+import { AnchorConfidences, type Comment, FontFamilies } from "../../schema";
+import { CodeBlock } from "./CodeBlock";
+
+const REMARK_PLUGINS = [remarkGfm];
+const REHYPE_PLUGINS = [rehypeRaw];
+
+/** Memoized Markdown renderer — skips reconciliation when only comments change. */
+const MemoizedMarkdown = memo(function MemoizedMarkdown({
+  content,
+  components,
+}: {
+  content: string;
+  components: ComponentPropsWithoutRef<typeof Markdown>["components"];
+}) {
+  return (
+    <Markdown
+      components={components}
+      remarkPlugins={REMARK_PLUGINS}
+      rehypePlugins={REHYPE_PLUGINS}
+    >
+      {content}
+    </Markdown>
+  );
+});
 
 function createHeadingComponent(
   level: 1 | 2 | 3 | 4 | 5 | 6,
@@ -52,7 +68,6 @@ function createHeadingComponent(
       }
     }
 
-    // Fallback: if not found (shouldn't happen), search from beginning
     if (!id) {
       for (const heading of headings) {
         if (heading.level === level && heading.text === text) {
@@ -72,20 +87,14 @@ function createHeadingComponent(
 
 interface DocumentViewerProps {
   content: string;
-  type: DocumentType;
   comments: Comment[];
   headings: Heading[];
-  pendingSelection?: SelectionRange;
+  isActive: boolean;
   onTextSelect: (
     text: string,
     startOffset: number,
     endOffset: number,
     selectionTop: number,
-  ) => void;
-  onHighlightPositionsChange?: (
-    positions: Record<string, number>,
-    documentPositions: Record<string, number>,
-    pendingTop?: number,
   ) => void;
   onHighlightHover?: (commentId: string | undefined) => void;
   onHighlightClick?: (commentId: string) => void;
@@ -93,44 +102,39 @@ interface DocumentViewerProps {
 
 export function DocumentViewer({
   content,
-  type,
   comments,
   headings,
-  pendingSelection,
+  isActive,
   onTextSelect,
-  onHighlightPositionsChange,
   onHighlightHover,
   onHighlightClick,
 }: DocumentViewerProps) {
-  const { isFullscreen, fontFamily, editorScheme } = useLayoutContext();
-  const workingDirectory = useAppStore((s) => s.workingDirectory);
+  const { fontFamily } = useSettings();
+  const pos = usePositions();
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<Highlighter | null>(null);
   const headingIndexRef = useRef(0);
 
+  // Attach/detach pos to DOM elements — only when tab is visible
+  // (getBoundingClientRect returns zero rects on display:none elements)
   useEffect(() => {
-    if (type !== "markdown") return;
+    if (!isActive || !contentRef.current || !containerRef.current) return;
+    pos.attach(contentRef.current, containerRef.current);
+    pos.cache();
+    return () => pos.detach();
+  }, [pos, isActive]);
+
+  useEffect(() => {
     if (!contentRef.current || !containerRef.current) return;
 
     const adapter = createHighlighter({
-      type: "markdown",
       root: contentRef.current,
       container: containerRef.current,
       onSelect: onTextSelect,
     });
 
     adapterRef.current = adapter;
-
-    const unsubPositions = onHighlightPositionsChange
-      ? adapter.onPositionsChange((pos) => {
-          onHighlightPositionsChange(
-            pos.positions,
-            pos.documentPositions,
-            pos.pendingTop,
-          );
-        })
-      : () => {};
 
     const unsubHover = onHighlightHover
       ? adapter.onHighlightHover(onHighlightHover)
@@ -141,25 +145,20 @@ export function DocumentViewer({
       : () => {};
 
     return () => {
-      unsubPositions();
       unsubHover();
       unsubClick();
       adapter.dispose();
       adapterRef.current = null;
     };
-  }, [
-    type,
-    onTextSelect,
-    onHighlightPositionsChange,
-    onHighlightHover,
-    onHighlightClick,
-  ]);
+  }, [onTextSelect, onHighlightHover, onHighlightClick]);
 
-  // Double RAF: ensures React commit phase completes before DOM queries.
-  // See: https://github.com/facebook/react/issues/20863
+  // Apply highlights — only when tab is visible and comments exist.
+  // Skip when comments is empty to avoid wasted Worker round-trip + DOM walk.
+  // When becoming active again, reapply to catch changes made while hidden.
   // biome-ignore lint/correctness/useExhaustiveDependencies: must reapply highlights when content or components change
   useEffect(() => {
-    if (type !== "markdown") return;
+    if (!isActive) return;
+    if (comments.length === 0) return;
 
     let outerFrameId: number;
     let innerFrameId: number;
@@ -186,13 +185,9 @@ export function DocumentViewer({
       cancelAnimationFrame(outerFrameId);
       cancelAnimationFrame(innerFrameId);
     };
-    // editorScheme/workingDirectory: when these change, markdownComponents memo recomputes,
-    // react-markdown replaces the DOM, so highlights must be reapplied
-  }, [comments, content, type, editorScheme, workingDirectory]);
+  }, [comments, content, isActive, pos]);
 
   useEffect(() => {
-    if (type !== "markdown") return;
-
     const handleTestSelect = (e: Event) => {
       const { text, startOffset, endOffset } = (e as CustomEvent).detail;
       onTextSelect(text, startOffset, endOffset, 0);
@@ -201,7 +196,7 @@ export function DocumentViewer({
     window.addEventListener("test:select-text", handleTestSelect);
     return () =>
       window.removeEventListener("test:select-text", handleTestSelect);
-  }, [type, onTextSelect]);
+  }, [onTextSelect]);
 
   // Memoized to prevent DOM node replacement (breaks highlight persistence)
   const markdownComponents = useMemo(
@@ -212,27 +207,19 @@ export function DocumentViewer({
       h4: createHeadingComponent(4, headings, headingIndexRef),
       h5: createHeadingComponent(5, headings, headingIndexRef),
       h6: createHeadingComponent(6, headings, headingIndexRef),
-      code: createCodeComponent(editorScheme, workingDirectory),
+      code: ({
+        children,
+        className,
+        ...props
+      }: ComponentPropsWithoutRef<"code">) => {
+        if (className || String(children).includes("\n")) {
+          return <CodeBlock className={className}>{children}</CodeBlock>;
+        }
+        return <code {...props}>{children}</code>;
+      },
     }),
-    [headings, editorScheme, workingDirectory],
+    [headings],
   );
-
-  if (type === "html") {
-    return (
-      <main className="flex-1 min-w-0 flex flex-col">
-        <IframeContainer
-          html={content}
-          comments={comments}
-          pendingSelection={pendingSelection}
-          onTextSelect={onTextSelect}
-          onHighlightPositionsChange={onHighlightPositionsChange}
-          onHighlightHover={onHighlightHover}
-          onHighlightClick={onHighlightClick}
-          fontFamily={fontFamily}
-        />
-      </main>
-    );
-  }
 
   headingIndexRef.current = 0;
 
@@ -242,17 +229,10 @@ export function DocumentViewer({
         ref={contentRef}
         className={cn(
           "prose",
-          isFullscreen && "prose-fullscreen",
           fontFamily === FontFamilies.SANS_SERIF ? "prose-sans" : "prose-serif",
         )}
       >
-        <Markdown
-          components={markdownComponents}
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeRaw]}
-        >
-          {content}
-        </Markdown>
+        <MemoizedMarkdown content={content} components={markdownComponents} />
       </article>
     </div>
   );

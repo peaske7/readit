@@ -1,0 +1,133 @@
+import {
+  createContext,
+  type ReactNode,
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { toast } from "sonner";
+import {
+  FontFamilies,
+  type FontFamily,
+  type ThemeMode,
+  ThemeModes,
+} from "../schema";
+
+const THEME_STORAGE_KEY = "readit:theme";
+const DARK_MQ = "(prefers-color-scheme: dark)";
+
+function getStoredTheme(): ThemeMode {
+  try {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    if (
+      stored === ThemeModes.LIGHT ||
+      stored === ThemeModes.DARK ||
+      stored === ThemeModes.SYSTEM
+    ) {
+      return stored;
+    }
+  } catch {
+    // localStorage may be unavailable
+  }
+  return ThemeModes.SYSTEM;
+}
+
+function applyTheme(mode: ThemeMode): void {
+  const isDark =
+    mode === ThemeModes.DARK ||
+    (mode === ThemeModes.SYSTEM && window.matchMedia(DARK_MQ).matches);
+
+  document.documentElement.classList.toggle("dark", isDark);
+}
+
+interface SettingsContextValue {
+  fontFamily: FontFamily;
+  setFontFamily: (font: FontFamily) => Promise<void>;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
+}
+
+export const SettingsContext = createContext<SettingsContextValue | null>(null);
+
+export function useSettings(): SettingsContextValue {
+  const value = use(SettingsContext);
+  if (!value) {
+    throw new Error("useSettings must be used within a SettingsProvider");
+  }
+  return value;
+}
+
+export function SettingsProvider({ children }: { children: ReactNode }) {
+  const [fontFamily, setFontFamilyState] = useState<FontFamily>(
+    FontFamilies.SERIF,
+  );
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch("/api/settings");
+        if (response.ok) {
+          const settings = await response.json();
+          setFontFamilyState(settings.fontFamily || FontFamilies.SERIF);
+        }
+      } catch (err) {
+        console.error("Failed to fetch settings:", err);
+      }
+    };
+
+    fetchSettings();
+  }, []);
+
+  const setFontFamily = useCallback(async (font: FontFamily) => {
+    setFontFamilyState(font);
+
+    try {
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fontFamily: font }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save settings");
+      }
+    } catch (err) {
+      console.error("Failed to save font preference:", err);
+      toast.error("Failed to save font preference");
+    }
+  }, []);
+
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(getStoredTheme);
+
+  useEffect(() => {
+    applyTheme(themeMode);
+  }, [themeMode]);
+
+  useEffect(() => {
+    if (themeMode !== ThemeModes.SYSTEM) return;
+
+    const mq = window.matchMedia(DARK_MQ);
+    const handler = () => applyTheme(ThemeModes.SYSTEM);
+
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [themeMode]);
+
+  const setThemeMode = useCallback((mode: ThemeMode) => {
+    setThemeModeState(mode);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, mode);
+    } catch {
+      // localStorage may be unavailable
+    }
+  }, []);
+
+  const value = useMemo<SettingsContextValue>(
+    () => ({ fontFamily, setFontFamily, themeMode, setThemeMode }),
+    [fontFamily, setFontFamily, themeMode, setThemeMode],
+  );
+
+  return <SettingsContext value={value}>{children}</SettingsContext>;
+}
