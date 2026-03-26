@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
 } from "react";
 import { toast } from "sonner";
 import { useCommentNavigation } from "../hooks/useCommentNavigation";
@@ -17,10 +18,9 @@ import { useAppStore } from "../store";
 import type { Comment, DocumentType } from "../types";
 import { useLocale } from "./LocaleContext";
 
-interface CommentContextValue {
-  // From useComments
-  comments: Comment[];
-  commentCount: number;
+// ─── Actions Context (stable callbacks — never causes re-renders) ───
+
+interface CommentActionsValue {
   addComment: (
     selectedText: string,
     comment: string,
@@ -36,36 +36,61 @@ interface CommentContextValue {
     startOffset: number,
     endOffset: number,
   ) => void;
-  // Derived
-  sortedComments: Comment[];
-  // From useCommentNavigation
-  currentIndex: number;
-  hoveredCommentId: string | undefined;
   setHoveredCommentId: (id: string | undefined) => void;
   navigateToComment: (commentId: string) => void;
   navigatePrevious: () => void;
   navigateNext: () => void;
-  // From useReanchorMode
-  reanchorTarget: { commentId: string } | null;
   startReanchor: (commentId: string) => void;
   cancelReanchor: () => void;
-  // Copy operations
   copyCommentRaw: (comment: Comment) => void;
   copyCommentForLLM: (comment: Comment) => void;
   copyAllForLLM: () => void;
-  // Scroll to highlight
   scrollToHighlight: (commentId: string) => void;
 }
 
-export const CommentContext = createContext<CommentContextValue | null>(null);
+const CommentActionsContext = createContext<CommentActionsValue | null>(null);
 
-export function useCommentContext(): CommentContextValue {
-  const value = use(CommentContext);
+export function useCommentActions(): CommentActionsValue {
+  const value = use(CommentActionsContext);
   if (!value) {
-    throw new Error("useCommentContext must be used within a CommentProvider");
+    throw new Error("useCommentActions must be used within a CommentProvider");
   }
   return value;
 }
+
+// ─── Data Context (volatile — re-renders consumers on change) ───────
+
+interface CommentDataValue {
+  comments: Comment[];
+  commentCount: number;
+  sortedComments: Comment[];
+  currentIndex: number;
+  reanchorTarget: { commentId: string } | null;
+}
+
+const CommentDataContext = createContext<CommentDataValue | null>(null);
+
+export function useCommentData(): CommentDataValue {
+  const value = use(CommentDataContext);
+  if (!value) {
+    throw new Error("useCommentData must be used within a CommentProvider");
+  }
+  return value;
+}
+
+// ─── Combined hook (backward compat — prefers split hooks) ──────────
+
+export type CommentContextValue = CommentActionsValue & CommentDataValue;
+
+/** @deprecated Use useCommentActions() or useCommentData() for better performance */
+export function useCommentContext(): CommentContextValue {
+  return { ...useCommentActions(), ...useCommentData() };
+}
+
+// Keep the old context export for App.tsx use() call
+export const CommentContext = CommentDataContext;
+
+// ─── Provider ───────────────────────────────────────────────────────
 
 interface CommentProviderProps {
   filePath: string;
@@ -94,14 +119,12 @@ export function CommentProvider({
     reanchorComment,
   } = useComments(filePath, { clean });
 
-  // sortedComments from store (already sorted by setComments)
   const sortedComments = useAppStore(
     (s) => s.documents.get(filePath)?.sortedComments ?? [],
   );
 
   const {
     currentIndex,
-    hoveredCommentId,
     setHoveredCommentId,
     navigateToComment,
     navigatePrevious,
@@ -111,7 +134,6 @@ export function CommentProvider({
   const { reanchorTarget, startReanchor, cancelReanchor } = useReanchorMode();
   const { t } = useLocale();
 
-  // Show comments errors as toast
   useEffect(() => {
     if (commentsError) {
       toast.error(commentsError);
@@ -120,7 +142,8 @@ export function CommentProvider({
 
   const copyCommentRaw = useCallback(
     (comment: Comment) => {
-      const raw = `${comment.selectedText}\n\n${comment.comment}`;
+      const line = comment.lineHint ? `[${comment.lineHint}] ` : "";
+      const raw = `${line}${comment.selectedText}\n\n${comment.comment}`;
       navigator.clipboard.writeText(raw);
       toast.success(t("toast.copied", { text: truncate(comment.comment) }));
     },
@@ -139,7 +162,6 @@ export function CommentProvider({
         fileName,
         comment: comment.comment,
       });
-
       navigator.clipboard.writeText(formatted);
       toast.success(
         t("toast.copiedForLLM", { text: truncate(comment.comment) }),
@@ -148,11 +170,15 @@ export function CommentProvider({
     [documentContent, fileName, t],
   );
 
+  // Use ref so copyAllForLLM callback is stable (doesn't change when comments change)
+  const commentsRef = useRef(comments);
+  commentsRef.current = comments;
+
   const copyAllForLLM = useCallback(() => {
-    const prompt = generatePrompt(comments, fileName);
+    const prompt = generatePrompt(commentsRef.current, fileName);
     navigator.clipboard.writeText(prompt);
     toast.success(t("toast.copiedAllComments"));
-  }, [comments, fileName, t]);
+  }, [fileName, t]);
 
   const scrollToHighlight = useCallback(
     (commentId: string) => {
@@ -174,25 +200,18 @@ export function CommentProvider({
     [documentType],
   );
 
-  const commentCount = comments.length;
-
-  const value = useMemo<CommentContextValue>(
+  // Actions value — stable (all callbacks are useCallback-wrapped)
+  const actions = useMemo<CommentActionsValue>(
     () => ({
-      comments,
-      commentCount,
       addComment,
       editComment,
       deleteComment,
       deleteAll,
       reanchorComment,
-      sortedComments,
-      currentIndex,
-      hoveredCommentId,
       setHoveredCommentId,
       navigateToComment,
       navigatePrevious,
       navigateNext,
-      reanchorTarget,
       startReanchor,
       cancelReanchor,
       copyCommentRaw,
@@ -201,21 +220,15 @@ export function CommentProvider({
       scrollToHighlight,
     }),
     [
-      comments,
-      commentCount,
       addComment,
       editComment,
       deleteComment,
       deleteAll,
       reanchorComment,
-      sortedComments,
-      currentIndex,
-      hoveredCommentId,
       setHoveredCommentId,
       navigateToComment,
       navigatePrevious,
       navigateNext,
-      reanchorTarget,
       startReanchor,
       cancelReanchor,
       copyCommentRaw,
@@ -225,5 +238,21 @@ export function CommentProvider({
     ],
   );
 
-  return <CommentContext value={value}>{children}</CommentContext>;
+  // Data value — changes when comments/navigation/reanchor state changes
+  const data = useMemo<CommentDataValue>(
+    () => ({
+      comments,
+      commentCount: comments.length,
+      sortedComments,
+      currentIndex,
+      reanchorTarget,
+    }),
+    [comments, sortedComments, currentIndex, reanchorTarget],
+  );
+
+  return (
+    <CommentActionsContext value={actions}>
+      <CommentDataContext value={data}>{children}</CommentDataContext>
+    </CommentActionsContext>
+  );
 }

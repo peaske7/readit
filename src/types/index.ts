@@ -23,7 +23,7 @@ export interface Comment {
   // Position info for highlighting
   startOffset: number;
   endOffset: number;
-  // Line hint for text-based anchoring (e.g., "L42" or "L42-45")
+  // Line hint for text-based anchoring (e.g., "L42" or "L42-L55")
   lineHint?: string;
   // Confidence level of anchor resolution
   anchorConfidence?: AnchorConfidence;

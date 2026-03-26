@@ -567,6 +567,64 @@ async function serveStaticFile(
   return new Response("Not Found", { status: 404 });
 }
 
+// ─── Dev proxy ──────────────────────────────────────────────────────
+
+const VITE_DEV_PORT = 24678;
+const VITE_DEV_ORIGIN = `http://127.0.0.1:${VITE_DEV_PORT}`;
+
+async function proxyToVite(
+  req: Request,
+  pathname: string,
+  search: string,
+): Promise<Response> {
+  const target = `${VITE_DEV_ORIGIN}${pathname}${search}`;
+  try {
+    return await fetch(
+      new Request(target, {
+        method: req.method,
+        headers: req.headers,
+        body: req.body,
+        redirect: "manual",
+      }),
+    );
+  } catch {
+    return new Response("Vite dev server not available", { status: 502 });
+  }
+}
+
+async function isViteReady(): Promise<boolean> {
+  try {
+    const res = await fetch(`${VITE_DEV_ORIGIN}/`);
+    // Vite returns 200 with index.html content when properly serving
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function spawnViteDev(): Promise<() => void> {
+  // If Vite is already running (e.g. after bun --watch restart), reuse it
+  if (await isViteReady()) {
+    return () => {};
+  }
+
+  const child = Bun.spawn(
+    ["bunx", "vite", "--port", String(VITE_DEV_PORT), "--strictPort"],
+    { stdout: "ignore", stderr: "inherit" },
+  );
+
+  const maxWaitMs = 10_000;
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    if (await isViteReady()) break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+
+  return () => {
+    child.kill();
+  };
+}
+
 // ─── Extract route param ────────────────────────────────────────────
 
 function extractCommentId(pathname: string): string | undefined {
@@ -894,6 +952,9 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 
       // ── Static / SPA serving ────────────────────────────────
 
+      if (isDev) {
+        return proxyToVite(req, pathname, url.search);
+      }
       return serveStaticFile(distPath, pathname);
     },
   });
@@ -923,9 +984,15 @@ export async function startServer(
       const displayHost =
         options.host === "0.0.0.0" ? "localhost" : options.host;
 
+      let stopVite: (() => void) | undefined;
+      if (process.env.NODE_ENV === "development") {
+        stopVite = await spawnViteDev();
+      }
+
       const originalStop = server.stop.bind(server);
       const wrappedServer = {
         stop() {
+          stopVite?.();
           for (const w of watchers) w.close();
           originalStop();
         },

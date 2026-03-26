@@ -1,21 +1,28 @@
+import { useSyncExternalStore } from "react";
 import { useCommentContext } from "../../contexts/CommentContext";
+import { usePositionEngine } from "../../contexts/PositionEngineContext";
 import { MINIMAP_HEADER_OFFSET_PX } from "../../lib/layout-constants";
 import { cn } from "../../lib/utils";
+import { useVolatileStore } from "../../store";
 
 interface CommentMinimapProps {
-  /** Absolute Y-positions from document top for each comment */
-  documentPositions: Record<string, number>;
   documentHeight: number;
   viewportHeight: number;
 }
 
 export function CommentMinimap({
-  documentPositions,
   documentHeight,
   viewportHeight,
 }: CommentMinimapProps) {
-  const { sortedComments, hoveredCommentId, navigateToComment } =
-    useCommentContext();
+  const { sortedComments, navigateToComment } = useCommentContext();
+  const hoveredCommentId = useVolatileStore((s) => s.hoveredCommentId);
+
+  // Subscribe to engine position changes (only fires on highlight mutation/resize — rare)
+  const engine = usePositionEngine();
+  const documentPositions = useSyncExternalStore(
+    (cb) => engine.subscribe(cb),
+    () => engine.getDocumentPositions(),
+  );
 
   // Don't render if no comments or document height is 0
   if (sortedComments.length === 0 || documentHeight === 0) {

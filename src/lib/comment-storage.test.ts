@@ -124,7 +124,7 @@ describe("getLineHint", () => {
 
   it("returns range hint for multiple lines", () => {
     const content = "line one\nline two\nline three";
-    expect(getLineHint(content, 0, 20)).toBe("L1-3");
+    expect(getLineHint(content, 0, 20)).toBe("L1-L3");
   });
 });
 
@@ -363,7 +363,7 @@ describe("serializeComments", () => {
           selectedText: "line one\nline two",
           comment: "Comment",
           createdAt: "2024-12-24T10:30:00Z",
-          lineHint: "L42-43",
+          lineHint: "L42-L43",
           startOffset: 100,
           endOffset: 120,
         },
@@ -439,7 +439,7 @@ describe("serializeComments", () => {
           selectedText: "another\nmultiline\nselection",
           comment: "Another comment with\n\nmultiple paragraphs.",
           createdAt: "2024-12-24T11:00:00Z",
-          lineHint: "L50-52",
+          lineHint: "L50-L52",
           startOffset: 200,
           endOffset: 230,
         },

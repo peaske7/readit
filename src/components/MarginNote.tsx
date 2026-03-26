@@ -1,9 +1,11 @@
 import { cva } from "class-variance-authority";
-import { useState } from "react";
-import { useCommentContext } from "../contexts/CommentContext";
+import { memo, useCallback, useState } from "react";
+import { useCommentActions } from "../contexts/CommentContext";
 import { useLayoutContext } from "../contexts/LayoutContext";
 import { useLocale } from "../contexts/LocaleContext";
+import { usePositionEngine } from "../contexts/PositionEngineContext";
 import { cn } from "../lib/utils";
+import { useVolatileStore } from "../store";
 import { type Comment, FontFamilies } from "../types";
 import { InlineEditor } from "./InlineEditor";
 import { ActionBar } from "./ui/ActionBar";
@@ -12,7 +14,6 @@ import { SeparatorDot } from "./ui/SeparatorDot";
 
 interface MarginNoteProps {
   comment: Comment;
-  top: number;
   commentIndex?: number;
 }
 
@@ -55,9 +56,8 @@ const badgeVariants = cva(
   },
 );
 
-export function MarginNote({
+export const MarginNote = memo(function MarginNote({
   comment,
-  top,
   commentIndex = 0,
 }: MarginNoteProps) {
   const { fontFamily } = useLayoutContext();
@@ -67,12 +67,25 @@ export function MarginNote({
     deleteComment,
     copyCommentRaw,
     copyCommentForLLM,
-    hoveredCommentId,
     setHoveredCommentId,
     scrollToHighlight,
-  } = useCommentContext();
+  } = useCommentActions();
 
-  const isHovered = hoveredCommentId === comment.id;
+  // Register with PositionEngine — it writes style.top directly to this DOM element
+  const engine = usePositionEngine();
+  const refCallback = useCallback(
+    (el: HTMLElement | null) => {
+      if (el) {
+        engine.registerNote(comment.id, el);
+      } else {
+        engine.unregisterNote(comment.id);
+      }
+    },
+    [engine, comment.id],
+  );
+
+  // Read hover state from flat volatile store — no Map overhead, only re-renders when this note's hover changes
+  const isHovered = useVolatileStore((s) => s.hoveredCommentId === comment.id);
   const fontClass =
     fontFamily === FontFamilies.SANS_SERIF ? "font-sans" : "font-serif";
   const [isEditing, setIsEditing] = useState(false);
@@ -89,8 +102,13 @@ export function MarginNote({
   if (!hasNote && !isEditing) {
     return (
       <article
+        ref={refCallback}
         className="absolute left-0 right-0 group"
-        style={{ top }}
+        style={{
+          visibility: "hidden",
+          contentVisibility: "auto",
+          containIntrinsicSize: "auto 80px",
+        }}
         title={`Added: ${createdAtFormatted}`}
         data-comment-id={comment.id}
         onMouseEnter={() => setHoveredCommentId(comment.id)}
@@ -120,8 +138,9 @@ export function MarginNote({
 
   return (
     <article
+      ref={refCallback}
       className="absolute left-0 right-0 group"
-      style={{ top }}
+      style={{ visibility: "hidden" }}
       title={`Added: ${createdAtFormatted}`}
       data-comment-id={comment.id}
       onMouseEnter={() => setHoveredCommentId(comment.id)}
@@ -204,4 +223,4 @@ export function MarginNote({
       </div>
     </article>
   );
-}
+});

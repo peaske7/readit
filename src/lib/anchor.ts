@@ -127,13 +127,13 @@ export function getLineOffset(content: string, lineNumber: number): number {
 
 /**
  * Parse line hint string to get line number(s).
- * Supports "L42" and "L42-45" formats.
+ * Supports "L42", "L42-L55" (current) and legacy "L42-45" format.
  */
 export function parseLineHint(lineHint: string): {
   start: number;
   end: number;
 } {
-  const match = lineHint.match(/^L(\d+)(?:-(\d+))?$/);
+  const match = lineHint.match(/^L(\d+)(?:-L?(\d+))?$/);
   if (!match) {
     return { start: 1, end: 1 };
   }

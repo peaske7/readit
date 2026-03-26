@@ -1,5 +1,6 @@
 import DOMPurify from "dompurify";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePositionEngine } from "../../contexts/PositionEngineContext";
 import {
   buildIframeScript,
   createHighlighter,
@@ -23,11 +24,6 @@ interface IframeContainerProps {
     startOffset: number,
     endOffset: number,
     selectionTop: number,
-  ) => void;
-  onHighlightPositionsChange?: (
-    positions: Record<string, number>,
-    documentPositions: Record<string, number>,
-    pendingTop?: number,
   ) => void;
   onHighlightHover?: (commentId: string | undefined) => void;
   onHighlightClick?: (commentId: string) => void;
@@ -136,7 +132,6 @@ export function IframeContainer({
   comments,
   pendingSelection,
   onTextSelect,
-  onHighlightPositionsChange,
   onHighlightHover,
   onHighlightClick,
   fontFamily = FontFamilies.SERIF,
@@ -144,6 +139,7 @@ export function IframeContainer({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const adapterRef = useRef<Highlighter | null>(null);
   const [contentHeight, setContentHeight] = useState<number>(0);
+  const engine = usePositionEngine();
 
   const srcdoc = useMemo(() => {
     const sanitized = sanitizeHtml(html);
@@ -164,25 +160,19 @@ export function IframeContainer({
 
     adapterRef.current = adapter;
 
-    const unsubPositions = onHighlightPositionsChange
-      ? adapter.onPositionsChange((pos) => {
-          const iframe = iframeRef.current;
-          const iframeOffset = iframe
-            ? iframe.getBoundingClientRect().top + window.scrollY
-            : 0;
+    const unsubPositions = adapter.onPositionsChange((pos) => {
+      const iframe = iframeRef.current;
+      const iframeOffset = iframe
+        ? iframe.getBoundingClientRect().top + window.scrollY
+        : 0;
 
-          const adjustedDocPositions: Record<string, number> = {};
-          for (const [id, iframePos] of Object.entries(pos.documentPositions)) {
-            adjustedDocPositions[id] = iframePos + iframeOffset;
-          }
+      const adjustedDocPositions: Record<string, number> = {};
+      for (const [id, iframePos] of Object.entries(pos.documentPositions)) {
+        adjustedDocPositions[id] = iframePos + iframeOffset;
+      }
 
-          onHighlightPositionsChange(
-            pos.positions,
-            adjustedDocPositions,
-            pos.pendingTop,
-          );
-        })
-      : () => {};
+      engine.setExternalPositions(pos.positions, adjustedDocPositions);
+    });
 
     const unsubHover = onHighlightHover
       ? adapter.onHighlightHover(onHighlightHover)
@@ -204,12 +194,7 @@ export function IframeContainer({
       adapter.dispose();
       adapterRef.current = null;
     };
-  }, [
-    onTextSelect,
-    onHighlightPositionsChange,
-    onHighlightHover,
-    onHighlightClick,
-  ]);
+  }, [onTextSelect, onHighlightHover, onHighlightClick, engine]);
 
   useEffect(() => {
     const adapter = adapterRef.current;

@@ -9,6 +9,7 @@ import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import { useLayoutContext } from "../../contexts/LayoutContext";
+import { usePositionEngine } from "../../contexts/PositionEngineContext";
 import type { Heading } from "../../hooks/useHeadings";
 import {
   createHighlighter,
@@ -82,11 +83,6 @@ interface DocumentViewerProps {
     endOffset: number,
     selectionTop: number,
   ) => void;
-  onHighlightPositionsChange?: (
-    positions: Record<string, number>,
-    documentPositions: Record<string, number>,
-    pendingTop?: number,
-  ) => void;
   onHighlightHover?: (commentId: string | undefined) => void;
   onHighlightClick?: (commentId: string) => void;
 }
@@ -98,16 +94,24 @@ export function DocumentViewer({
   headings,
   pendingSelection,
   onTextSelect,
-  onHighlightPositionsChange,
   onHighlightHover,
   onHighlightClick,
 }: DocumentViewerProps) {
   const { isFullscreen, fontFamily, editorScheme } = useLayoutContext();
   const workingDirectory = useAppStore((s) => s.workingDirectory);
+  const engine = usePositionEngine();
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<Highlighter | null>(null);
   const headingIndexRef = useRef(0);
+
+  // Attach/detach engine to DOM elements for direct position reads
+  useEffect(() => {
+    if (type !== "markdown") return;
+    if (!contentRef.current || !containerRef.current) return;
+    engine.attach(contentRef.current, containerRef.current);
+    return () => engine.detach();
+  }, [type, engine]);
 
   useEffect(() => {
     if (type !== "markdown") return;
@@ -122,16 +126,6 @@ export function DocumentViewer({
 
     adapterRef.current = adapter;
 
-    const unsubPositions = onHighlightPositionsChange
-      ? adapter.onPositionsChange((pos) => {
-          onHighlightPositionsChange(
-            pos.positions,
-            pos.documentPositions,
-            pos.pendingTop,
-          );
-        })
-      : () => {};
-
     const unsubHover = onHighlightHover
       ? adapter.onHighlightHover(onHighlightHover)
       : () => {};
@@ -141,19 +135,12 @@ export function DocumentViewer({
       : () => {};
 
     return () => {
-      unsubPositions();
       unsubHover();
       unsubClick();
       adapter.dispose();
       adapterRef.current = null;
     };
-  }, [
-    type,
-    onTextSelect,
-    onHighlightPositionsChange,
-    onHighlightHover,
-    onHighlightClick,
-  ]);
+  }, [type, onTextSelect, onHighlightHover, onHighlightClick]);
 
   // Double RAF: ensures React commit phase completes before DOM queries.
   // See: https://github.com/facebook/react/issues/20863
@@ -179,6 +166,8 @@ export function DocumentViewer({
           }));
 
         adapter.applyHighlights(highlightComments);
+        // Notify engine to cache positions after highlights are in the DOM
+        requestAnimationFrame(() => engine.cachePositions());
       });
     });
 
@@ -188,7 +177,7 @@ export function DocumentViewer({
     };
     // editorScheme/workingDirectory: when these change, markdownComponents memo recomputes,
     // react-markdown replaces the DOM, so highlights must be reapplied
-  }, [comments, content, type, editorScheme, workingDirectory]);
+  }, [comments, content, type, editorScheme, workingDirectory, engine]);
 
   useEffect(() => {
     if (type !== "markdown") return;
@@ -225,7 +214,6 @@ export function DocumentViewer({
           comments={comments}
           pendingSelection={pendingSelection}
           onTextSelect={onTextSelect}
-          onHighlightPositionsChange={onHighlightPositionsChange}
           onHighlightHover={onHighlightHover}
           onHighlightClick={onHighlightClick}
           fontFamily={fontFamily}

@@ -1,4 +1,4 @@
-import { use, useCallback, useEffect, useRef } from "react";
+import { use, useCallback, useEffect, useMemo, useRef } from "react";
 import { Toaster } from "sonner";
 import { CommentInput } from "./components/comments/CommentInput";
 import { CommentMinimap } from "./components/comments/CommentMinimap";
@@ -11,9 +11,17 @@ import { ReanchorConfirm } from "./components/ReanchorConfirm";
 import { TabBar } from "./components/TabBar";
 import { TableOfContents } from "./components/TableOfContents";
 import { textVariants } from "./components/ui/Text";
-import { CommentContext, CommentProvider } from "./contexts/CommentContext";
+import {
+  CommentProvider,
+  useCommentActions,
+  useCommentData,
+} from "./contexts/CommentContext";
 import { LayoutContext, LayoutProvider } from "./contexts/LayoutContext";
 import { useLocale } from "./contexts/LocaleContext";
+import {
+  PositionEngineProvider,
+  usePositionEngine,
+} from "./contexts/PositionEngineContext";
 import { useClipboard } from "./hooks/useClipboard";
 import { useDocument } from "./hooks/useDocument";
 import { useHeadings } from "./hooks/useHeadings";
@@ -45,28 +53,28 @@ interface AppContentProps {
 
 function AppContent({ document, reload }: AppContentProps) {
   const { t } = useLocale();
+  const { comments, sortedComments, reanchorTarget } = useCommentData();
   const {
-    comments,
-    sortedComments,
     addComment,
     reanchorComment,
-    reanchorTarget,
     cancelReanchor,
-    hoveredCommentId,
     setHoveredCommentId,
     navigatePrevious,
     navigateNext,
-  } = use(CommentContext)!;
+  } = useCommentActions();
 
-  const {
-    selection,
-    highlightPositions,
-    documentPositions,
-    pendingSelectionTop,
-    onTextSelect,
-    onPositionsChange,
-    clearSelection,
-  } = useTextSelection();
+  const { selection, pendingSelectionTop, onTextSelect, clearSelection } =
+    useTextSelection();
+
+  const engine = usePositionEngine();
+
+  // Keep engine in sync with comment order and pending selection
+  useEffect(() => {
+    engine.setCommentIds(sortedComments.map((c) => c.id));
+  }, [engine, sortedComments]);
+  useEffect(() => {
+    engine.setPendingSelectionTop(selection ? pendingSelectionTop : undefined);
+  }, [engine, selection, pendingSelectionTop]);
 
   const {
     copyAll,
@@ -100,7 +108,8 @@ function AppContent({ document, reload }: AppContentProps) {
     document?.content ?? null,
     document?.type ?? null,
   );
-  const activeHeadingId = useScrollSpy(headings.map((h) => h.id));
+  const headingIds = useMemo(() => headings.map((h) => h.id), [headings]);
+  const activeHeadingId = useScrollSpy(headingIds);
 
   const scrollToHeading = useCallback(
     (id: string) => {
@@ -227,7 +236,7 @@ function AppContent({ document, reload }: AppContentProps) {
       />
 
       <div
-        className={`flex-1 flex gap-4 w-full ${!isFullscreen ? "max-w-7xl mx-auto" : ""} ${hoveredCommentId ? "has-comment-focus" : ""}`}
+        className={`flex-1 flex gap-4 w-full ${!isFullscreen ? "max-w-7xl mx-auto" : ""}`}
       >
         {!isFullscreen && headings.length > 0 && (
           <aside className="w-48 flex-shrink-0 py-6 pl-6 hidden xl:block">
@@ -256,7 +265,6 @@ function AppContent({ document, reload }: AppContentProps) {
             headings={headings}
             pendingSelection={selection ?? undefined}
             onTextSelect={onTextSelect}
-            onHighlightPositionsChange={onPositionsChange}
             onHighlightHover={setHoveredCommentId}
             onHighlightClick={handleHighlightClick}
           />
@@ -287,16 +295,11 @@ function AppContent({ document, reload }: AppContentProps) {
             </div>
           )}
 
-          <MarginNotes
-            sortedComments={sortedComments}
-            highlightPositions={highlightPositions}
-            pendingSelectionTop={selection ? pendingSelectionTop : undefined}
-          />
+          <MarginNotes sortedComments={sortedComments} />
         </div>
       </div>
 
       <CommentMinimap
-        documentPositions={documentPositions}
         documentHeight={scrollMetrics.documentHeight}
         viewportHeight={scrollMetrics.viewportHeight}
       />
@@ -399,15 +402,17 @@ function App() {
     <>
       <TabBar />
       <LayoutProvider>
-        <CommentProvider
-          filePath={document.filePath}
-          clean={document.clean}
-          documentContent={document.content}
-          fileName={document.fileName}
-          documentType={document.type}
-        >
-          <AppContent document={document} reload={reload} />
-        </CommentProvider>
+        <PositionEngineProvider>
+          <CommentProvider
+            filePath={document.filePath}
+            clean={document.clean}
+            documentContent={document.content}
+            fileName={document.fileName}
+            documentType={document.type}
+          >
+            <AppContent document={document} reload={reload} />
+          </CommentProvider>
+        </PositionEngineProvider>
       </LayoutProvider>
     </>
   );

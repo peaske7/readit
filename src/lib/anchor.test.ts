@@ -135,8 +135,12 @@ describe("parseLineHint", () => {
   });
 
   it("parses line range hint", () => {
+    expect(parseLineHint("L42-L45")).toEqual({ start: 42, end: 45 });
+    expect(parseLineHint("L10-L20")).toEqual({ start: 10, end: 20 });
+  });
+
+  it("parses legacy format without L prefix on end line", () => {
     expect(parseLineHint("L42-45")).toEqual({ start: 42, end: 45 });
-    expect(parseLineHint("L10-20")).toEqual({ start: 10, end: 20 });
   });
 
   it("returns default for invalid hint", () => {

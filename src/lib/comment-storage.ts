@@ -66,7 +66,7 @@ export function getLineNumber(content: string, offset: number): number {
 }
 
 /**
- * Get line range string for a selection (e.g., "L42" or "L42-45").
+ * Get line range string for a selection (e.g., "L42" or "L42-L55").
  */
 export function getLineHint(
   content: string,
@@ -75,7 +75,7 @@ export function getLineHint(
 ): string {
   const startLine = getLineNumber(content, startOffset);
   const endLine = getLineNumber(content, endOffset);
-  return startLine === endLine ? `L${startLine}` : `L${startLine}-${endLine}`;
+  return startLine === endLine ? `L${startLine}` : `L${startLine}-L${endLine}`;
 }
 
 /**

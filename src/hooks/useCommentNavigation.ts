@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { appStore, useAppStore } from "../store";
+import { volatileStore } from "../store";
 import type { Comment } from "../types";
 
 interface UseCommentNavigationResult {
   currentIndex: number;
-  hoveredCommentId: string | undefined;
   setHoveredCommentId: (id: string | undefined) => void;
   navigateToComment: (commentId: string) => void;
   navigatePrevious: () => void;
@@ -19,9 +18,6 @@ export function useCommentNavigation(
   sortedComments: Comment[],
 ): UseCommentNavigationResult {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const hoveredCommentId = useAppStore(
-    (s) => s.getActiveDocumentState()?.hoveredCommentId,
-  );
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -59,7 +55,7 @@ export function useCommentNavigation(
 
   const setHoveredCommentId = useCallback(
     (id: string | undefined) => {
-      appStore.getState().setHoveredCommentId(id);
+      volatileStore.setState({ hoveredCommentId: id });
       updateFocusedMarks(id);
     },
     [updateFocusedMarks],
@@ -121,7 +117,6 @@ export function useCommentNavigation(
 
   return {
     currentIndex: clampedIndex,
-    hoveredCommentId,
     setHoveredCommentId,
     navigateToComment,
     navigatePrevious,

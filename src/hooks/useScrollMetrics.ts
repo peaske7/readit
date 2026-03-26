@@ -3,52 +3,46 @@ import { useEffect, useRef, useState } from "react";
 interface ScrollMetrics {
   documentHeight: number;
   viewportHeight: number;
-  scrollTop: number;
 }
 
 /**
- * Track document scroll and viewport dimensions for minimap calculations.
- * Updates are throttled to once per animation frame to prevent scroll jank.
+ * Track viewport dimensions for minimap calculations.
+ * Only re-renders when documentHeight or viewportHeight actually change (resize / DOM mutation).
+ * Scroll position is NOT tracked here — it caused full-tree re-renders 60×/s.
  */
 export function useScrollMetrics(): ScrollMetrics {
   const [metrics, setMetrics] = useState<ScrollMetrics>({
     documentHeight: 0,
     viewportHeight: 0,
-    scrollTop: 0,
   });
 
-  const rafIdRef = useRef<number | null>(null);
+  const prevRef = useRef({ documentHeight: 0, viewportHeight: 0 });
 
   useEffect(() => {
     const updateMetrics = () => {
-      setMetrics({
-        documentHeight: document.body.scrollHeight,
-        viewportHeight: window.innerHeight,
-        scrollTop: window.scrollY,
-      });
+      const documentHeight = document.body.scrollHeight;
+      const viewportHeight = window.innerHeight;
+      const prev = prevRef.current;
+      if (
+        prev.documentHeight === documentHeight &&
+        prev.viewportHeight === viewportHeight
+      ) {
+        return;
+      }
+      prevRef.current = { documentHeight, viewportHeight };
+      setMetrics({ documentHeight, viewportHeight });
     };
 
-    // Throttle scroll updates to once per animation frame
-    const handleScroll = () => {
-      if (rafIdRef.current !== null) return;
-      rafIdRef.current = requestAnimationFrame(() => {
-        updateMetrics();
-        rafIdRef.current = null;
-      });
-    };
-
-    // Initial measurement
     updateMetrics();
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
+    // ResizeObserver catches both window resize and DOM-driven height changes
+    const ro = new ResizeObserver(updateMetrics);
+    ro.observe(document.body);
     window.addEventListener("resize", updateMetrics);
 
     return () => {
-      window.removeEventListener("scroll", handleScroll);
+      ro.disconnect();
       window.removeEventListener("resize", updateMetrics);
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current);
-      }
     };
   }, []);
 

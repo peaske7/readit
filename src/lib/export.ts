@@ -3,7 +3,8 @@ import type { Comment, Document } from "../types";
 export function generatePrompt(comments: Comment[], fileName: string): string {
   const prompt = comments
     .map((c) => {
-      return `---\nSelected text: "${c.selectedText}"\nComment: ${c.comment}`;
+      const line = c.lineHint ? `[${c.lineHint}] ` : "";
+      return `---\n${line}Selected text: "${c.selectedText}"\nComment: ${c.comment}`;
     })
     .join("\n\n");
 
@@ -12,7 +13,10 @@ export function generatePrompt(comments: Comment[], fileName: string): string {
 
 export function generateRawText(comments: Comment[]): string {
   return comments
-    .map((c) => `${c.selectedText}\n\n${c.comment}`)
+    .map((c) => {
+      const line = c.lineHint ? `[${c.lineHint}] ` : "";
+      return `${line}${c.selectedText}\n\n${c.comment}`;
+    })
     .join("\n\n---\n\n");
 }
 
@@ -27,6 +31,7 @@ export function exportCommentsAsJson(
     comments: comments.map((c) => ({
       selectedText: c.selectedText,
       comment: c.comment,
+      lineHint: c.lineHint,
       createdAt: c.createdAt,
     })),
   };

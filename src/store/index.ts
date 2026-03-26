@@ -11,10 +11,7 @@ export interface DocumentState {
   selection: Selection | null;
   pendingSelectionTop: number | undefined;
   pendingCommentText: string;
-  highlightPositions: Record<string, number>;
-  documentPositions: Record<string, number>;
   scrollY: number;
-  hoveredCommentId: string | undefined;
   reanchorTarget: { commentId: string } | null;
 }
 
@@ -36,16 +33,7 @@ export interface AppStore {
   setCommentsError: (error: string | null, filePath?: string) => void;
   setSelection: (selection: Selection | null, filePath?: string) => void;
   setPendingSelectionTop: (top: number | undefined, filePath?: string) => void;
-  setHighlightPositions: (
-    positions: Record<string, number>,
-    filePath?: string,
-  ) => void;
-  setDocumentPositions: (
-    positions: Record<string, number>,
-    filePath?: string,
-  ) => void;
   setScrollY: (y: number, filePath?: string) => void;
-  setHoveredCommentId: (id: string | undefined, filePath?: string) => void;
   setReanchorTarget: (
     target: { commentId: string } | null,
     filePath?: string,
@@ -68,10 +56,7 @@ function createInitialDocumentState(doc: Document): DocumentState {
     selection: null,
     pendingSelectionTop: undefined,
     pendingCommentText: "",
-    highlightPositions: {},
-    documentPositions: {},
     scrollY: 0,
-    hoveredCommentId: undefined,
     reanchorTarget: null,
   };
 }
@@ -192,28 +177,10 @@ export function createAppStore() {
         updateDocState(path, () => ({ pendingSelectionTop: top }));
       },
 
-      setHighlightPositions: (positions, filePath?) => {
-        const path = resolveFilePath(filePath);
-        if (!path) return;
-        updateDocState(path, () => ({ highlightPositions: positions }));
-      },
-
-      setDocumentPositions: (positions, filePath?) => {
-        const path = resolveFilePath(filePath);
-        if (!path) return;
-        updateDocState(path, () => ({ documentPositions: positions }));
-      },
-
       setScrollY: (y, filePath?) => {
         const path = resolveFilePath(filePath);
         if (!path) return;
         updateDocState(path, () => ({ scrollY: y }));
-      },
-
-      setHoveredCommentId: (id, filePath?) => {
-        const path = resolveFilePath(filePath);
-        if (!path) return;
-        updateDocState(path, () => ({ hoveredCommentId: id }));
       },
 
       setReanchorTarget: (target, filePath?) => {
@@ -251,4 +218,18 @@ export const appStore = createAppStore();
 
 export function useAppStore<T>(selector: (state: AppStore) => T): T {
   return useStore(appStore, selector);
+}
+
+// ─── Volatile Store (high-frequency, flat, no Map overhead) ─────────
+
+interface VolatileState {
+  hoveredCommentId: string | undefined;
+}
+
+export const volatileStore = createStore<VolatileState>(() => ({
+  hoveredCommentId: undefined,
+}));
+
+export function useVolatileStore<T>(selector: (s: VolatileState) => T): T {
+  return useStore(volatileStore, selector);
 }

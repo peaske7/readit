@@ -3,7 +3,6 @@ import {
   applyHighlightBatch,
   applyHighlightToRange,
   clearHighlights,
-  collectHighlightPositions,
   getDOMTextContent,
   getTextOffset,
 } from "./dom";
@@ -58,10 +57,12 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
 function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
   const { root, container, onSelect } = options;
 
-  let positionCallback: PositionChangeHandler | undefined;
   let hoverCallback: HoverHandler | undefined;
   let clickCallback: ClickHandler | undefined;
-  let scrollRafId: number | null = null;
+
+  // Incremental diffing state — avoids full clear+rebuild on every comment change
+  const activeHighlights = new Map<string, { start: number; end: number }>();
+  let lastTextContent = "";
 
   const handleMouseUp = () => {
     const selection = window.getSelection();
@@ -145,89 +146,117 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
     }
   };
 
-  const updatePositions = () => {
-    if (!positionCallback) return;
-    const containerRect = container.getBoundingClientRect();
-    const positions = collectHighlightPositions(
-      root,
-      containerRect,
-      window.scrollY,
-    );
-    positionCallback(positions);
-  };
-
-  const handleScroll = () => {
-    if (scrollRafId !== null) return;
-    scrollRafId = requestAnimationFrame(() => {
-      updatePositions();
-      scrollRafId = null;
-    });
-  };
-
   root.addEventListener("mouseup", handleMouseUp);
   root.addEventListener("mouseover", handleMouseOver);
   root.addEventListener("mouseout", handleMouseOut);
   root.addEventListener("click", handleClick);
-  window.addEventListener("scroll", handleScroll, { passive: true });
-  window.addEventListener("resize", updatePositions);
 
   return {
     applyHighlights(
       comments: HighlightComment[],
       _pendingSelection?: TextRange,
     ) {
-      clearHighlights(root);
-
       const textContent = getDOMTextContent(root);
 
-      const resolved = comments
-        .map((c) => {
-          const anchor = findTextPosition(
-            textContent,
-            c.selectedText,
-            c.startOffset,
-          );
-          if (anchor) {
-            return { ...c, startOffset: anchor.start, endOffset: anchor.end };
-          }
-          return null;
-        })
-        .filter((c): c is HighlightComment => c !== null)
-        .sort((a, b) => a.startOffset - b.startOffset);
+      // If DOM content changed (e.g. document reload), full rebuild is required
+      const contentChanged = textContent !== lastTextContent;
+      if (contentChanged) {
+        clearHighlights(root);
+        activeHighlights.clear();
+        lastTextContent = textContent;
+      }
 
-      applyHighlightBatch(
-        root,
-        textContent,
-        resolved.map((comment) => ({
-          startOffset: comment.startOffset,
-          endOffset: comment.endOffset,
-          style: {
-            attribute: "data-comment-id",
-            attributeValue: comment.id,
-            colorIndex: 0,
-          },
-        })),
-      );
+      // Resolve anchors for all incoming comments
+      const resolved = new Map<
+        string,
+        { start: number; end: number; comment: HighlightComment }
+      >();
+      for (const c of comments) {
+        const anchor = findTextPosition(
+          textContent,
+          c.selectedText,
+          c.startOffset,
+        );
+        if (anchor) {
+          resolved.set(c.id, {
+            start: anchor.start,
+            end: anchor.end,
+            comment: { ...c, startOffset: anchor.start, endOffset: anchor.end },
+          });
+        }
+      }
 
-      // Defer position update to next frame to ensure browser has completed layout
-      // after DOM changes from highlight application
-      requestAnimationFrame(() => updatePositions());
+      // Diff against currently active highlights
+      const toRemove: string[] = [];
+      const toAdd: string[] = [];
+
+      // Detect removed and changed
+      for (const [id, prev] of activeHighlights) {
+        const next = resolved.get(id);
+        if (!next) {
+          toRemove.push(id);
+        } else if (prev.start !== next.start || prev.end !== next.end) {
+          toRemove.push(id);
+          toAdd.push(id);
+        }
+      }
+
+      // Detect added
+      for (const id of resolved.keys()) {
+        if (!activeHighlights.has(id)) {
+          toAdd.push(id);
+        }
+      }
+
+      // Skip if nothing changed
+      if (toRemove.length === 0 && toAdd.length === 0) return;
+
+      // Remove deleted/changed marks
+      for (const id of toRemove) {
+        clearHighlights(root, `mark[data-comment-id="${id}"]`);
+        activeHighlights.delete(id);
+      }
+
+      // Apply new/changed highlights
+      if (toAdd.length > 0) {
+        const newHighlights = toAdd
+          .map((id) => resolved.get(id)!)
+          .sort((a, b) => a.start - b.start);
+
+        applyHighlightBatch(
+          root,
+          textContent,
+          newHighlights.map((h) => ({
+            startOffset: h.start,
+            endOffset: h.end,
+            style: {
+              attribute: "data-comment-id",
+              attributeValue: h.comment.id,
+              colorIndex: 0,
+            },
+          })),
+        );
+
+        for (const id of toAdd) {
+          const range = resolved.get(id)!;
+          activeHighlights.set(id, { start: range.start, end: range.end });
+        }
+      }
     },
 
     clearHighlights() {
       clearHighlights(root);
+      activeHighlights.clear();
+      lastTextContent = "";
     },
 
     getPositions(): HighlightPositions {
-      const containerRect = container.getBoundingClientRect();
-      return collectHighlightPositions(root, containerRect, window.scrollY);
+      return { positions: {}, documentPositions: {} };
     },
 
-    onPositionsChange(callback: PositionChangeHandler) {
-      positionCallback = callback;
-      return () => {
-        positionCallback = undefined;
-      };
+    onPositionsChange(_callback: PositionChangeHandler) {
+      // Positions are now managed by PositionEngine — this is a no-op for markdown
+      return () => {};
     },
 
     onHighlightHover(callback: HoverHandler) {
@@ -249,12 +278,6 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
       root.removeEventListener("mouseover", handleMouseOver);
       root.removeEventListener("mouseout", handleMouseOut);
       root.removeEventListener("click", handleClick);
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", updatePositions);
-      if (scrollRafId !== null) {
-        cancelAnimationFrame(scrollRafId);
-      }
-      positionCallback = undefined;
       hoverCallback = undefined;
       clickCallback = undefined;
     },
