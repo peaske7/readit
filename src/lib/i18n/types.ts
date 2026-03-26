@@ -85,9 +85,39 @@ export interface Translations {
   "rawModal.copiedToClipboard": string;
   "rawModal.failedToCopy": string;
 
+  // Settings - shortcuts
+  "settings.keyboardShortcuts": string;
+  "settings.clickToRebind": string;
+
+  // Shortcut groups
+  "shortcutGroup.copy": string;
+  "shortcutGroup.navigate": string;
+  "shortcutGroup.other": string;
+  "shortcuts.resetToDefaults": string;
+  "shortcuts.enableDisable": string;
+  "shortcutCapture.pressKeys": string;
+
+  // Shortcut labels
+  "shortcut.copyAll.label": string;
+  "shortcut.copyAll.description": string;
+  "shortcut.copyAllRaw.label": string;
+  "shortcut.copyAllRaw.description": string;
+  "shortcut.navigateNext.label": string;
+  "shortcut.navigateNext.description": string;
+  "shortcut.navigatePrevious.label": string;
+  "shortcut.navigatePrevious.description": string;
+  "shortcut.copySelectionRaw.label": string;
+  "shortcut.copySelectionRaw.description": string;
+  "shortcut.copySelectionLLM.label": string;
+  "shortcut.copySelectionLLM.description": string;
+  "shortcut.clearSelection.label": string;
+  "shortcut.clearSelection.description": string;
+
   // Toast messages
   "toast.copied": string;
   "toast.copiedAllComments": string;
+  "toast.copiedAllRaw": string;
+  "toast.copiedForLLM": string;
 
   // Comment badge
   "commentBadge.title": string;

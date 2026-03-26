@@ -82,9 +82,40 @@ export const ja: Translations = {
   "rawModal.copiedToClipboard": "クリップボードにコピーしました",
   "rawModal.failedToCopy": "コピーに失敗しました",
 
+  // Settings - shortcuts
+  "settings.keyboardShortcuts": "キーボードショートカット",
+  "settings.clickToRebind": "キーをクリックして変更",
+
+  // Shortcut groups
+  "shortcutGroup.copy": "コピー",
+  "shortcutGroup.navigate": "ナビゲーション",
+  "shortcutGroup.other": "その他",
+  "shortcuts.resetToDefaults": "初期設定に戻す",
+  "shortcuts.enableDisable": "ショートカットの有効/無効",
+  "shortcutCapture.pressKeys": "キーを入力...",
+
+  // Shortcut labels
+  "shortcut.copyAll.label": "全てコピー (AI)",
+  "shortcut.copyAll.description": "全コメントをAIプロンプト形式でコピー",
+  "shortcut.copyAllRaw.label": "全てコピー (テキスト)",
+  "shortcut.copyAllRaw.description": "全コメントをテキストとしてコピー",
+  "shortcut.navigateNext.label": "次のコメント",
+  "shortcut.navigateNext.description": "次のコメントに移動",
+  "shortcut.navigatePrevious.label": "前のコメント",
+  "shortcut.navigatePrevious.description": "前のコメントに移動",
+  "shortcut.copySelectionRaw.label": "選択をコピー",
+  "shortcut.copySelectionRaw.description": "選択テキストをコピー",
+  "shortcut.copySelectionLLM.label": "選択をコピー (LLM)",
+  "shortcut.copySelectionLLM.description":
+    "選択テキストをLLMコンテキスト付きでコピー",
+  "shortcut.clearSelection.label": "選択を解除",
+  "shortcut.clearSelection.description": "テキスト選択を解除",
+
   // Toast messages
   "toast.copied": 'コピーしました: "{{text}}"',
   "toast.copiedAllComments": "全てのコメントをコピーしました",
+  "toast.copiedAllRaw": "全てのコメントをコピーしました (テキスト)",
+  "toast.copiedForLLM": "選択テキストをコンテキスト付きでコピーしました",
 
   // Comment badge
   "commentBadge.title": "{{count}}件のコメント",

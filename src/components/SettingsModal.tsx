@@ -9,6 +9,7 @@ import {
   type ThemeMode,
   ThemeModes,
 } from "../schema";
+import { ShortcutList } from "./ShortcutList";
 import {
   Dialog,
   DialogBody,
@@ -94,7 +95,16 @@ const triggerClassName = cn(
 );
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { fontFamily, setFontFamily, themeMode, setThemeMode } = useSettings();
+  const {
+    fontFamily,
+    setFontFamily,
+    themeMode,
+    setThemeMode,
+    shortcuts,
+    updateBinding,
+    toggleShortcutEnabled,
+    resetShortcutsToDefaults,
+  } = useSettings();
   const { locale, setLocale, t } = useLocale();
 
   const themeOptions = [
@@ -130,7 +140,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-w-md" onClose={onClose}>
+      <DialogContent className="max-w-md max-h-[85vh]" onClose={onClose}>
         <DialogHeader>
           <DialogTitle>{t("settings.title")}</DialogTitle>
         </DialogHeader>
@@ -224,6 +234,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+          </div>
+
+          <div>
+            <Text variant="overline" as="h3" className="mb-1">
+              {t("settings.keyboardShortcuts")}
+            </Text>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-3">
+              {t("settings.clickToRebind")}
+            </p>
+            <ShortcutList
+              shortcuts={shortcuts}
+              onUpdateBinding={updateBinding}
+              onToggleEnabled={toggleShortcutEnabled}
+              onResetToDefaults={resetShortcutsToDefaults}
+            />
           </div>
         </DialogBody>
       </DialogContent>
