@@ -138,12 +138,10 @@ async function discoverServer(): Promise<ServerInfo | null> {
     const content = readFileSync(SERVER_INFO_PATH, "utf-8");
     const info: ServerInfo = JSON.parse(content);
 
-    // Verify the process is alive
     if (!isAlive(info.pid)) {
       return null;
     }
 
-    // Verify health endpoint responds
     try {
       const res = await fetch(`http://127.0.0.1:${info.port}/api/health`);
       if (!res.ok) return null;
@@ -252,7 +250,6 @@ function findReviewableFiles(dir: string): FileEntry[] {
   try {
     const entries = readdirSync(dir);
     for (const entry of entries) {
-      // Skip hidden directories and node_modules
       if (entry.startsWith(".") || entry === "node_modules") continue;
 
       const fullPath = join(dir, entry);
@@ -338,9 +335,7 @@ async function markOnboarded(): Promise<void> {
   try {
     const content = readFileSync(SETTINGS_PATH, "utf-8");
     settings = JSON.parse(content);
-  } catch {
-    // No existing settings
-  }
+  } catch {}
   settings.onboarded = true;
   const dir = join(os.homedir(), ".readit");
   await fs.mkdir(dir, { recursive: true });
@@ -462,9 +457,7 @@ program
           `    ${commentCount} comment${commentCount !== 1 ? "s" : ""}`,
         );
         console.log();
-      } catch {
-        // Skip unreadable files
-      }
+      } catch {}
     }
   });
 
@@ -567,9 +560,7 @@ program
         if (!isAlive(info.pid)) {
           previousPort = info.port;
         }
-      } catch {
-        // No previous session — will open browser normally
-      }
+      } catch {}
 
       try {
         const { url, server } = await startServer({
@@ -613,12 +604,10 @@ ${fileList.join("\n")}
           open(url);
         }
 
-        // Mark onboarding complete on first server start
         if (fileArgs.length === 0) {
           await markOnboarded();
         }
 
-        // Graceful shutdown on Ctrl+C
         process.on("SIGINT", async () => {
           console.log("\n\nShutting down...");
           server.stop();
@@ -643,7 +632,6 @@ program
   .option("--host <address>", "Host for new server (if starting)", "127.0.0.1")
   .action(
     async (fileArgs: string[], options: { port: string; host: string }) => {
-      // Resolve and validate files
       const resolvedFiles: { path: string }[] = [];
       for (const arg of fileArgs) {
         const inputPath = resolve(process.cwd(), arg);

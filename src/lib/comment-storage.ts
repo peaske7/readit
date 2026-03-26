@@ -19,13 +19,8 @@ export function truncateSelection(text: string): string {
   return text.slice(0, half) + TRUNCATION_MARKER + text.slice(-half);
 }
 
-/**
- * Compute the path where comments for a source file should be stored.
- * Comments are stored in ~/.readit/comments/{absolute-path-structure}/{filename}.comments.md
- */
 export function getCommentPath(sourcePath: string): string {
   const absolute = path.resolve(sourcePath);
-  // Remove leading slash and drive letter (Windows)
   const normalized = absolute.replace(/^\//, "").replace(/^[A-Z]:[\\/]/, "");
   const ext = path.extname(normalized);
   const withoutExt = normalized.slice(0, -ext.length || undefined);
@@ -115,7 +110,6 @@ function parseCommentBlock(block: string): Comment | undefined {
 
   const [, id, lineHint, createdAt] = metadataMatch;
 
-  // Extract anchor prefix if present: <!-- anchor:{prefix} -->
   const anchorMatch = block.match(/<!--\s*anchor:(.+?)\s*-->/);
   const anchorPrefix = anchorMatch ? anchorMatch[1] : undefined;
 
@@ -141,7 +135,6 @@ function parseCommentBlock(block: string): Comment | undefined {
     createdAt: createdAt.trim(),
     lineHint,
     anchorPrefix,
-    // Offsets will be resolved by anchor matching when loading
     startOffset: 0,
     endOffset: 0,
   };

@@ -30,7 +30,6 @@ export function RawModal({ isOpen, onClose }: RawModalProps) {
   const [state, setState] = useState<ModalState>({ status: "idle" });
   const activeDocumentPath = useAppStore((s) => s.activeDocumentPath);
 
-  // Fetch raw comments when modal opens
   useEffect(() => {
     if (!isOpen) {
       setState({ status: "idle" });

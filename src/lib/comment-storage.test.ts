@@ -13,7 +13,6 @@ import {
   truncateSelection,
 } from "./comment-storage";
 
-// Mock os.homedir for consistent test results
 vi.mock("node:os", async () => {
   const actual = await vi.importActual<typeof os>("node:os");
   return {
@@ -103,7 +102,6 @@ describe("getLineNumber", () => {
   });
 
   it("handles many lines", () => {
-    // "line\n" repeated 100 times, each segment is 5 chars
     const content = Array(100).fill("line").join("\n");
     expect(getLineNumber(content, 0)).toBe(1); // Start of line 1
     expect(getLineNumber(content, 250)).toBe(51); // After 50 newlines = line 51

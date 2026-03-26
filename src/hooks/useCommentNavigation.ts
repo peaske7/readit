@@ -2,12 +2,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Comment } from "../schema";
 import { uiStore } from "../store";
 
+export type SetFocusedFn = (commentId: string | undefined) => void;
+export type ScrollToCommentFn = (commentId: string) => void;
+
 interface UseCommentNavigationResult {
   currentIndex: number;
   setHoveredCommentId: (id: string | undefined) => void;
   navigateToComment: (commentId: string) => void;
   navigatePrevious: () => void;
   navigateNext: () => void;
+  registerHighlighter: (
+    setFocused: SetFocusedFn,
+    scrollToComment: ScrollToCommentFn,
+  ) => void;
 }
 
 export function useCommentNavigation(
@@ -18,15 +25,16 @@ export function useCommentNavigation(
     undefined,
   );
 
-  // Keep a ref to sortedComments so navigation callbacks stay stable
   const sortedRef = useRef(sortedComments);
   sortedRef.current = sortedComments;
+
+  const setFocusedRef = useRef<SetFocusedFn | undefined>(undefined);
+  const scrollToCommentRef = useRef<ScrollToCommentFn | undefined>(undefined);
 
   useEffect(() => {
     return () => clearTimeout(hoverTimeoutRef.current);
   }, []);
 
-  // Clamp index when comments are removed (derived during render, no effect needed)
   const clampedIndex =
     sortedComments.length === 0
       ? 0
@@ -35,44 +43,21 @@ export function useCommentNavigation(
     setCurrentIndex(clampedIndex);
   }
 
-  const updateFocusedMarks = useCallback((commentId: string | undefined) => {
-    const marks = window.document.querySelectorAll("mark[data-comment-id]");
-    for (const mark of marks) {
-      const id = mark.getAttribute("data-comment-id");
-      if (id === commentId) {
-        mark.setAttribute("data-focused", "true");
-      } else {
-        mark.removeAttribute("data-focused");
-      }
-    }
+  const setHoveredCommentId = useCallback((id: string | undefined) => {
+    uiStore.setState({ hoveredCommentId: id });
+    setFocusedRef.current?.(id);
   }, []);
-
-  const setHoveredCommentId = useCallback(
-    (id: string | undefined) => {
-      uiStore.setState({ hoveredCommentId: id });
-      updateFocusedMarks(id);
-    },
-    [updateFocusedMarks],
-  );
 
   const navigateToComment = useCallback(
     (commentId: string) => {
-      const selector = `mark[data-comment-id="${commentId}"]`;
+      scrollToCommentRef.current?.(commentId);
 
-      const scrollAndHighlight = (element: Element) => {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-        setHoveredCommentId(commentId);
-        clearTimeout(hoverTimeoutRef.current);
-        hoverTimeoutRef.current = setTimeout(
-          () => setHoveredCommentId(undefined),
-          1500,
-        );
-      };
-
-      const highlight = document.querySelector(selector);
-      if (highlight) {
-        scrollAndHighlight(highlight);
-      }
+      setHoveredCommentId(commentId);
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = setTimeout(
+        () => setHoveredCommentId(undefined),
+        1500,
+      );
     },
     [setHoveredCommentId],
   );
@@ -97,11 +82,20 @@ export function useCommentNavigation(
     });
   }, [navigateToComment]);
 
+  const registerHighlighter = useCallback(
+    (setFocused: SetFocusedFn, scrollToComment: ScrollToCommentFn) => {
+      setFocusedRef.current = setFocused;
+      scrollToCommentRef.current = scrollToComment;
+    },
+    [],
+  );
+
   return {
     currentIndex: clampedIndex,
     setHoveredCommentId,
     navigateToComment,
     navigatePrevious,
     navigateNext,
+    registerHighlighter,
   };
 }

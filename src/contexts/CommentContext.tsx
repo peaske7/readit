@@ -15,7 +15,6 @@ import type { Comment } from "../schema";
 import { appStore, useAppStore } from "../store";
 import { useLocale } from "./LocaleContext";
 
-// Stable callbacks — never causes re-renders
 interface CommentActionsValue {
   addComment: (
     selectedText: string,
@@ -39,7 +38,10 @@ interface CommentActionsValue {
   startReanchor: (commentId: string) => void;
   cancelReanchor: () => void;
   copyComment: (comment: Comment) => void;
-  scrollToHighlight: (commentId: string) => void;
+  registerHighlighter: (
+    setFocused: (id: string | undefined) => void,
+    scrollToComment: (id: string) => void,
+  ) => void;
 }
 
 const CommentActionsContext = createContext<CommentActionsValue | null>(null);
@@ -52,7 +54,6 @@ export function useCommentActions(): CommentActionsValue {
   return value;
 }
 
-// Volatile — re-renders consumers on change
 interface CommentDataValue {
   comments: Comment[];
   commentCount: number;
@@ -76,8 +77,6 @@ export type CommentContextValue = CommentActionsValue & CommentDataValue;
 export function useCommentContext(): CommentContextValue {
   return { ...useCommentActions(), ...useCommentData() };
 }
-
-export const CommentContext = CommentDataContext;
 
 interface CommentProviderProps {
   filePath: string;
@@ -110,6 +109,7 @@ export function CommentProvider({
     navigateToComment,
     navigatePrevious,
     navigateNext,
+    registerHighlighter,
   } = useCommentNavigation(sortedComments);
 
   const reanchorTarget = useAppStore(
@@ -137,15 +137,6 @@ export function CommentProvider({
     [t],
   );
 
-  const scrollToHighlight = useCallback((commentId: string) => {
-    const mark = window.document.querySelector(
-      `mark[data-comment-id="${commentId}"]`,
-    );
-    if (mark) {
-      mark.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, []);
-
   const actions = useMemo<CommentActionsValue>(
     () => ({
       addComment,
@@ -160,7 +151,7 @@ export function CommentProvider({
       startReanchor,
       cancelReanchor,
       copyComment,
-      scrollToHighlight,
+      registerHighlighter,
     }),
     [
       addComment,
@@ -175,7 +166,7 @@ export function CommentProvider({
       startReanchor,
       cancelReanchor,
       copyComment,
-      scrollToHighlight,
+      registerHighlighter,
     ],
   );
 

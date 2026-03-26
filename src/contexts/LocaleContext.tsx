@@ -27,9 +27,7 @@ function getStoredLocale(): Locale {
     if (stored === Locales.JA || stored === Locales.EN) {
       return stored;
     }
-  } catch {
-    // localStorage may be unavailable
-  }
+  } catch {}
   return detectLocale();
 }
 
@@ -60,9 +58,7 @@ export function LocaleProvider({ children }: LocaleProviderProps) {
     setLocaleState(newLocale);
     try {
       localStorage.setItem(STORAGE_KEY, newLocale);
-    } catch {
-      // localStorage may be unavailable
-    }
+    } catch {}
   }, []);
 
   const t = useMemo(() => createT(locale), [locale]);

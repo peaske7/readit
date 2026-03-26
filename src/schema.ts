@@ -20,16 +20,13 @@ export interface Comment {
   createdAt: string;
   startOffset: number;
   endOffset: number;
-  /** e.g. "L42" or "L42-L55" */
   lineHint?: string;
   anchorConfidence?: AnchorConfidence;
-  /** First N chars of original text for anchor matching when selectedText is truncated */
   anchorPrefix?: string;
 }
 
 export interface CommentFile {
   source: string;
-  /** SHA-256 prefix (16 chars) */
   hash: string;
   version: number;
   comments: Comment[];
@@ -53,7 +50,7 @@ export interface Selection extends SelectionRange {
 }
 
 export interface Document {
-  content: string;
+  html: string;
   filePath: string;
   fileName: string;
   clean: boolean;

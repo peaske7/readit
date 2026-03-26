@@ -52,7 +52,7 @@ export const MarginNote = memo(function MarginNote({
     deleteComment,
     copyComment,
     setHoveredCommentId,
-    scrollToHighlight,
+    navigateToComment,
   } = useCommentActions();
 
   const pos = usePositions();
@@ -139,7 +139,7 @@ export const MarginNote = memo(function MarginNote({
           <div className={cn(fontClass, selectedTextClass(isHovered))}>
             <button
               type="button"
-              onClick={() => scrollToHighlight(comment.id)}
+              onClick={() => navigateToComment(comment.id)}
               className="cursor-pointer hover:underline text-left"
             >
               "{comment.selectedText}"

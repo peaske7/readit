@@ -28,9 +28,7 @@ function getStoredTheme(): ThemeMode {
     ) {
       return stored;
     }
-  } catch {
-    // localStorage may be unavailable
-  }
+  } catch {}
   return ThemeModes.SYSTEM;
 }
 
@@ -119,9 +117,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setThemeModeState(mode);
     try {
       localStorage.setItem(THEME_STORAGE_KEY, mode);
-    } catch {
-      // localStorage may be unavailable
-    }
+    } catch {}
   }, []);
 
   const value = useMemo<SettingsContextValue>(

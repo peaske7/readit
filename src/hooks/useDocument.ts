@@ -23,7 +23,7 @@ export function useDocument(): UseDocumentResult {
 
   const document = useAppStore((s) => {
     const ds = s.getActiveDocumentState();
-    if (!ds?.document.content) return null;
+    if (!ds?.document.html) return null;
     return ds.document;
   });
 
@@ -41,7 +41,7 @@ export function useDocument(): UseDocumentResult {
         data.files.forEach((file: DocListItem, index: number) => {
           appStore.getState().openDocument(
             {
-              content: "",
+              html: "",
               filePath: file.path,
               fileName: file.fileName,
               clean,
@@ -63,14 +63,12 @@ export function useDocument(): UseDocumentResult {
   useEffect(() => {
     if (!activeDocumentPath) return;
     const state = appStore.getState().documents.get(activeDocumentPath);
-    if (!state || state.document.content) return;
+    if (!state || state.document.html) return;
 
     const path = activeDocumentPath;
     const query = `?path=${encodeURIComponent(path)}`;
     const isClean = state.document.clean;
 
-    // Fetch document content and comments in parallel so highlights
-    // can apply immediately when CommentProvider mounts.
     const docFetch = fetch(`/api/document${query}`).then((r) => {
       if (!r.ok) throw new Error(`Server error: ${r.status}`);
       return r.json();
@@ -86,10 +84,9 @@ export function useDocument(): UseDocumentResult {
 
     Promise.all([docFetch, commentsFetch]).then(
       ([docData, comments]) => {
-        // Set comments BEFORE content: content triggers CommentProvider mount,
-        // so comments must already be in the store to avoid a wasted empty render.
         appStore.getState().setComments(comments, path);
-        appStore.getState().updateDocumentContent(docData.content, path);
+        appStore.getState().setHeadings(docData.headings ?? [], path);
+        appStore.getState().updateDocumentHtml(docData.html, path);
       },
       (err) => {
         setError(
@@ -99,7 +96,6 @@ export function useDocument(): UseDocumentResult {
     );
   }, [activeDocumentPath]);
 
-  // SSE: register new documents without stealing focus; reload already-loaded docs on updates
   useEffect(() => {
     const eventSource = new EventSource("/api/document/stream");
     eventSource.onmessage = async (e) => {
@@ -108,7 +104,7 @@ export function useDocument(): UseDocumentResult {
         if (data.type === "document-added" && data.path) {
           appStore.getState().openDocument(
             {
-              content: "",
+              html: "",
               filePath: data.path,
               fileName: data.fileName,
               clean: false,
@@ -119,19 +115,18 @@ export function useDocument(): UseDocumentResult {
         }
         if (data.type === "document-updated" && data.path) {
           const state = appStore.getState().documents.get(data.path);
-          if (!state?.document.content) return;
+          if (!state?.document.html) return;
 
           const res = await fetch(
             `/api/document?path=${encodeURIComponent(data.path)}`,
           );
           if (res.ok) {
             const doc = await res.json();
-            appStore.getState().updateDocumentContent(doc.content, data.path);
+            appStore.getState().setHeadings(doc.headings ?? [], data.path);
+            appStore.getState().updateDocumentHtml(doc.html, data.path);
           }
         }
-      } catch {
-        // Ignore non-JSON messages ("connected", "ping")
-      }
+      } catch {}
     };
     return () => eventSource.close();
   }, []);
@@ -144,9 +139,8 @@ export function useDocument(): UseDocumentResult {
       );
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
-      appStore
-        .getState()
-        .updateDocumentContent(data.content, activeDocumentPath);
+      appStore.getState().setHeadings(data.headings ?? [], activeDocumentPath);
+      appStore.getState().updateDocumentHtml(data.html, activeDocumentPath);
       toast.success("Document reloaded");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to reload");

@@ -6,6 +6,7 @@ export interface LoadMetrics {
   fcp: number | null;
   domContentLoaded: number;
   allHighlightsPainted: number;
+  pageReady: number;
   highlightCount: number;
 }
 
@@ -45,11 +46,10 @@ export async function waitForHighlightCount(
         let lastChangeTime = performance.now();
 
         const check = () => {
-          const marks = document.querySelectorAll("mark[data-comment-id]");
-          const uniqueIds = new Set(
-            [...marks].map((m) => m.getAttribute("data-comment-id")),
-          );
-          const count = uniqueIds.size;
+          // Use the CSS Custom Highlight API observability hook
+          const highlights = (window as unknown as Record<string, unknown>)
+            .__readitHighlights as { commentIds: string[] } | undefined;
+          const count = highlights?.commentIds?.length ?? 0;
 
           // Exact target reached
           if (count >= expected) {
@@ -88,6 +88,48 @@ export async function waitForHighlightCount(
   );
 }
 
+// ─── Wait for positions ─────────────────────────────────────────────
+
+/**
+ * Waits until Positions.cache() has run AFTER highlights were painted.
+ * The `afterTimestamp` ensures we don't capture the initial empty cache()
+ * that runs before highlights exist.
+ */
+async function waitForPositionsReady(
+  page: Page,
+  afterTimestamp: number,
+  timeoutMs = 60_000,
+): Promise<number> {
+  return page.evaluate(
+    ({ after, timeout }) => {
+      return new Promise<number>((resolve, reject) => {
+        const deadline = performance.now() + timeout;
+
+        const check = () => {
+          const ts = (window as unknown as Record<string, unknown>)
+            .__readitPositionsReady as number | undefined;
+
+          // Only resolve if positions were computed AFTER highlights painted
+          if (ts !== undefined && ts > after) {
+            resolve(ts);
+            return;
+          }
+
+          if (performance.now() > deadline) {
+            reject(new Error("Timed out waiting for positions to be ready"));
+            return;
+          }
+
+          requestAnimationFrame(check);
+        };
+
+        requestAnimationFrame(check);
+      });
+    },
+    { after: afterTimestamp, timeout: timeoutMs },
+  );
+}
+
 // ─── Collect load metrics ────────────────────────────────────────────
 
 /**
@@ -105,16 +147,23 @@ export async function collectLoadMetrics(
     expectedComments,
   );
 
+  // Wait for positions to be computed AFTER highlights
+  // (captures the forced reflow cost from getBoundingClientRect)
+  const pageReadyTimestamp = await waitForPositionsReady(
+    page,
+    highlightTimestamp,
+  );
+
   const navMetrics = await page.evaluate(() => {
     const nav = performance.getEntriesByType(
       "navigation",
     )[0] as PerformanceNavigationTiming;
     const paintEntries = performance.getEntriesByType("paint");
     const fcp = paintEntries.find((e) => e.name === "first-contentful-paint");
-    const marks = document.querySelectorAll("mark[data-comment-id]");
-    const actualCount = new Set(
-      [...marks].map((m) => m.getAttribute("data-comment-id")),
-    ).size;
+    // Use CSS Custom Highlight API observability hook
+    const highlights = (window as unknown as Record<string, unknown>)
+      .__readitHighlights as { commentIds: string[] } | undefined;
+    const actualCount = highlights?.commentIds?.length ?? 0;
 
     return {
       fcp: fcp ? fcp.startTime : null,
@@ -127,6 +176,7 @@ export async function collectLoadMetrics(
     fcp: navMetrics.fcp,
     domContentLoaded: navMetrics.domContentLoaded,
     allHighlightsPainted: highlightTimestamp,
+    pageReady: pageReadyTimestamp,
     highlightCount: navMetrics.actualCount,
   };
 }
@@ -240,6 +290,7 @@ export function reportLoadMetrics(
     `  FCP:                    ${metrics.fcp !== null ? `${Math.round(metrics.fcp)}ms` : "N/A"}`,
     `  DOM Content Loaded:     ${Math.round(metrics.domContentLoaded)}ms`,
     `  All highlights painted: ${Math.round(metrics.allHighlightsPainted)}ms`,
+    `  Page ready (+ layout):  ${Math.round(metrics.pageReady)}ms`,
     `  Highlights found:       ${metrics.highlightCount}`,
   ];
   console.log(lines.join("\n"));

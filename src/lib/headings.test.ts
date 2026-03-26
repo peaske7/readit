@@ -1,16 +1,13 @@
-import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { useHeadings } from "./useHeadings";
+import { parseMarkdownHeadings } from "./headings";
 
-describe("useHeadings", () => {
+describe("parseMarkdownHeadings", () => {
   it("extracts basic headings", () => {
     const content = `# Heading 1
 ## Heading 2
 ### Heading 3`;
 
-    const { result } = renderHook(() => useHeadings(content));
-
-    expect(result.current).toEqual([
+    expect(parseMarkdownHeadings(content)).toEqual([
       { id: "heading-1", text: "Heading 1", level: 1 },
       { id: "heading-2", text: "Heading 2", level: 2 },
       { id: "heading-3", text: "Heading 3", level: 3 },
@@ -22,9 +19,7 @@ describe("useHeadings", () => {
 ## Section
 ## Section`;
 
-    const { result } = renderHook(() => useHeadings(content));
-
-    expect(result.current).toEqual([
+    expect(parseMarkdownHeadings(content)).toEqual([
       { id: "section", text: "Section", level: 2 },
       { id: "section-1", text: "Section", level: 2 },
       { id: "section-2", text: "Section", level: 2 },
@@ -41,9 +36,7 @@ echo "hello"
 
 ## Another Real Heading`;
 
-    const { result } = renderHook(() => useHeadings(content));
-
-    expect(result.current).toEqual([
+    expect(parseMarkdownHeadings(content)).toEqual([
       { id: "real-heading", text: "Real Heading", level: 1 },
       { id: "another-real-heading", text: "Another Real Heading", level: 2 },
     ]);
@@ -60,9 +53,7 @@ def foo():
 
 ## Another Real Heading`;
 
-    const { result } = renderHook(() => useHeadings(content));
-
-    expect(result.current).toEqual([
+    expect(parseMarkdownHeadings(content)).toEqual([
       { id: "real-heading", text: "Real Heading", level: 1 },
       { id: "another-real-heading", text: "Another Real Heading", level: 2 },
     ]);
@@ -83,9 +74,7 @@ def foo():
 
 ## Results`;
 
-    const { result } = renderHook(() => useHeadings(content));
-
-    expect(result.current).toEqual([
+    expect(parseMarkdownHeadings(content)).toEqual([
       { id: "introduction", text: "Introduction", level: 1 },
       { id: "methods", text: "Methods", level: 2 },
       { id: "results", text: "Results", level: 2 },
@@ -102,16 +91,13 @@ npx readit document.md --port 3000
 
 ## Usage`;
 
-    const { result } = renderHook(() => useHeadings(content));
-
-    expect(result.current).toEqual([
+    expect(parseMarkdownHeadings(content)).toEqual([
       { id: "setup", text: "Setup", level: 1 },
       { id: "usage", text: "Usage", level: 2 },
     ]);
   });
 
-  it("returns empty array for null content", () => {
-    const { result } = renderHook(() => useHeadings(null));
-    expect(result.current).toEqual([]);
+  it("returns empty array for empty content", () => {
+    expect(parseMarkdownHeadings("")).toEqual([]);
   });
 });

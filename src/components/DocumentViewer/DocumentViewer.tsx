@@ -1,94 +1,19 @@
-import {
-  type ComponentPropsWithoutRef,
-  type MutableRefObject,
-  memo,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
-import Markdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
-import remarkGfm from "remark-gfm";
+import { useEffect, useRef } from "react";
+import { useCommentActions } from "../../contexts/CommentContext";
 import { usePositions } from "../../contexts/PositionsContext";
 import { useSettings } from "../../contexts/SettingsContext";
-import type { Heading } from "../../hooks/useHeadings";
+import { useMermaidHydration } from "../../hooks/useMermaidHydration";
 import {
   createHighlighter,
   type Highlighter,
 } from "../../lib/highlight/highlighter";
 import type { HighlightComment } from "../../lib/highlight/types";
-import { cn, getTextContent } from "../../lib/utils";
+import { cn } from "../../lib/utils";
 import { AnchorConfidences, type Comment, FontFamilies } from "../../schema";
-import { CodeBlock } from "./CodeBlock";
-
-const REMARK_PLUGINS = [remarkGfm];
-const REHYPE_PLUGINS = [rehypeRaw];
-
-/** Memoized Markdown renderer — skips reconciliation when only comments change. */
-const MemoizedMarkdown = memo(function MemoizedMarkdown({
-  content,
-  components,
-}: {
-  content: string;
-  components: ComponentPropsWithoutRef<typeof Markdown>["components"];
-}) {
-  return (
-    <Markdown
-      components={components}
-      remarkPlugins={REMARK_PLUGINS}
-      rehypePlugins={REHYPE_PLUGINS}
-    >
-      {content}
-    </Markdown>
-  );
-});
-
-function createHeadingComponent(
-  level: 1 | 2 | 3 | 4 | 5 | 6,
-  headings: Heading[],
-  headingIndexRef: MutableRefObject<number>,
-) {
-  const Tag = `h${level}` as const;
-
-  return function HeadingComponent({
-    children,
-    ...props
-  }: ComponentPropsWithoutRef<typeof Tag>) {
-    const text = getTextContent(children);
-
-    // Find the next heading in the pre-computed list that matches this level and text
-    // This handles React Strict Mode double-renders by always looking forward from current index
-    let id = "";
-    for (let i = headingIndexRef.current; i < headings.length; i++) {
-      const heading = headings[i];
-      if (heading.level === level && heading.text === text) {
-        id = heading.id;
-        headingIndexRef.current = i + 1;
-        break;
-      }
-    }
-
-    if (!id) {
-      for (const heading of headings) {
-        if (heading.level === level && heading.text === text) {
-          id = heading.id;
-          break;
-        }
-      }
-    }
-
-    return (
-      <Tag id={id} {...props}>
-        {children}
-      </Tag>
-    );
-  };
-}
 
 interface DocumentViewerProps {
   content: string;
   comments: Comment[];
-  headings: Heading[];
   isActive: boolean;
   onTextSelect: (
     text: string,
@@ -103,27 +28,19 @@ interface DocumentViewerProps {
 export function DocumentViewer({
   content,
   comments,
-  headings,
   isActive,
   onTextSelect,
   onHighlightHover,
   onHighlightClick,
 }: DocumentViewerProps) {
   const { fontFamily } = useSettings();
+  const { registerHighlighter } = useCommentActions();
   const pos = usePositions();
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<Highlighter | null>(null);
-  const headingIndexRef = useRef(0);
 
-  // Attach/detach pos to DOM elements — only when tab is visible
-  // (getBoundingClientRect returns zero rects on display:none elements)
-  useEffect(() => {
-    if (!isActive || !contentRef.current || !containerRef.current) return;
-    pos.attach(contentRef.current, containerRef.current);
-    pos.cache();
-    return () => pos.detach();
-  }, [pos, isActive]);
+  useMermaidHydration(contentRef, content);
 
   useEffect(() => {
     if (!contentRef.current || !containerRef.current) return;
@@ -135,6 +52,8 @@ export function DocumentViewer({
     });
 
     adapterRef.current = adapter;
+
+    registerHighlighter(adapter.setFocused, adapter.scrollToComment);
 
     const unsubHover = onHighlightHover
       ? adapter.onHighlightHover(onHighlightHover)
@@ -150,11 +69,19 @@ export function DocumentViewer({
       adapter.dispose();
       adapterRef.current = null;
     };
-  }, [onTextSelect, onHighlightHover, onHighlightClick]);
+  }, [onTextSelect, onHighlightHover, onHighlightClick, registerHighlighter]);
 
-  // Apply highlights after React commit completes (single rAF).
-  // Skip when comments is empty to avoid wasted DOM walk.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: must reapply highlights when content or components change
+  useEffect(() => {
+    if (!isActive || !contentRef.current || !containerRef.current) return;
+    const adapter = adapterRef.current;
+    if (!adapter) return;
+
+    pos.attach(contentRef.current, containerRef.current, adapter);
+    pos.cache();
+    return () => pos.detach();
+  }, [pos, isActive]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: must reapply highlights when content changes
   useEffect(() => {
     if (!isActive) return;
     if (comments.length === 0) return;
@@ -189,31 +116,6 @@ export function DocumentViewer({
       window.removeEventListener("test:select-text", handleTestSelect);
   }, [onTextSelect]);
 
-  // Memoized to prevent DOM node replacement (breaks highlight persistence)
-  const markdownComponents = useMemo(
-    () => ({
-      h1: createHeadingComponent(1, headings, headingIndexRef),
-      h2: createHeadingComponent(2, headings, headingIndexRef),
-      h3: createHeadingComponent(3, headings, headingIndexRef),
-      h4: createHeadingComponent(4, headings, headingIndexRef),
-      h5: createHeadingComponent(5, headings, headingIndexRef),
-      h6: createHeadingComponent(6, headings, headingIndexRef),
-      code: ({
-        children,
-        className,
-        ...props
-      }: ComponentPropsWithoutRef<"code">) => {
-        if (className || String(children).includes("\n")) {
-          return <CodeBlock className={className}>{children}</CodeBlock>;
-        }
-        return <code {...props}>{children}</code>;
-      },
-    }),
-    [headings],
-  );
-
-  headingIndexRef.current = 0;
-
   return (
     <div ref={containerRef} className="flex-1 min-w-0">
       <article
@@ -222,9 +124,9 @@ export function DocumentViewer({
           "prose",
           fontFamily === FontFamilies.SANS_SERIF ? "prose-sans" : "prose-serif",
         )}
-      >
-        <MemoizedMarkdown content={content} components={markdownComponents} />
-      </article>
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted local content from user's own files
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
     </div>
   );
 }

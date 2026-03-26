@@ -1,8 +1,6 @@
 import type { Comment, CommentFile } from "../../schema";
 import { serializeComments } from "../comment-storage";
 
-// --- Document fixtures ---
-
 function generateMarkdownDoc(lineCount: number): string {
   const lines: string[] = [];
   lines.push("# Performance Test Document");
@@ -21,13 +19,11 @@ function generateMarkdownDoc(lineCount: number): string {
     );
     lines.push("");
 
-    // Add a list
     for (let j = 1; j <= 3; j++) {
       lines.push(`- Item ${j} in section ${sectionNum}`);
     }
     lines.push("");
 
-    // Add a code block
     lines.push("```typescript");
     lines.push(`function section${sectionNum}() {`);
     lines.push(`  const value = ${sectionNum} * 42;`);
@@ -36,13 +32,11 @@ function generateMarkdownDoc(lineCount: number): string {
     lines.push("```");
     lines.push("");
 
-    // Add a paragraph
     lines.push(
       `The conclusion of section ${sectionNum} summarizes the key findings and provides actionable recommendations for the reader to follow.`,
     );
     lines.push("");
 
-    // Add a table every few sections
     if (sectionNum % 3 === 0) {
       lines.push("| Column A | Column B | Column C |");
       lines.push("|----------|----------|----------|");
@@ -65,11 +59,8 @@ export const SMALL_DOC = generateMarkdownDoc(30);
 export const MEDIUM_DOC = generateMarkdownDoc(150);
 export const LARGE_DOC = generateMarkdownDoc(300);
 
-// --- Comment fixtures ---
-
 function makeComment(index: number, doc: string): Comment {
   const lines = doc.split("\n");
-  // Distribute comments across the document
   const targetLine = Math.min(
     Math.floor((index + 1) * (lines.length / 55)),
     lines.length - 1,
@@ -81,7 +72,6 @@ function makeComment(index: number, doc: string): Comment {
       ? lineText.slice(0, Math.min(30, lineText.length))
       : lineText || "default text";
 
-  // Calculate actual character offset
   let startOffset = 0;
   for (let i = 0; i < targetLine; i++) {
     startOffset += lines[i].length + 1; // +1 for \n
@@ -106,8 +96,6 @@ export function makeComments(count: number): Comment[] {
 export const COMMENTS_1 = makeComments(1);
 export const COMMENTS_10 = makeComments(10);
 export const COMMENTS_50 = makeComments(50);
-
-// --- Serialized comment file fixtures ---
 
 function makeCommentFile(comments: Comment[]): CommentFile {
   return {

@@ -1,14 +1,15 @@
 import { createStore, useStore } from "zustand";
+import type { Heading } from "./lib/headings";
 import type { Comment, Document, Selection } from "./schema";
 
 export interface DocumentState {
   document: Document;
+  headings: Heading[];
   comments: Comment[];
   commentsError: string | null;
   sortedComments: Comment[];
   selection: Selection | null;
   pendingSelectionTop: number | undefined;
-  pendingCommentText: string;
   scrollY: number;
   reanchorTarget: { commentId: string } | null;
 }
@@ -23,8 +24,6 @@ export interface AppStore {
   openDocument: (doc: Document, opts?: { active?: boolean }) => void;
   closeDocument: (filePath: string) => void;
   setActiveDocument: (filePath: string) => void;
-
-  // Setters default to active doc when filePath omitted
   setComments: (comments: Comment[], filePath?: string) => void;
   setCommentsError: (error: string | null, filePath?: string) => void;
   setSelection: (selection: Selection | null, filePath?: string) => void;
@@ -34,8 +33,8 @@ export interface AppStore {
     target: { commentId: string } | null,
     filePath?: string,
   ) => void;
-  setPendingCommentText: (text: string, filePath?: string) => void;
-  updateDocumentContent: (content: string, filePath?: string) => void;
+  updateDocumentHtml: (html: string, filePath?: string) => void;
+  setHeadings: (headings: Heading[], filePath?: string) => void;
 
   getActiveDocumentState: () => DocumentState | undefined;
 }
@@ -43,12 +42,12 @@ export interface AppStore {
 function createInitialDocumentState(doc: Document): DocumentState {
   return {
     document: doc,
+    headings: [],
     comments: [],
     commentsError: null,
     sortedComments: [],
     selection: null,
     pendingSelectionTop: undefined,
-    pendingCommentText: "",
     scrollY: 0,
     reanchorTarget: null,
   };
@@ -180,18 +179,18 @@ export function createAppStore() {
         updateDocState(path, () => ({ reanchorTarget: target }));
       },
 
-      setPendingCommentText: (text, filePath?) => {
-        const path = resolveFilePath(filePath);
-        if (!path) return;
-        updateDocState(path, () => ({ pendingCommentText: text }));
-      },
-
-      updateDocumentContent: (content, filePath?) => {
+      updateDocumentHtml: (html, filePath?) => {
         const path = resolveFilePath(filePath);
         if (!path) return;
         updateDocState(path, (s) => ({
-          document: { ...s.document, content },
+          document: { ...s.document, html },
         }));
+      },
+
+      setHeadings: (headings, filePath?) => {
+        const path = resolveFilePath(filePath);
+        if (!path) return;
+        updateDocState(path, () => ({ headings }));
       },
 
       getActiveDocumentState: () => {

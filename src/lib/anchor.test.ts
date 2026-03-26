@@ -64,12 +64,10 @@ describe("levenshteinDistance", () => {
   });
 
   it("returns Infinity when exceeding maxDistance threshold", () => {
-    // Length difference alone exceeds threshold
     expect(levenshteinDistance("hello", "hi", 1)).toBe(
       Number.POSITIVE_INFINITY,
     );
 
-    // Content difference exceeds threshold during computation
     expect(levenshteinDistance("hello", "world", 2)).toBe(
       Number.POSITIVE_INFINITY,
     );
@@ -252,7 +250,6 @@ line eight`;
 
 describe("findAnchorNormalized", () => {
   it("finds text with collapsed whitespace", () => {
-    // Original had "hello world" but source was reformatted
     const source = "hello\n  world";
     const result = findAnchorNormalized({
       source,
@@ -275,7 +272,6 @@ describe("findAnchorNormalized", () => {
   });
 
   it("returns null when text has no collapsible whitespace", () => {
-    // If original text has no extra whitespace, exact match would have worked
     const result = findAnchorNormalized({
       source: "hello world",
       selectedText: "hello world",
@@ -411,7 +407,6 @@ describe("findAnchorWithFallback", () => {
   });
 
   it("falls back to normalized match when exact fails", () => {
-    // Source was reformatted (newlines instead of spaces)
     const result = findAnchorWithFallback({
       source: "hello\nworld",
       selectedText: "hello  world",
@@ -444,7 +439,6 @@ describe("findAnchorWithFallback", () => {
 describe("findClosestOccurrence", () => {
   it("finds the occurrence closest to hint", () => {
     const content = "the cat sat on the mat and the rat";
-    // "the" appears at positions 0, 15, and 27
 
     const result = findClosestOccurrence({
       source: content,
@@ -452,7 +446,6 @@ describe("findClosestOccurrence", () => {
       lineHint: "L1",
     });
     expect(result).not.toBeUndefined();
-    // Should find the first "the" at position 0 since hint is L1
     expect(result?.start).toBe(0);
   });
 
@@ -463,7 +456,6 @@ line three the
 line four
 line five the`;
 
-    // Test finding closest to line 3
     const result = findClosestOccurrence({
       source: content,
       selectedText: "the",
