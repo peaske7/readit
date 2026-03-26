@@ -58,45 +58,41 @@ export function CommentManager({ onClose }: CommentManagerProps) {
           </div>
         </div>
       ) : (
-        <Text variant="caption" asChild>
-          <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-100">
-            <span>
-              {resolvedCount}
-              {unresolvedCount > 0 && (
-                <span>
-                  {" "}
-                  · {unresolvedCount} {t("commentManager.unresolved")}
-                </span>
-              )}
-            </span>
-            <span className="flex items-center gap-1">
-              <button
-                type="button"
-                className="p-1 rounded hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
-                onClick={copyAllForLLM}
-                title={t("commentManager.copyAllTitle")}
-              >
-                <Copy size={13} />
-              </button>
-              <button
-                type="button"
-                className="p-1 rounded hover:bg-zinc-100 text-zinc-400 hover:text-red-500 transition-colors"
-                onClick={() => setConfirmingDelete(true)}
-                title={t("commentManager.deleteAllTitle")}
-              >
-                <Trash2 size={13} />
-              </button>
-            </span>
-          </div>
+        <Text variant="caption" as="div" className="flex items-center justify-between px-3 py-2 border-b border-zinc-100">
+          <span>
+            {resolvedCount}
+            {unresolvedCount > 0 && (
+              <span>
+                {" "}
+                · {unresolvedCount} {t("commentManager.unresolved")}
+              </span>
+            )}
+          </span>
+          <span className="flex items-center gap-1">
+            <button
+              type="button"
+              className="p-1 rounded hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
+              onClick={copyAllForLLM}
+              title={t("commentManager.copyAllTitle")}
+            >
+              <Copy size={13} />
+            </button>
+            <button
+              type="button"
+              className="p-1 rounded hover:bg-zinc-100 text-zinc-400 hover:text-red-500 transition-colors"
+              onClick={() => setConfirmingDelete(true)}
+              title={t("commentManager.deleteAllTitle")}
+            >
+              <Trash2 size={13} />
+            </button>
+          </span>
         </Text>
       )}
 
       <div className="overflow-y-auto max-h-80">
         {sortedComments.length === 0 ? (
-          <Text variant="caption" asChild>
-            <div className="px-3 py-4 text-center">
-              {t("commentManager.noComments")}
-            </div>
+          <Text variant="caption" as="div" className="px-3 py-4 text-center">
+            {t("commentManager.noComments")}
           </Text>
         ) : (
           sortedComments.map((comment) => (

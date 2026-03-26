@@ -132,8 +132,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
         <DialogBody className="space-y-4">
           <div>
-            <Text variant="overline" asChild>
-              <h3 className="mb-3">{t("settings.theme")}</h3>
+            <Text variant="overline" as="h3" className="mb-3">
+              {t("settings.theme")}
             </Text>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -164,8 +164,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </div>
 
           <div>
-            <Text variant="overline" asChild>
-              <h3 className="mb-3">{t("settings.font")}</h3>
+            <Text variant="overline" as="h3" className="mb-3">
+              {t("settings.font")}
             </Text>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -194,8 +194,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </div>
 
           <div>
-            <Text variant="overline" asChild>
-              <h3 className="mb-3">{t("settings.language")}</h3>
+            <Text variant="overline" as="h3" className="mb-3">
+              {t("settings.language")}
             </Text>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

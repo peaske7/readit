@@ -42,12 +42,12 @@ export function CommentListItem({ comment, onAction }: CommentListItemProps) {
       )}
     >
       <div className="flex items-center gap-1.5 mb-1">
-        <Text variant="caption" asChild>
-          <span className="italic line-clamp-1">"{comment.selectedText}"</span>
+        <Text variant="caption" as="span" className="italic line-clamp-1">
+          "{comment.selectedText}"
         </Text>
         {isUnresolved && (
-          <Text variant="caption" asChild>
-            <span className="shrink-0">· {t("commentList.unresolved")}</span>
+          <Text variant="caption" as="span" className="shrink-0">
+            · {t("commentList.unresolved")}
           </Text>
         )}
       </div>
@@ -63,8 +63,8 @@ export function CommentListItem({ comment, onAction }: CommentListItemProps) {
         />
       ) : (
         <>
-          <Text variant="body" asChild>
-            <p className="line-clamp-2">{comment.comment}</p>
+          <Text variant="body" className="line-clamp-2">
+            {comment.comment}
           </Text>
 
           <ActionBar className="gap-3 mt-1.5">

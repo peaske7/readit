@@ -129,10 +129,8 @@ export function RawModal({ isOpen, onClose }: RawModalProps) {
           )}
 
           {state.status === "success" && (
-            <Text variant="body" asChild>
-              <pre className="text-xs font-mono whitespace-pre-wrap break-words leading-relaxed">
-                {state.content}
-              </pre>
+            <Text variant="body" as="pre" className="text-xs font-mono whitespace-pre-wrap break-words leading-relaxed">
+              {state.content}
             </Text>
           )}
         </DialogBody>

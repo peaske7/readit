@@ -74,20 +74,20 @@ export function CommentNav() {
           <ChevronLeft className="w-4 h-4" />
         </Button>
 
-        <Text variant="body" asChild>
-          <span
-            className={cn(
-              "px-3 tabular-nums select-none min-w-[4rem] text-center",
-              "transition-transform duration-200 ease-out",
-              animating === "prev" && "-translate-x-0.5",
-              animating === "next" && "translate-x-0.5",
-            )}
-          >
-            {t("commentNav.of", {
-              current: currentIndex + 1,
-              total: totalComments,
-            })}
-          </span>
+        <Text
+          variant="body"
+          as="span"
+          className={cn(
+            "px-3 tabular-nums select-none min-w-[4rem] text-center",
+            "transition-transform duration-200 ease-out",
+            animating === "prev" && "-translate-x-0.5",
+            animating === "next" && "translate-x-0.5",
+          )}
+        >
+          {t("commentNav.of", {
+            current: currentIndex + 1,
+            total: totalComments,
+          })}
         </Text>
 
         <Button

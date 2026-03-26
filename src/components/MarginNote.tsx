@@ -1,4 +1,3 @@
-import { cva } from "class-variance-authority";
 import { memo, useCallback, useState } from "react";
 import { useCommentActions } from "../contexts/CommentContext";
 import { useSettings } from "../contexts/SettingsContext";
@@ -17,44 +16,32 @@ interface MarginNoteProps {
   commentIndex?: number;
 }
 
-const selectedTextVariants = cva(
-  "text-sm italic mb-1 line-clamp-1 flex items-center gap-1 transition-colors duration-150",
-  {
-    variants: {
-      hovered: {
-        true: "text-zinc-600 dark:text-zinc-400",
-        false: "text-zinc-400 dark:text-zinc-500",
-      },
-    },
-    defaultVariants: { hovered: false },
-  },
-);
+function selectedTextClass(hovered: boolean) {
+  return cn(
+    "text-sm italic mb-1 line-clamp-1 flex items-center gap-1 transition-colors duration-150",
+    hovered
+      ? "text-zinc-600 dark:text-zinc-400"
+      : "text-zinc-400 dark:text-zinc-500",
+  );
+}
 
-const commentTextVariants = cva(
-  "text-sm whitespace-pre-wrap transition-colors duration-150",
-  {
-    variants: {
-      hovered: {
-        true: "text-zinc-800 dark:text-zinc-200",
-        false: "text-zinc-500 dark:text-zinc-400",
-      },
-    },
-    defaultVariants: { hovered: false },
-  },
-);
+function commentTextClass(hovered: boolean) {
+  return cn(
+    "text-sm whitespace-pre-wrap transition-colors duration-150",
+    hovered
+      ? "text-zinc-800 dark:text-zinc-200"
+      : "text-zinc-500 dark:text-zinc-400",
+  );
+}
 
-const badgeVariants = cva(
-  "absolute -left-4 top-2 text-xs tabular-nums transition-colors duration-150",
-  {
-    variants: {
-      hovered: {
-        true: "text-zinc-600 dark:text-zinc-400",
-        false: "text-zinc-400 dark:text-zinc-500",
-      },
-    },
-    defaultVariants: { hovered: false },
-  },
-);
+function badgeClass(hovered: boolean) {
+  return cn(
+    "absolute -left-4 top-2 text-xs tabular-nums transition-colors duration-150",
+    hovered
+      ? "text-zinc-600 dark:text-zinc-400"
+      : "text-zinc-400 dark:text-zinc-500",
+  );
+}
 
 export const MarginNote = memo(function MarginNote({
   comment,
@@ -109,7 +96,7 @@ export const MarginNote = memo(function MarginNote({
         onMouseEnter={() => setHoveredCommentId(comment.id)}
         onMouseLeave={() => setHoveredCommentId(undefined)}
       >
-        <span className={badgeVariants({ hovered: isHovered })}>—</span>
+        <span className={badgeClass(isHovered)}>—</span>
 
         <div className="pt-2 pb-2 pl-3">
           <ActionBar
@@ -141,7 +128,7 @@ export const MarginNote = memo(function MarginNote({
       onMouseEnter={() => setHoveredCommentId(comment.id)}
       onMouseLeave={() => setHoveredCommentId(undefined)}
     >
-      <span className={badgeVariants({ hovered: isHovered })}>
+      <span className={badgeClass(isHovered)}>
         {commentIndex + 1}
       </span>
 
@@ -155,7 +142,7 @@ export const MarginNote = memo(function MarginNote({
           <div
             className={cn(
               fontClass,
-              selectedTextVariants({ hovered: isHovered }),
+              selectedTextClass(isHovered),
             )}
           >
             <button
@@ -182,7 +169,7 @@ export const MarginNote = memo(function MarginNote({
             <p
               className={cn(
                 fontClass,
-                commentTextVariants({ hovered: isHovered }),
+                commentTextClass(isHovered),
               )}
             >
               {comment.comment}

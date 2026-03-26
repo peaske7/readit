@@ -64,8 +64,8 @@ export function CommentInput({
       data-comment-input
       className="border-t border-zinc-200 dark:border-zinc-700 pt-3 pb-2"
     >
-      <Text variant="caption" asChild>
-        <div className="italic mb-2 line-clamp-2">"{selectedText}"</div>
+      <Text variant="caption" as="div" className="italic mb-2 line-clamp-2">
+        "{selectedText}"
       </Text>
       <textarea
         ref={textareaRef}
