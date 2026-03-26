@@ -8,7 +8,7 @@ import {
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
-import { useLayoutContext } from "../../contexts/LayoutContext";
+import { useSettings } from "../../contexts/SettingsContext";
 import { usePositionEngine } from "../../contexts/PositionEngineContext";
 import type { Heading } from "../../hooks/useHeadings";
 import {
@@ -17,7 +17,6 @@ import {
   type Highlighter,
 } from "../../lib/highlight";
 import { cn, getTextContent } from "../../lib/utils";
-import { useAppStore } from "../../store";
 import {
   AnchorConfidences,
   type Comment,
@@ -97,8 +96,7 @@ export function DocumentViewer({
   onHighlightHover,
   onHighlightClick,
 }: DocumentViewerProps) {
-  const { isFullscreen, fontFamily, editorScheme } = useLayoutContext();
-  const workingDirectory = useAppStore((s) => s.workingDirectory);
+  const { fontFamily } = useSettings();
   const engine = usePositionEngine();
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -166,8 +164,7 @@ export function DocumentViewer({
           }));
 
         adapter.applyHighlights(highlightComments);
-        // Notify engine to cache positions after highlights are in the DOM
-        requestAnimationFrame(() => engine.cachePositions());
+        // Engine auto-detects mark changes via MutationObserver
       });
     });
 
@@ -175,9 +172,7 @@ export function DocumentViewer({
       cancelAnimationFrame(outerFrameId);
       cancelAnimationFrame(innerFrameId);
     };
-    // editorScheme/workingDirectory: when these change, markdownComponents memo recomputes,
-    // react-markdown replaces the DOM, so highlights must be reapplied
-  }, [comments, content, type, editorScheme, workingDirectory, engine]);
+  }, [comments, content, type, engine]);
 
   useEffect(() => {
     if (type !== "markdown") return;
@@ -201,9 +196,9 @@ export function DocumentViewer({
       h4: createHeadingComponent(4, headings, headingIndexRef),
       h5: createHeadingComponent(5, headings, headingIndexRef),
       h6: createHeadingComponent(6, headings, headingIndexRef),
-      code: createCodeComponent(editorScheme, workingDirectory),
+      code: createCodeComponent(),
     }),
-    [headings, editorScheme, workingDirectory],
+    [headings],
   );
 
   if (type === "html") {
@@ -230,7 +225,6 @@ export function DocumentViewer({
         ref={contentRef}
         className={cn(
           "prose",
-          isFullscreen && "prose-fullscreen",
           fontFamily === FontFamilies.SANS_SERIF ? "prose-sans" : "prose-serif",
         )}
       >

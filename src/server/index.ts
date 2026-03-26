@@ -19,8 +19,6 @@ import {
   type Comment,
   type DocumentSettings,
   type DocumentType,
-  type EditorScheme,
-  EditorSchemes,
   FontFamilies,
   type FontFamily,
 } from "../types/index.js";
@@ -192,10 +190,6 @@ async function writeSettings(settings: DocumentSettings): Promise<void> {
 
 function isValidFontFamily(value: unknown): value is FontFamily {
   return value === FontFamilies.SERIF || value === FontFamilies.SANS_SERIF;
-}
-
-function isValidEditorScheme(value: unknown): value is EditorScheme {
-  return Object.values(EditorSchemes).includes(value as EditorScheme);
 }
 
 // ─── PID file helpers ───────────────────────────────────────────────
@@ -446,22 +440,16 @@ async function getSettingsRoute(): Promise<Response> {
 async function updateSettingsRoute(req: Request): Promise<Response> {
   try {
     const body = await req.json();
-    const { fontFamily, editorScheme, keybindings } = body;
+    const { fontFamily } = body;
 
     if (fontFamily !== undefined && !isValidFontFamily(fontFamily)) {
       return errorResponse("Invalid font family", 400);
-    }
-
-    if (editorScheme !== undefined && !isValidEditorScheme(editorScheme)) {
-      return errorResponse("Invalid editor scheme", 400);
     }
 
     const current = await readSettings();
     const settings: DocumentSettings = {
       ...current,
       ...(fontFamily !== undefined && { fontFamily }),
-      ...(editorScheme !== undefined && { editorScheme }),
-      ...(keybindings !== undefined && { keybindings }),
     };
 
     await writeSettings(settings);
