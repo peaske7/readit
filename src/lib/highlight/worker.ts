@@ -16,7 +16,8 @@ function find(
   }
 
   if (hits.length === 0) return undefined;
-  if (hits.length === 1) return { start: hits[0], end: hits[0] + needle.length };
+  if (hits.length === 1)
+    return { start: hits[0], end: hits[0] + needle.length };
 
   const target = hint ?? 0;
   let best = hits[0];

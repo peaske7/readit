@@ -14,10 +14,7 @@ import {
   useCommentData,
 } from "./contexts/CommentContext";
 import { useLocale } from "./contexts/LocaleContext";
-import {
-  PositionsProvider,
-  usePositions,
-} from "./contexts/PositionsContext";
+import { PositionsProvider, usePositions } from "./contexts/PositionsContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { useClipboard } from "./hooks/useClipboard";
 import { useDocument } from "./hooks/useDocument";
@@ -48,12 +45,8 @@ interface AppContentProps {
 function AppContent({ document, reload }: AppContentProps) {
   const { t } = useLocale();
   const { comments, sortedComments, reanchorTarget } = useCommentData();
-  const {
-    addComment,
-    reanchorComment,
-    cancelReanchor,
-    setHoveredCommentId,
-  } = useCommentActions();
+  const { addComment, reanchorComment, cancelReanchor, setHoveredCommentId } =
+    useCommentActions();
 
   const { selection, pendingSelectionTop, onTextSelect, clearSelection } =
     useTextSelection();

@@ -33,11 +33,7 @@ function DropdownMenu({
   );
 
   const ref = useRef<HTMLDivElement>(null);
-  useClickOutside(
-    ref,
-    () => setOpen(false),
-    open,
-  );
+  useClickOutside(ref, () => setOpen(false), open);
 
   return (
     <DropdownContext value={{ open, setOpen }}>

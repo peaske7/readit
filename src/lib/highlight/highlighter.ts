@@ -1,4 +1,3 @@
-import { Resolver } from "./resolver";
 import {
   applyHighlightBatch,
   applyHighlightToRange,
@@ -6,6 +5,7 @@ import {
   getDOMTextContent,
   getTextOffset,
 } from "./dom";
+import { Resolver } from "./resolver";
 import type { HighlightComment, HighlightPositions, TextRange } from "./types";
 
 export type SelectionHandler = (

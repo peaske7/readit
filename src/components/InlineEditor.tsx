@@ -1,6 +1,6 @@
 import { use, useEffect, useRef, useState } from "react";
-import { SettingsContext } from "../contexts/SettingsContext";
 import { useLocale } from "../contexts/LocaleContext";
+import { SettingsContext } from "../contexts/SettingsContext";
 import { cn } from "../lib/utils";
 import { FontFamilies } from "../types";
 import { Button } from "./ui/Button";

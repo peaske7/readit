@@ -129,7 +129,11 @@ export function RawModal({ isOpen, onClose }: RawModalProps) {
           )}
 
           {state.status === "success" && (
-            <Text variant="body" as="pre" className="text-xs font-mono whitespace-pre-wrap break-words leading-relaxed">
+            <Text
+              variant="body"
+              as="pre"
+              className="text-xs font-mono whitespace-pre-wrap break-words leading-relaxed"
+            >
               {state.content}
             </Text>
           )}

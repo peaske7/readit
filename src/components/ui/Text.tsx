@@ -43,5 +43,5 @@ function Text({
   );
 }
 
-export { Text, variantStyles };
 export type { TextVariant };
+export { Text, variantStyles };

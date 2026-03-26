@@ -8,8 +8,8 @@ import {
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
-import { useSettings } from "../../contexts/SettingsContext";
 import { usePositions } from "../../contexts/PositionsContext";
+import { useSettings } from "../../contexts/SettingsContext";
 import type { Heading } from "../../hooks/useHeadings";
 import {
   createHighlighter,

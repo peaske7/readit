@@ -1,32 +1,28 @@
-import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 
-const actionLinkVariants = cva(
-  "cursor-pointer transition-colors duration-150",
-  {
-    variants: {
-      variant: {
-        default: "hover:text-zinc-600",
-        destructive: "hover:text-red-500",
-      },
-    },
-    defaultVariants: { variant: "default" },
-  },
-);
+const variantStyles = {
+  default: "hover:text-zinc-600",
+  destructive: "hover:text-red-500",
+} as const;
+
+type ActionLinkVariant = keyof typeof variantStyles;
 
 function ActionLink({
   className,
-  variant,
+  variant = "default",
   ...props
-}: React.ComponentProps<"button"> & VariantProps<typeof actionLinkVariants>) {
+}: React.ComponentProps<"button"> & { variant?: ActionLinkVariant }) {
   return (
     <button
       type="button"
-      data-slot="action-link"
-      className={cn(actionLinkVariants({ variant, className }))}
+      className={cn(
+        "cursor-pointer transition-colors duration-150",
+        variantStyles[variant],
+        className,
+      )}
       {...props}
     />
   );
 }
 
-export { ActionLink, actionLinkVariants };
+export { ActionLink };

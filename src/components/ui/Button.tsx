@@ -39,11 +39,16 @@ function Button({
   return (
     <button
       type="button"
-      className={cn(baseStyles, variantStyles[variant], sizeStyles[size], className)}
+      className={cn(
+        baseStyles,
+        variantStyles[variant],
+        sizeStyles[size],
+        className,
+      )}
       {...props}
     />
   );
 }
 
-export { Button };
 export type { ButtonProps, ButtonSize, ButtonVariant };
+export { Button };

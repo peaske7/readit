@@ -1,8 +1,8 @@
 import { memo, useCallback, useState } from "react";
 import { useCommentActions } from "../contexts/CommentContext";
-import { useSettings } from "../contexts/SettingsContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { usePositions } from "../contexts/PositionsContext";
+import { useSettings } from "../contexts/SettingsContext";
 import { cn } from "../lib/utils";
 import { useUI } from "../store";
 import { type Comment, FontFamilies } from "../types";
@@ -128,9 +128,7 @@ export const MarginNote = memo(function MarginNote({
       onMouseEnter={() => setHoveredCommentId(comment.id)}
       onMouseLeave={() => setHoveredCommentId(undefined)}
     >
-      <span className={badgeClass(isHovered)}>
-        {commentIndex + 1}
-      </span>
+      <span className={badgeClass(isHovered)}>{commentIndex + 1}</span>
 
       <div
         className={cn(
@@ -139,12 +137,7 @@ export const MarginNote = memo(function MarginNote({
         )}
       >
         {!isEditing && (
-          <div
-            className={cn(
-              fontClass,
-              selectedTextClass(isHovered),
-            )}
-          >
+          <div className={cn(fontClass, selectedTextClass(isHovered))}>
             <button
               type="button"
               onClick={() => scrollToHighlight(comment.id)}
@@ -166,12 +159,7 @@ export const MarginNote = memo(function MarginNote({
           />
         ) : (
           <>
-            <p
-              className={cn(
-                fontClass,
-                commentTextClass(isHovered),
-              )}
-            >
+            <p className={cn(fontClass, commentTextClass(isHovered))}>
               {comment.comment}
             </p>
             <ActionBar className="gap-1.5 mt-2">

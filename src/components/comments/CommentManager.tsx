@@ -58,7 +58,11 @@ export function CommentManager({ onClose }: CommentManagerProps) {
           </div>
         </div>
       ) : (
-        <Text variant="caption" as="div" className="flex items-center justify-between px-3 py-2 border-b border-zinc-100">
+        <Text
+          variant="caption"
+          as="div"
+          className="flex items-center justify-between px-3 py-2 border-b border-zinc-100"
+        >
           <span>
             {resolvedCount}
             {unresolvedCount > 0 && (

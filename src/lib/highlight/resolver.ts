@@ -14,10 +14,9 @@ export class Resolver {
 
   constructor() {
     try {
-      this.worker = new Worker(
-        new URL("./worker.ts", import.meta.url),
-        { type: "module" },
-      );
+      this.worker = new Worker(new URL("./worker.ts", import.meta.url), {
+        type: "module",
+      });
       this.worker.onmessage = this.onMessage;
       this.worker.onerror = () => {
         this.worker?.terminate();

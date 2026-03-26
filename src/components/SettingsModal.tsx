@@ -1,9 +1,14 @@
 import { Check, ChevronDown } from "lucide-react";
-import { useSettings } from "../contexts/SettingsContext";
 import { useLocale } from "../contexts/LocaleContext";
+import { useSettings } from "../contexts/SettingsContext";
 import { type Locale, Locales } from "../lib/i18n";
 import { cn } from "../lib/utils";
-import { FontFamilies, type FontFamily, type ThemeMode, ThemeModes } from "../types";
+import {
+  FontFamilies,
+  type FontFamily,
+  type ThemeMode,
+  ThemeModes,
+} from "../types";
 import {
   Dialog,
   DialogBody,

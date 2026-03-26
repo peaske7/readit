@@ -79,8 +79,10 @@ export class Positions {
   ) {
     this.relative.clear();
     this.absolute.clear();
-    for (const [id, top] of Object.entries(positions)) this.relative.set(id, top);
-    for (const [id, top] of Object.entries(docPositions)) this.absolute.set(id, top);
+    for (const [id, top] of Object.entries(positions))
+      this.relative.set(id, top);
+    for (const [id, top] of Object.entries(docPositions))
+      this.absolute.set(id, top);
 
     const snap: Record<string, number> = {};
     for (const [id, top] of this.absolute) snap[id] = top;
