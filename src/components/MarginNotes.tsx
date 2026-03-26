@@ -7,11 +7,6 @@ interface MarginNotesProps {
   sortedComments: Comment[];
 }
 
-/**
- * Renders margin notes for all comments.
- * Positioning is handled entirely by PositionEngine — this component
- * only owns the content (comment text, actions). Zero position state in React.
- */
 export const MarginNotes = memo(function MarginNotes({
   sortedComments,
 }: MarginNotesProps) {

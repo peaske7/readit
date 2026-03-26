@@ -272,7 +272,7 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
     },
 
     onPositionsChange(_callback: PositionChangeHandler) {
-      // Positions are now managed by PositionEngine — this is a no-op for markdown
+      // No-op — positions managed by Positions class
       return () => {};
     },
 

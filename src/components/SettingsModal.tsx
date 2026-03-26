@@ -125,7 +125,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" onClose={onClose}>
         <DialogHeader>
           <DialogTitle>{t("settings.title")}</DialogTitle>
         </DialogHeader>

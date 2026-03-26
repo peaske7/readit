@@ -58,15 +58,14 @@ function AppContent({ document, reload }: AppContentProps) {
   const { selection, pendingSelectionTop, onTextSelect, clearSelection } =
     useTextSelection();
 
-  const engine = usePositions();
+  const pos = usePositions();
 
-  // Keep engine in sync with comment order and pending selection
   useEffect(() => {
-    engine.setIds(sortedComments.map((c) => c.id));
-  }, [engine, sortedComments]);
+    pos.setIds(sortedComments.map((c) => c.id));
+  }, [pos, sortedComments]);
   useEffect(() => {
-    engine.setPending(selection ? pendingSelectionTop : undefined);
-  }, [engine, selection, pendingSelectionTop]);
+    pos.setPending(selection ? pendingSelectionTop : undefined);
+  }, [pos, selection, pendingSelectionTop]);
 
   const {
     copyAll,

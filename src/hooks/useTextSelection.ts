@@ -24,10 +24,6 @@ interface UseTextSelectionResult {
   clearSelection: () => void;
 }
 
-/**
- * Manage text selection state and click-outside dismissal.
- * Position data has been moved to PositionEngine (outside React).
- */
 export function useTextSelection(): UseTextSelectionResult {
   const selection = useAppStore(
     (s) => s.getActiveDocumentState()?.selection ?? null,
