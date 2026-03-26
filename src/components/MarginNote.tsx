@@ -7,9 +7,7 @@ import { cn } from "../lib/utils";
 import { useUI } from "../store";
 import { type Comment, FontFamilies } from "../types";
 import { InlineEditor } from "./InlineEditor";
-import { ActionBar } from "./ui/ActionBar";
 import { ActionLink } from "./ui/ActionLink";
-import { SeparatorDot } from "./ui/SeparatorDot";
 
 interface MarginNoteProps {
   comment: Comment;
@@ -96,20 +94,24 @@ export const MarginNote = memo(function MarginNote({
         <span className={badgeClass(isHovered)}>—</span>
 
         <div className="pt-2 pb-2 pl-3">
-          <ActionBar
-            className={cn("gap-1.5 duration-150", isHovered && "opacity-100")}
+          <div
+            className={cn(
+              "flex items-center text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity",
+              "gap-1.5 duration-150",
+              isHovered && "opacity-100",
+            )}
           >
             <ActionLink onClick={() => setIsEditing(true)}>
               {t("marginNote.addNote")}
             </ActionLink>
-            <SeparatorDot />
+            <span aria-hidden="true">·</span>
             <ActionLink
               variant="destructive"
               onClick={() => deleteComment(comment.id)}
             >
               {t("marginNote.delete")}
             </ActionLink>
-          </ActionBar>
+          </div>
         </div>
       </article>
     );
@@ -159,22 +161,22 @@ export const MarginNote = memo(function MarginNote({
             <p className={cn(fontClass, commentTextClass(isHovered))}>
               {comment.comment}
             </p>
-            <ActionBar className="gap-1.5 mt-2">
+            <div className="flex items-center text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity gap-1.5 mt-2">
               <ActionLink onClick={() => setIsEditing(true)}>
                 {t("marginNote.edit")}
               </ActionLink>
-              <SeparatorDot />
+              <span aria-hidden="true">·</span>
               <ActionLink
                 variant="destructive"
                 onClick={() => deleteComment(comment.id)}
               >
                 {t("marginNote.delete")}
               </ActionLink>
-              <SeparatorDot />
+              <span aria-hidden="true">·</span>
               <ActionLink onClick={handleCopy}>
                 {t("marginNote.copy")}
               </ActionLink>
-            </ActionBar>
+            </div>
           </>
         )}
       </div>

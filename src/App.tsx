@@ -21,7 +21,6 @@ import { useHeadings } from "./hooks/useHeadings";
 import { useScrollSpy } from "./hooks/useScrollSpy";
 import { useTextSelection } from "./hooks/useTextSelection";
 import { exportCommentsAsJson, generatePrompt } from "./lib/export";
-import { calculateScrollTarget, getElementTopInDocument } from "./lib/scroll";
 import { cn } from "./lib/utils";
 import { appStore, useAppStore } from "./store";
 
@@ -76,19 +75,11 @@ function AppContent({ document, reload }: AppContentProps) {
   const activeHeadingId = useScrollSpy(headingIds);
 
   const scrollToHeading = useCallback((id: string) => {
-    const elementRect = window.document
-      .getElementById(id)
-      ?.getBoundingClientRect();
-    if (!elementRect) return;
+    const rect = window.document.getElementById(id)?.getBoundingClientRect();
+    if (!rect) return;
 
-    const elementTop = getElementTopInDocument({
-      elementRect,
-      scrollY: window.scrollY,
-    });
-    const scrollTarget = calculateScrollTarget({
-      elementTop,
-      viewportHeight: window.innerHeight,
-    });
+    const elementTop = window.scrollY + rect.top;
+    const scrollTarget = Math.max(0, elementTop - window.innerHeight * 0.25);
     window.scrollTo({ top: scrollTarget, behavior: "smooth" });
   }, []);
 

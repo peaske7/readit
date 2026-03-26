@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { TIERS, getFixturePath } from "./fixtures/generate";
+import { getFixturePath, TIERS } from "./fixtures/generate";
 import {
   measureInteraction,
   reportInteraction,
@@ -86,7 +86,9 @@ test(`add-comment: ${tier.name} (${tier.lines} lines, ${tier.comments} comments)
     }, selectionText);
 
     // Wait for comment input to appear
-    const textarea = page.locator('textarea[placeholder="Add your comment..."]');
+    const textarea = page.locator(
+      'textarea[placeholder="Add your comment..."]',
+    );
     await textarea.waitFor({ state: "visible", timeout: 10_000 });
 
     // Fill in the comment
@@ -114,9 +116,8 @@ test(`add-comment: ${tier.name} (${tier.lines} lines, ${tier.comments} comments)
     // Verify the highlight actually appeared
     const finalCount = await page.evaluate(() => {
       const marks = document.querySelectorAll("mark[data-comment-id]");
-      return new Set(
-        [...marks].map((m) => m.getAttribute("data-comment-id")),
-      ).size;
+      return new Set([...marks].map((m) => m.getAttribute("data-comment-id")))
+        .size;
     });
     expect(finalCount).toBeGreaterThan(tier.comments);
   } finally {

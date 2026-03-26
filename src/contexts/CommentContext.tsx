@@ -9,10 +9,9 @@ import {
 import { toast } from "sonner";
 import { useCommentNavigation } from "../hooks/useCommentNavigation";
 import { useComments } from "../hooks/useComments";
-import { useReanchorMode } from "../hooks/useReanchorMode";
 import { formatComment } from "../lib/export";
 import { truncate } from "../lib/utils";
-import { useAppStore } from "../store";
+import { appStore, useAppStore } from "../store";
 import type { Comment } from "../types";
 import { useLocale } from "./LocaleContext";
 
@@ -117,7 +116,15 @@ export function CommentProvider({
     navigateNext,
   } = useCommentNavigation(sortedComments);
 
-  const { reanchorTarget, startReanchor, cancelReanchor } = useReanchorMode();
+  const reanchorTarget = useAppStore(
+    (s) => s.getActiveDocumentState()?.reanchorTarget ?? null,
+  );
+  const startReanchor = useCallback((commentId: string) => {
+    appStore.getState().setReanchorTarget({ commentId });
+  }, []);
+  const cancelReanchor = useCallback(() => {
+    appStore.getState().setReanchorTarget(null);
+  }, []);
   const { t } = useLocale();
 
   useEffect(() => {

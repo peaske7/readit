@@ -24,7 +24,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test --project=chromium",
     "test:e2e:ui": "playwright test --project=chromium --ui",
-    "test:perf": "playwright test --project=perf",
+    "test:perf": "PERF_SETUP=1 playwright test --project=perf",
     "check": "biome check .",
     "check:fix": "biome check --write .",
     "format": "biome format --write .",

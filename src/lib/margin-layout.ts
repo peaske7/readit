@@ -1,7 +1,8 @@
-import {
-  COMMENT_INPUT_HEIGHT_PX,
-  MARGIN_NOTE_MIN_GAP_PX,
-} from "./layout-constants";
+// Minimum gap between margin notes (accounts for quote + comment + actions + padding)
+const MARGIN_NOTE_MIN_GAP_PX = 150;
+
+// Height reserved for comment input form when selecting text
+const COMMENT_INPUT_HEIGHT_PX = 160;
 
 interface NotePosition {
   commentId: string;
