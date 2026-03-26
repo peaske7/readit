@@ -1,6 +1,6 @@
 import DOMPurify from "dompurify";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { usePositionEngine } from "../../contexts/PositionEngineContext";
+import { usePositions } from "../../contexts/PositionsContext";
 import {
   buildIframeScript,
   createHighlighter,
@@ -139,7 +139,7 @@ export function IframeContainer({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const adapterRef = useRef<Highlighter | null>(null);
   const [contentHeight, setContentHeight] = useState<number>(0);
-  const engine = usePositionEngine();
+  const pos = usePositions();
 
   const srcdoc = useMemo(() => {
     const sanitized = sanitizeHtml(html);
@@ -160,18 +160,18 @@ export function IframeContainer({
 
     adapterRef.current = adapter;
 
-    const unsubPositions = adapter.onPositionsChange((pos) => {
+    const unsubPositions = adapter.onPositionsChange((hp) => {
       const iframe = iframeRef.current;
       const iframeOffset = iframe
         ? iframe.getBoundingClientRect().top + window.scrollY
         : 0;
 
-      const adjustedDocPositions: Record<string, number> = {};
-      for (const [id, iframePos] of Object.entries(pos.documentPositions)) {
-        adjustedDocPositions[id] = iframePos + iframeOffset;
+      const adjusted: Record<string, number> = {};
+      for (const [id, iframeTop] of Object.entries(hp.documentPositions)) {
+        adjusted[id] = iframeTop + iframeOffset;
       }
 
-      engine.setExternalPositions(pos.positions, adjustedDocPositions);
+      pos.setExternal(hp.positions, adjusted);
     });
 
     const unsubHover = onHighlightHover
@@ -194,7 +194,7 @@ export function IframeContainer({
       adapter.dispose();
       adapterRef.current = null;
     };
-  }, [onTextSelect, onHighlightHover, onHighlightClick, engine]);
+  }, [onTextSelect, onHighlightHover, onHighlightClick, pos]);
 
   useEffect(() => {
     const adapter = adapterRef.current;

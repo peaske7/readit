@@ -1,11 +1,11 @@
 import { cva } from "class-variance-authority";
 import { memo, useCallback, useState } from "react";
 import { useCommentActions } from "../contexts/CommentContext";
-import { useLayoutContext } from "../contexts/LayoutContext";
+import { useSettings } from "../contexts/SettingsContext";
 import { useLocale } from "../contexts/LocaleContext";
-import { usePositionEngine } from "../contexts/PositionEngineContext";
+import { usePositions } from "../contexts/PositionsContext";
 import { cn } from "../lib/utils";
-import { useVolatileStore } from "../store";
+import { useUI } from "../store";
 import { type Comment, FontFamilies } from "../types";
 import { InlineEditor } from "./InlineEditor";
 import { ActionBar } from "./ui/ActionBar";
@@ -60,7 +60,7 @@ export const MarginNote = memo(function MarginNote({
   comment,
   commentIndex = 0,
 }: MarginNoteProps) {
-  const { fontFamily } = useLayoutContext();
+  const { fontFamily } = useSettings();
   const { t } = useLocale();
   const {
     editComment,
@@ -71,21 +71,16 @@ export const MarginNote = memo(function MarginNote({
     scrollToHighlight,
   } = useCommentActions();
 
-  // Register with PositionEngine — it writes style.top directly to this DOM element
-  const engine = usePositionEngine();
+  const pos = usePositions();
   const refCallback = useCallback(
     (el: HTMLElement | null) => {
-      if (el) {
-        engine.registerNote(comment.id, el);
-      } else {
-        engine.unregisterNote(comment.id);
-      }
+      if (el) pos.register(comment.id, el);
+      else pos.unregister(comment.id);
     },
-    [engine, comment.id],
+    [pos, comment.id],
   );
 
-  // Read hover state from flat volatile store — no Map overhead, only re-renders when this note's hover changes
-  const isHovered = useVolatileStore((s) => s.hoveredCommentId === comment.id);
+  const isHovered = useUI((s) => s.hoveredCommentId === comment.id);
   const fontClass =
     fontFamily === FontFamilies.SANS_SERIF ? "font-sans" : "font-serif";
   const [isEditing, setIsEditing] = useState(false);

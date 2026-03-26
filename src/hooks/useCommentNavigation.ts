@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { volatileStore } from "../store";
+import { uiStore } from "../store";
 import type { Comment } from "../types";
 
 interface UseCommentNavigationResult {
@@ -55,7 +55,7 @@ export function useCommentNavigation(
 
   const setHoveredCommentId = useCallback(
     (id: string | undefined) => {
-      volatileStore.setState({ hoveredCommentId: id });
+      uiStore.setState({ hoveredCommentId: id });
       updateFocusedMarks(id);
     },
     [updateFocusedMarks],

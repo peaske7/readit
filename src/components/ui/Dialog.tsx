@@ -1,7 +1,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { use } from "react";
-import { LayoutContext } from "../../contexts/LayoutContext";
+import { SettingsContext } from "../../contexts/SettingsContext";
 import { cn } from "../../lib/utils";
 import { FontFamilies } from "../../types";
 import { buttonVariants } from "./Button";
@@ -103,9 +103,9 @@ function DialogTitle({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
-  const layout = use(LayoutContext);
-  const fontClass = layout
-    ? layout.fontFamily === FontFamilies.SANS_SERIF
+  const settings = use(SettingsContext);
+  const fontClass = settings
+    ? settings.fontFamily === FontFamilies.SANS_SERIF
       ? "font-sans"
       : "font-serif"
     : undefined;

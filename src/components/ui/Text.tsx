@@ -1,7 +1,7 @@
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { use } from "react";
-import { LayoutContext } from "../../contexts/LayoutContext";
+import { SettingsContext } from "../../contexts/SettingsContext";
 import { cn } from "../../lib/utils";
 import { FontFamilies } from "../../types";
 
@@ -33,9 +33,9 @@ function Text({
   VariantProps<typeof textVariants> & {
     asChild?: boolean;
   }) {
-  const layout = use(LayoutContext);
-  const fontClass = layout
-    ? layout.fontFamily === FontFamilies.SANS_SERIF
+  const settings = use(SettingsContext);
+  const fontClass = settings
+    ? settings.fontFamily === FontFamilies.SANS_SERIF
       ? "font-sans"
       : "font-serif"
     : undefined;

@@ -1,5 +1,5 @@
 import { use, useEffect, useRef, useState } from "react";
-import { LayoutContext } from "../contexts/LayoutContext";
+import { SettingsContext } from "../contexts/SettingsContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { cn } from "../lib/utils";
 import { FontFamilies } from "../types";
@@ -20,10 +20,10 @@ export function InlineEditor({
   rows = 2,
   className,
 }: InlineEditorProps) {
-  const layout = use(LayoutContext);
+  const settings = use(SettingsContext);
   const { t } = useLocale();
-  const fontClass = layout
-    ? layout.fontFamily === FontFamilies.SANS_SERIF
+  const fontClass = settings
+    ? settings.fontFamily === FontFamilies.SANS_SERIF
       ? "font-sans"
       : "font-serif"
     : undefined;

@@ -1,4 +1,4 @@
-import { findTextPosition } from "./core";
+import { Resolver } from "./resolver";
 import {
   applyHighlightBatch,
   applyHighlightToRange,
@@ -63,6 +63,10 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
   // Incremental diffing state — avoids full clear+rebuild on every comment change
   const activeHighlights = new Map<string, { start: number; end: number }>();
   let lastTextContent = "";
+
+  // Web Worker for anchor resolution (offloads indexOf from main thread)
+  const resolver = new Resolver();
+  let resolveGeneration = 0;
 
   const handleMouseUp = () => {
     const selection = window.getSelection();
@@ -146,6 +150,66 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
     }
   };
 
+  /** Diff resolved anchors against active highlights and apply DOM changes. */
+  const applyDiff = (
+    textContent: string,
+    resolved: Map<
+      string,
+      { start: number; end: number; comment: HighlightComment }
+    >,
+  ) => {
+    const toRemove: string[] = [];
+    const toAdd: string[] = [];
+
+    for (const [id, prev] of activeHighlights) {
+      const next = resolved.get(id);
+      if (!next) {
+        toRemove.push(id);
+      } else if (prev.start !== next.start || prev.end !== next.end) {
+        toRemove.push(id);
+        toAdd.push(id);
+      }
+    }
+
+    for (const id of resolved.keys()) {
+      if (!activeHighlights.has(id)) {
+        toAdd.push(id);
+      }
+    }
+
+    if (toRemove.length === 0 && toAdd.length === 0) return;
+
+    for (const id of toRemove) {
+      clearHighlights(root, `mark[data-comment-id="${id}"]`);
+      activeHighlights.delete(id);
+    }
+
+    if (toAdd.length > 0) {
+      const newHighlights = toAdd
+        .map((id) => resolved.get(id)!)
+        .sort((a, b) => a.start - b.start);
+
+      applyHighlightBatch(
+        root,
+        textContent,
+        newHighlights.map((h) => ({
+          startOffset: h.start,
+          endOffset: h.end,
+          style: {
+            attribute: "data-comment-id",
+            attributeValue: h.comment.id,
+            colorIndex: 0,
+          },
+        })),
+      );
+
+      for (const id of toAdd) {
+        const range = resolved.get(id)!;
+        activeHighlights.set(id, { start: range.start, end: range.end });
+      }
+    }
+  };
+
   root.addEventListener("mouseup", handleMouseUp);
   root.addEventListener("mouseover", handleMouseOver);
   root.addEventListener("mouseout", handleMouseOut);
@@ -166,82 +230,35 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
         lastTextContent = textContent;
       }
 
-      // Resolve anchors for all incoming comments
-      const resolved = new Map<
-        string,
-        { start: number; end: number; comment: HighlightComment }
-      >();
-      for (const c of comments) {
-        const anchor = findTextPosition(
-          textContent,
-          c.selectedText,
-          c.startOffset,
-        );
-        if (anchor) {
-          resolved.set(c.id, {
-            start: anchor.start,
-            end: anchor.end,
-            comment: { ...c, startOffset: anchor.start, endOffset: anchor.end },
-          });
+      // Bump generation so stale Worker responses are discarded
+      const generation = ++resolveGeneration;
+
+      // Resolve anchors off the main thread, then diff and apply
+      resolver.resolve(textContent, comments).then((anchorMap) => {
+        // Discard if a newer applyHighlights call has started
+        if (generation !== resolveGeneration) return;
+
+        const resolved = new Map<
+          string,
+          { start: number; end: number; comment: HighlightComment }
+        >();
+        for (const c of comments) {
+          const anchor = anchorMap.get(c.id);
+          if (anchor) {
+            resolved.set(c.id, {
+              start: anchor.start,
+              end: anchor.end,
+              comment: {
+                ...c,
+                startOffset: anchor.start,
+                endOffset: anchor.end,
+              },
+            });
+          }
         }
-      }
 
-      // Diff against currently active highlights
-      const toRemove: string[] = [];
-      const toAdd: string[] = [];
-
-      // Detect removed and changed
-      for (const [id, prev] of activeHighlights) {
-        const next = resolved.get(id);
-        if (!next) {
-          toRemove.push(id);
-        } else if (prev.start !== next.start || prev.end !== next.end) {
-          toRemove.push(id);
-          toAdd.push(id);
-        }
-      }
-
-      // Detect added
-      for (const id of resolved.keys()) {
-        if (!activeHighlights.has(id)) {
-          toAdd.push(id);
-        }
-      }
-
-      // Skip if nothing changed
-      if (toRemove.length === 0 && toAdd.length === 0) return;
-
-      // Remove deleted/changed marks
-      for (const id of toRemove) {
-        clearHighlights(root, `mark[data-comment-id="${id}"]`);
-        activeHighlights.delete(id);
-      }
-
-      // Apply new/changed highlights
-      if (toAdd.length > 0) {
-        const newHighlights = toAdd
-          .map((id) => resolved.get(id)!)
-          .sort((a, b) => a.start - b.start);
-
-        applyHighlightBatch(
-          root,
-          textContent,
-          newHighlights.map((h) => ({
-            startOffset: h.start,
-            endOffset: h.end,
-            style: {
-              attribute: "data-comment-id",
-              attributeValue: h.comment.id,
-              colorIndex: 0,
-            },
-          })),
-        );
-
-        for (const id of toAdd) {
-          const range = resolved.get(id)!;
-          activeHighlights.set(id, { start: range.start, end: range.end });
-        }
-      }
+        applyDiff(textContent, resolved);
+      });
     },
 
     clearHighlights() {
@@ -274,6 +291,8 @@ function createMarkdownHighlighter(options: MarkdownOptions): Highlighter {
     },
 
     dispose() {
+      resolveGeneration++;
+      resolver.dispose();
       root.removeEventListener("mouseup", handleMouseUp);
       root.removeEventListener("mouseover", handleMouseOver);
       root.removeEventListener("mouseout", handleMouseOut);

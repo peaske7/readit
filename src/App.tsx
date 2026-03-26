@@ -15,9 +15,9 @@ import {
 } from "./contexts/CommentContext";
 import { useLocale } from "./contexts/LocaleContext";
 import {
-  PositionEngineProvider,
-  usePositionEngine,
-} from "./contexts/PositionEngineContext";
+  PositionsProvider,
+  usePositions,
+} from "./contexts/PositionsContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { useClipboard } from "./hooks/useClipboard";
 import { useDocument } from "./hooks/useDocument";
@@ -53,21 +53,19 @@ function AppContent({ document, reload }: AppContentProps) {
     reanchorComment,
     cancelReanchor,
     setHoveredCommentId,
-    navigatePrevious,
-    navigateNext,
   } = useCommentActions();
 
   const { selection, pendingSelectionTop, onTextSelect, clearSelection } =
     useTextSelection();
 
-  const engine = usePositionEngine();
+  const engine = usePositions();
 
   // Keep engine in sync with comment order and pending selection
   useEffect(() => {
-    engine.setCommentIds(sortedComments.map((c) => c.id));
+    engine.setIds(sortedComments.map((c) => c.id));
   }, [engine, sortedComments]);
   useEffect(() => {
-    engine.setPendingSelectionTop(selection ? pendingSelectionTop : undefined);
+    engine.setPending(selection ? pendingSelectionTop : undefined);
   }, [engine, selection, pendingSelectionTop]);
 
   const {
@@ -368,7 +366,7 @@ function App() {
     <>
       <TabBar />
       <SettingsProvider>
-        <PositionEngineProvider>
+        <PositionsProvider>
           <CommentProvider
             filePath={document.filePath}
             clean={document.clean}
@@ -378,7 +376,7 @@ function App() {
           >
             <AppContent document={document} reload={reload} />
           </CommentProvider>
-        </PositionEngineProvider>
+        </PositionsProvider>
       </SettingsProvider>
     </>
   );

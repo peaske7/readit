@@ -9,7 +9,7 @@ import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import { useSettings } from "../../contexts/SettingsContext";
-import { usePositionEngine } from "../../contexts/PositionEngineContext";
+import { usePositions } from "../../contexts/PositionsContext";
 import type { Heading } from "../../hooks/useHeadings";
 import {
   createHighlighter,
@@ -97,19 +97,19 @@ export function DocumentViewer({
   onHighlightClick,
 }: DocumentViewerProps) {
   const { fontFamily } = useSettings();
-  const engine = usePositionEngine();
+  const pos = usePositions();
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<Highlighter | null>(null);
   const headingIndexRef = useRef(0);
 
-  // Attach/detach engine to DOM elements for direct position reads
+  // Attach/detach pos to DOM elements for direct position reads
   useEffect(() => {
     if (type !== "markdown") return;
     if (!contentRef.current || !containerRef.current) return;
-    engine.attach(contentRef.current, containerRef.current);
-    return () => engine.detach();
-  }, [type, engine]);
+    pos.attach(contentRef.current, containerRef.current);
+    return () => pos.detach();
+  }, [type, pos]);
 
   useEffect(() => {
     if (type !== "markdown") return;
@@ -172,7 +172,7 @@ export function DocumentViewer({
       cancelAnimationFrame(outerFrameId);
       cancelAnimationFrame(innerFrameId);
     };
-  }, [comments, content, type, engine]);
+  }, [comments, content, type, pos]);
 
   useEffect(() => {
     if (type !== "markdown") return;

@@ -220,16 +220,16 @@ export function useAppStore<T>(selector: (state: AppStore) => T): T {
   return useStore(appStore, selector);
 }
 
-// ─── Volatile Store (high-frequency, flat, no Map overhead) ─────────
+// ─── UI Store (high-frequency, flat, no Map overhead) ───────────────
 
-interface VolatileState {
+interface UIState {
   hoveredCommentId: string | undefined;
 }
 
-export const volatileStore = createStore<VolatileState>(() => ({
+export const uiStore = createStore<UIState>(() => ({
   hoveredCommentId: undefined,
 }));
 
-export function useVolatileStore<T>(selector: (s: VolatileState) => T): T {
-  return useStore(volatileStore, selector);
+export function useUI<T>(selector: (s: UIState) => T): T {
+  return useStore(uiStore, selector);
 }
