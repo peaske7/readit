@@ -14,7 +14,7 @@ import { join, resolve } from "node:path";
 import { Command } from "commander";
 import open from "open";
 import { getCommentPath, parseCommentFile } from "./lib/comment-storage.js";
-import { isMarkdownFile } from "./lib/utils.js";
+import { isMarkdownFile, isSupportedFile } from "./lib/utils.js";
 import type { FileEntry } from "./server.js";
 import { removeServerInfo, startServer } from "./server.js";
 
@@ -303,9 +303,9 @@ function resolveFiles(args: string[]): FileEntry[] {
     } else {
       if (seen.has(filePath)) continue;
 
-      if (!isMarkdownFile(filePath)) {
+      if (!isSupportedFile(filePath)) {
         console.error(
-          `error: unsupported file type: ${arg} (expected .md or .markdown)`,
+          `error: unsupported file type: ${arg} (expected .md, .markdown, .html, or .htm)`,
         );
         process.exit(1);
       }
@@ -643,9 +643,9 @@ program
 
         const filePath = realpathSync(inputPath);
 
-        if (!isMarkdownFile(filePath)) {
+        if (!isSupportedFile(filePath)) {
           console.error(
-            `error: unsupported file type: ${arg} (expected .md or .markdown)`,
+            `error: unsupported file type: ${arg} (expected .md, .markdown, .html, or .htm)`,
           );
           process.exit(1);
         }

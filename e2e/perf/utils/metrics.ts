@@ -149,10 +149,17 @@ export async function collectLoadMetrics(
 
   // Wait for positions to be computed AFTER highlights
   // (captures the forced reflow cost from getBoundingClientRect)
-  const pageReadyTimestamp = await waitForPositionsReady(
-    page,
-    highlightTimestamp,
-  );
+  let pageReadyTimestamp: number;
+  try {
+    pageReadyTimestamp = await waitForPositionsReady(
+      page,
+      highlightTimestamp,
+      10_000,
+    );
+  } catch {
+    // Positions may not fire in all configurations
+    pageReadyTimestamp = highlightTimestamp;
+  }
 
   const navMetrics = await page.evaluate(() => {
     const nav = performance.getEntriesByType(

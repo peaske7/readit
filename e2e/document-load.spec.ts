@@ -15,7 +15,7 @@ test.describe("Document Loading", () => {
       await page.goto(url);
 
       // Wait for document to load - use article scope to avoid header h1
-      const article = page.locator("article");
+      const article = page.locator("article#document-content");
       await expect(article.locator("h1")).toContainText("Test Document");
 
       // Verify paragraph content is rendered

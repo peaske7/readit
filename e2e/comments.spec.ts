@@ -57,7 +57,7 @@ test.describe("Comment Creation", () => {
       await page.goto(url);
 
       // Wait for document to load
-      const article = page.locator("article");
+      const article = page.locator("article#document-content");
       await expect(article).toBeVisible();
 
       // Select text in the article

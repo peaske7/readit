@@ -57,7 +57,7 @@ test.describe("File-Based Comment Persistence", () => {
       await page.goto(url);
 
       // Wait for document to load
-      const article = page.locator("article");
+      const article = page.locator("article#document-content");
       await expect(article).toBeVisible();
 
       // Add a comment
@@ -96,7 +96,7 @@ test.describe("File-Based Comment Persistence", () => {
     try {
       await page.goto(url);
 
-      const article = page.locator("article");
+      const article = page.locator("article#document-content");
       await expect(article).toBeVisible();
 
       // Add a comment
@@ -146,7 +146,7 @@ test.describe("File-Based Comment Persistence", () => {
     try {
       await page.goto(url1);
 
-      const article = page.locator("article");
+      const article = page.locator("article#document-content");
       await expect(article).toBeVisible();
 
       await selectTextInArticle(page, "testing text selection");
@@ -170,7 +170,7 @@ test.describe("File-Based Comment Persistence", () => {
     try {
       await page.goto(url2);
 
-      const article = page.locator("article");
+      const article = page.locator("article#document-content");
       await expect(article).toBeVisible();
 
       // Comment should still exist from previous session
@@ -226,7 +226,7 @@ Pre-existing comment to be cleared.
     try {
       await page.goto(url);
 
-      const article = page.locator("article");
+      const article = page.locator("article#document-content");
       await expect(article).toBeVisible();
 
       // Wait for clean operation to complete
@@ -253,7 +253,7 @@ Pre-existing comment to be cleared.
     try {
       await page.goto(url);
 
-      const article = page.locator("article");
+      const article = page.locator("article#document-content");
       await expect(article).toBeVisible();
 
       // Add initial comment
@@ -272,26 +272,25 @@ Pre-existing comment to be cleared.
       let fileContent = readFileSync(commentPath, "utf-8");
       expect(fileContent).toContain(initialComment);
 
-      // Find the margin note containing the selected text (stable identifier)
-      const marginNote = page
-        .locator(".group")
-        .filter({ hasText: textToSelect })
-        .first();
-      await marginNote.hover();
+      // Find the margin note by data-comment-id (first one)
+      const marginNote = page.locator("[data-comment-id]").first();
 
-      // Find and click edit button
-      const editButton = marginNote.locator('button:has-text("Edit")');
-      await editButton.click();
+      // Force-click edit button (may be hidden behind opacity-0 group-hover)
+      const editButton = marginNote.getByText("Edit").first();
+      await editButton.click({ force: true });
 
-      // Wait for edit mode to activate
-      const textarea = marginNote.locator("textarea");
+      // Wait for edit mode — find textarea globally since hasText filter breaks in edit mode
+      const textarea = page.locator("[data-comment-id] textarea");
       await expect(textarea).toBeVisible();
 
       // Clear and type new text
       await textarea.fill("Updated comment text");
 
       // Save edit
-      const saveButton = marginNote.locator('button:has-text("Save")');
+      const saveButton = page
+        .locator("[data-comment-id]")
+        .getByText("Save")
+        .first();
       await saveButton.click();
 
       // Wait for file to be updated
@@ -314,7 +313,7 @@ Pre-existing comment to be cleared.
     try {
       await page.goto(url);
 
-      const article = page.locator("article");
+      const article = page.locator("article#document-content");
       await expect(article).toBeVisible();
 
       // Add a comment

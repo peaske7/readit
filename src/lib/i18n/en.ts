@@ -87,4 +87,28 @@ export const en: Translations = {
   // Comment badge
   "commentBadge.title": "{{count}} comment",
   "commentBadge.titlePlural": "{{count}} comments",
+
+  // Keyboard shortcuts
+  "shortcuts.title": "Keyboard Shortcuts",
+  "shortcutGroup.copy": "Copy",
+  "shortcutGroup.navigate": "Navigate",
+  "shortcutGroup.other": "Other",
+  "shortcuts.resetToDefaults": "Reset to defaults",
+  "shortcuts.enableDisable": "Enable/disable shortcut",
+  "shortcutCapture.pressKeys": "Press keys...",
+  "shortcut.copyAll.label": "Copy All (AI)",
+  "shortcut.copyAll.description": "Copy all comments in AI prompt format",
+  "shortcut.copyAllRaw.label": "Copy All (Raw)",
+  "shortcut.copyAllRaw.description": "Copy all comments as raw text",
+  "shortcut.navigateNext.label": "Next Comment",
+  "shortcut.navigateNext.description": "Navigate to next comment",
+  "shortcut.navigatePrevious.label": "Previous Comment",
+  "shortcut.navigatePrevious.description": "Navigate to previous comment",
+  "shortcut.copySelectionRaw.label": "Copy Selection",
+  "shortcut.copySelectionRaw.description": "Copy selected text",
+  "shortcut.copySelectionLLM.label": "Copy Selection (LLM)",
+  "shortcut.copySelectionLLM.description":
+    "Copy selected text with context for LLM",
+  "shortcut.clearSelection.label": "Clear Selection",
+  "shortcut.clearSelection.description": "Clear text selection",
 };

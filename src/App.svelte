@@ -1,0 +1,776 @@
+<script lang="ts">
+import { onDestroy, onMount, untrack } from "svelte";
+import {
+  exportCommentsAsJson,
+  formatComment,
+  generatePrompt,
+} from "./lib/export";
+import { Positions } from "./lib/positions";
+import { matchesBinding, ShortcutActions } from "./lib/shortcut-registry";
+import { AnchorConfidences, type Comment } from "./schema";
+import {
+  app,
+  getActiveDocumentState,
+  openDocument,
+  setActiveDocument,
+  setComments,
+  setCommentsError,
+  setHeadings,
+  setPendingSelectionTop,
+  setReanchorTarget,
+  setScrollY,
+  setSelection,
+  setWorkingDirectory,
+  updateDocumentHtml,
+} from "./stores/app.svelte";
+import { initSettings } from "./stores/settings.svelte";
+import { initShortcuts, shortcutState } from "./stores/shortcuts.svelte";
+import { t } from "./stores/locale.svelte";
+import { setHoveredCommentId } from "./stores/ui.svelte";
+import CommentInput from "./components/CommentInput.svelte";
+import CommentNav from "./components/CommentNav.svelte";
+import DocumentViewer from "./components/DocumentViewer.svelte";
+import Header from "./components/Header.svelte";
+import MarginNotesContainer from "./components/MarginNotesContainer.svelte";
+import ReanchorConfirm from "./components/ReanchorConfirm.svelte";
+import TabBar from "./components/TabBar.svelte";
+import TableOfContents from "./components/TableOfContents.svelte";
+
+let isInitialized = $state(false);
+let error = $state<string | null>(null);
+const positionsMap = new Map<string, Positions>();
+let currentIndex = $state(0);
+let setFocusedFn: ((id: string | undefined) => void) | undefined;
+let scrollToCommentFn: ((id: string) => void) | undefined;
+let hoverTimeout: ReturnType<typeof setTimeout> | undefined;
+const prevActiveMap = new Map<string, boolean>();
+
+function clearPendingHighlight() {
+  if (typeof CSS !== "undefined" && CSS.highlights) {
+    CSS.highlights.delete("pending-selection");
+  }
+}
+
+function getPositions(filePath: string): Positions {
+  let pos = positionsMap.get(filePath);
+  if (!pos) {
+    pos = new Positions();
+    positionsMap.set(filePath, pos);
+  }
+  return pos;
+}
+
+async function addComment(
+  filePath: string,
+  selectedText: string,
+  commentText: string,
+  startOffset: number,
+  endOffset: number,
+) {
+  const tempId = `temp-${crypto.randomUUID()}`;
+  const optimisticComment: Comment = {
+    id: tempId,
+    selectedText,
+    comment: commentText.trim(),
+    createdAt: new Date().toISOString(),
+    startOffset,
+    endOffset,
+  };
+
+  const docState = app.documents.get(filePath);
+  const previousComments = [...(docState?.comments ?? [])];
+
+  setComments([...previousComments, optimisticComment], filePath);
+  setCommentsError(null, filePath);
+
+  try {
+    const response = await fetch(
+      `/api/comments?path=${encodeURIComponent(filePath)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          selectedText,
+          comment: commentText.trim(),
+          startOffset,
+          endOffset,
+        }),
+      },
+    );
+    if (!response.ok)
+      throw new Error(`Failed to add comment: ${response.statusText}`);
+    const data = await response.json();
+    const current = app.documents.get(filePath)?.comments ?? [];
+    setComments(
+      current.map((c) => (c.id === tempId ? data.comment : c)),
+      filePath,
+    );
+  } catch (err) {
+    console.error("Failed to add comment:", err);
+    setCommentsError(
+      err instanceof Error ? err.message : "Failed to add comment",
+      filePath,
+    );
+    setComments(previousComments, filePath);
+  }
+}
+
+async function editComment(filePath: string, id: string, newText: string) {
+  const trimmed = newText.trim();
+  if (!trimmed) return;
+
+  const docState = app.documents.get(filePath);
+  const previousComments = [...(docState?.comments ?? [])];
+
+  setComments(
+    previousComments.map((c) => (c.id === id ? { ...c, comment: trimmed } : c)),
+    filePath,
+  );
+
+  try {
+    const response = await fetch(
+      `/api/comments/${id}?path=${encodeURIComponent(filePath)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment: trimmed }),
+      },
+    );
+    if (!response.ok)
+      throw new Error(`Failed to update comment: ${response.statusText}`);
+  } catch (err) {
+    console.error("Failed to edit comment:", err);
+    setComments(previousComments, filePath);
+  }
+}
+
+async function deleteComment(filePath: string, id: string) {
+  const docState = app.documents.get(filePath);
+  const previousComments = [...(docState?.comments ?? [])];
+
+  setComments(
+    previousComments.filter((c) => c.id !== id),
+    filePath,
+  );
+
+  try {
+    const response = await fetch(
+      `/api/comments/${id}?path=${encodeURIComponent(filePath)}`,
+      {
+        method: "DELETE",
+      },
+    );
+    if (!response.ok)
+      throw new Error(`Failed to delete comment: ${response.statusText}`);
+  } catch (err) {
+    console.error("Failed to delete comment:", err);
+    setComments(previousComments, filePath);
+  }
+}
+
+async function deleteAllComments(filePath: string) {
+  const docState = app.documents.get(filePath);
+  const previousComments = [...(docState?.comments ?? [])];
+
+  setComments([], filePath);
+
+  try {
+    const response = await fetch(
+      `/api/comments?path=${encodeURIComponent(filePath)}`,
+      {
+        method: "DELETE",
+      },
+    );
+    if (!response.ok)
+      throw new Error(`Failed to delete all comments: ${response.statusText}`);
+  } catch (err) {
+    console.error("Failed to delete all comments:", err);
+    setComments(previousComments, filePath);
+  }
+}
+
+async function reanchorComment(
+  filePath: string,
+  id: string,
+  selectedText: string,
+  startOffset: number,
+  endOffset: number,
+) {
+  const docState = app.documents.get(filePath);
+  const previousComments = [...(docState?.comments ?? [])];
+
+  setComments(
+    previousComments.map((c) =>
+      c.id === id
+        ? {
+            ...c,
+            selectedText,
+            startOffset,
+            endOffset,
+            anchorConfidence: AnchorConfidences.EXACT,
+          }
+        : c,
+    ),
+    filePath,
+  );
+
+  try {
+    const response = await fetch(
+      `/api/comments/${id}/reanchor?path=${encodeURIComponent(filePath)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selectedText, startOffset, endOffset }),
+      },
+    );
+    if (!response.ok)
+      throw new Error(`Failed to re-anchor comment: ${response.statusText}`);
+    const data = await response.json();
+    const current = app.documents.get(filePath)?.comments ?? [];
+    setComments(
+      current.map((c) => (c.id === id ? data.comment : c)),
+      filePath,
+    );
+  } catch (err) {
+    console.error("Failed to re-anchor comment:", err);
+    setComments(previousComments, filePath);
+  }
+}
+
+function registerHighlighter(
+  focused: (id: string | undefined) => void,
+  scrollTo: (id: string) => void,
+) {
+  setFocusedFn = focused;
+  scrollToCommentFn = scrollTo;
+}
+
+function navigateToComment(commentId: string) {
+  scrollToCommentFn?.(commentId);
+  setHoveredCommentId(commentId);
+  setFocusedFn?.(commentId);
+  clearTimeout(hoverTimeout);
+  hoverTimeout = setTimeout(() => {
+    setHoveredCommentId(undefined);
+    setFocusedFn?.(undefined);
+  }, 1500);
+}
+
+function navigatePrevious(sortedComments: Comment[]) {
+  if (sortedComments.length === 0) return;
+  currentIndex =
+    currentIndex === 0 ? sortedComments.length - 1 : currentIndex - 1;
+  navigateToComment(sortedComments[currentIndex].id);
+}
+
+function navigateNext(sortedComments: Comment[]) {
+  if (sortedComments.length === 0) return;
+  currentIndex =
+    currentIndex === sortedComments.length - 1 ? 0 : currentIndex + 1;
+  navigateToComment(sortedComments[currentIndex].id);
+}
+
+function copyComment(comment: Comment) {
+  navigator.clipboard.writeText(formatComment(comment));
+}
+
+function onTextSelect(
+  filePath: string,
+  text: string,
+  startOffset: number,
+  endOffset: number,
+  selectionTop: number,
+) {
+  setSelection({ text, startOffset, endOffset }, filePath);
+  setPendingSelectionTop(selectionTop, filePath);
+}
+
+function clearSelection(filePath: string) {
+  setSelection(null, filePath);
+  setPendingSelectionTop(undefined, filePath);
+  clearPendingHighlight();
+  window.getSelection()?.removeAllRanges();
+}
+
+function handleClickOutside(e: MouseEvent) {
+  const target = e.target as HTMLElement;
+  if (target.closest("[data-comment-input]")) return;
+
+  if (!app.activeDocumentPath) return;
+  const docState = app.documents.get(app.activeDocumentPath);
+  if (!docState?.selection) return;
+
+  setSelection(null, app.activeDocumentPath);
+  setPendingSelectionTop(undefined, app.activeDocumentPath);
+  clearPendingHighlight();
+  requestAnimationFrame(() => {
+    const sel = window.getSelection();
+    if (sel?.isCollapsed) {
+      sel.removeAllRanges();
+    }
+  });
+}
+
+function handleCopyAll(filePath: string) {
+  const docState = app.documents.get(filePath);
+  if (!docState) return;
+  navigator.clipboard.writeText(
+    generatePrompt(docState.comments, docState.document.fileName),
+  );
+}
+
+function handleExportJson(filePath: string) {
+  const docState = app.documents.get(filePath);
+  if (!docState) return;
+  exportCommentsAsJson(docState.comments, docState.document);
+}
+
+function handleAddComment(filePath: string, commentText: string) {
+  const docState = app.documents.get(filePath);
+  if (!docState?.selection) return;
+  const { text, startOffset, endOffset } = docState.selection;
+  addComment(filePath, text, commentText, startOffset, endOffset);
+  clearSelection(filePath);
+}
+
+function handleConfirmReanchor(filePath: string) {
+  const docState = app.documents.get(filePath);
+  if (!docState?.selection || !docState.reanchorTarget) return;
+  const { text, startOffset, endOffset } = docState.selection;
+  reanchorComment(
+    filePath,
+    docState.reanchorTarget.commentId,
+    text,
+    startOffset,
+    endOffset,
+  );
+  setReanchorTarget(null, filePath);
+  clearSelection(filePath);
+}
+
+function handleCancelReanchor(filePath: string) {
+  setReanchorTarget(null, filePath);
+  clearSelection(filePath);
+}
+
+function handleHighlightClick(commentId: string) {
+  const marginNote = document.querySelector(
+    `article[data-comment-id="${commentId}"]`,
+  );
+  if (marginNote) {
+    marginNote.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+function scrollToHeading(id: string) {
+  const rect = document.getElementById(id)?.getBoundingClientRect();
+  if (!rect) return;
+  const elementTop = window.scrollY + rect.top;
+  const scrollTarget = Math.max(0, elementTop - window.innerHeight * 0.25);
+  window.scrollTo({ top: scrollTarget, behavior: "smooth" });
+}
+
+function startReanchor(filePath: string, commentId: string) {
+  setReanchorTarget({ commentId }, filePath);
+}
+
+let heartbeatSource: EventSource | undefined;
+let documentStreamSource: EventSource | undefined;
+
+async function initialize() {
+  // If already hydrated by main.ts from inline data, skip
+  if (app.documentOrder.length > 0) {
+    isInitialized = true;
+    return;
+  }
+
+  // Fallback: fetch from API (e.g. if inline data was missing)
+  try {
+    const res = await fetch("/api/documents");
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    const data = await res.json();
+
+    const clean = data.clean || false;
+    if (data.workingDirectory) setWorkingDirectory(data.workingDirectory);
+
+    for (const file of data.files) {
+      openDocument(
+        { html: "", filePath: file.path, fileName: file.fileName, clean },
+        { active: false },
+      );
+    }
+
+    if (data.files.length > 0) {
+      setActiveDocument(data.files[0].path);
+    }
+
+    initSettings();
+    initShortcuts(data.settings?.keybindings ?? []);
+  } catch (err) {
+    error = err instanceof Error ? err.message : "Failed to load documents";
+  } finally {
+    isInitialized = true;
+  }
+}
+
+function setupDocumentStream() {
+  documentStreamSource = new EventSource("/api/document/stream");
+  documentStreamSource.onmessage = async (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === "document-added" && data.path) {
+        openDocument(
+          {
+            html: "",
+            filePath: data.path,
+            fileName: data.fileName,
+            clean: false,
+          },
+          { active: false },
+        );
+        return;
+      }
+      if (data.type === "document-updated" && data.path) {
+        const state = app.documents.get(data.path);
+        if (!state?.document.html) return;
+        const res = await fetch(
+          `/api/document?path=${encodeURIComponent(data.path)}`,
+        );
+        if (res.ok) {
+          const doc = await res.json();
+          setHeadings(doc.headings ?? [], data.path);
+          updateDocumentHtml(doc.html, data.path);
+        }
+      }
+    } catch (err) {
+      // SSE message parse failure — non-critical, stream will continue
+      console.warn("Failed to parse document stream message:", err);
+    }
+  };
+}
+
+$effect(() => {
+  const path = app.activeDocumentPath;
+  if (!path) return;
+  const state = app.documents.get(path);
+  if (!state || state.document.html) return;
+
+  const query = `?path=${encodeURIComponent(path)}`;
+  const isClean = state.document.clean;
+
+  const docFetch = fetch(`/api/document${query}`).then((r) => {
+    if (!r.ok) throw new Error(`Server error: ${r.status}`);
+    return r.json();
+  });
+
+  const commentsFetch = isClean
+    ? fetch(`/api/comments${query}`, { method: "DELETE" }).then(
+        () => [] as unknown[],
+      )
+    : fetch(`/api/comments${query}`)
+        .then((r) => (r.ok ? r.json() : { comments: [] }))
+        .then((d) => d.comments || []);
+
+  Promise.all([docFetch, commentsFetch]).then(
+    ([docData, comments]) => {
+      setComments(comments as Comment[], path);
+      setHeadings(docData.headings ?? [], path);
+      updateDocumentHtml(docData.html, path);
+    },
+    (err) => {
+      error = err instanceof Error ? err.message : "Failed to load document";
+    },
+  );
+});
+
+async function reload() {
+  if (!app.activeDocumentPath) return;
+  try {
+    const res = await fetch(
+      `/api/document?path=${encodeURIComponent(app.activeDocumentPath)}`,
+    );
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    const data = await res.json();
+    setHeadings(data.headings ?? [], app.activeDocumentPath);
+    updateDocumentHtml(data.html, app.activeDocumentPath);
+  } catch (err) {
+    console.error("Failed to reload:", err);
+  }
+}
+
+function handleKeyDown(event: KeyboardEvent) {
+  const target = event.target as HTMLElement;
+  const tagName = target.tagName;
+
+  // Skip when focused on editable elements
+  if (
+    tagName === "INPUT" ||
+    tagName === "TEXTAREA" ||
+    target.isContentEditable
+  ) {
+    return;
+  }
+
+  // Cmd+1-9 for tab switching
+  if (event.metaKey) {
+    const digit = Number.parseInt(event.key, 10);
+    if (digit >= 1 && digit <= 9) {
+      if (app.documentOrder.length <= 1) return;
+      const targetIndex = Math.min(digit - 1, app.documentOrder.length - 1);
+      const targetPath = app.documentOrder[targetIndex];
+      if (targetPath) {
+        event.preventDefault();
+        setActiveDocument(targetPath);
+      }
+      return;
+    }
+  }
+
+  const filePath = app.activeDocumentPath;
+  if (!filePath) return;
+
+  const docState = app.documents.get(filePath);
+  if (!docState) return;
+
+  for (const shortcut of shortcutState.shortcuts) {
+    if (!shortcut.enabled) continue;
+    if (!matchesBinding(event, shortcut.binding)) continue;
+
+    event.preventDefault();
+
+    switch (shortcut.id) {
+      case ShortcutActions.COPY_ALL:
+        handleCopyAll(filePath);
+        break;
+      case ShortcutActions.COPY_ALL_RAW:
+        navigator.clipboard.writeText(
+          docState.comments.map(formatComment).join("\n\n---\n\n"),
+        );
+        break;
+      case ShortcutActions.NAVIGATE_NEXT:
+        navigateNext(docState.sortedComments);
+        break;
+      case ShortcutActions.NAVIGATE_PREVIOUS:
+        navigatePrevious(docState.sortedComments);
+        break;
+      case ShortcutActions.COPY_SELECTION_RAW: {
+        const sel = window.getSelection()?.toString();
+        if (sel) navigator.clipboard.writeText(sel);
+        break;
+      }
+      case ShortcutActions.COPY_SELECTION_LLM: {
+        const selText = window.getSelection()?.toString();
+        if (selText) {
+          const context = `# Selected Text from ${docState.document.fileName}\n\n${selText}`;
+          navigator.clipboard.writeText(context);
+        }
+        break;
+      }
+      case ShortcutActions.CLEAR_SELECTION:
+        clearSelection(filePath);
+        break;
+    }
+
+    return;
+  }
+}
+
+$effect(() => {
+  for (const filePath of app.documentOrder) {
+    const isActive = filePath === app.activeDocumentPath;
+    const wasActive = prevActiveMap.get(filePath) ?? false;
+
+    if (wasActive && !isActive) {
+      untrack(() => setScrollY(window.scrollY, filePath));
+    }
+
+    if (!wasActive && isActive) {
+      const savedY = app.documents.get(filePath)?.scrollY ?? 0;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo(0, savedY);
+        });
+      });
+    }
+
+    prevActiveMap.set(filePath, isActive);
+  }
+});
+
+$effect(() => {
+  const docState = getActiveDocumentState();
+  if (!docState) return;
+  const max = docState.sortedComments.length - 1;
+  if (max >= 0 && untrack(() => currentIndex) > max) {
+    currentIndex = max;
+  }
+});
+
+onMount(() => {
+  initialize();
+
+  heartbeatSource = new EventSource("/api/heartbeat");
+  setupDocumentStream();
+
+  window.addEventListener("keydown", handleKeyDown);
+  document.addEventListener("mousedown", handleClickOutside);
+});
+
+onDestroy(() => {
+  heartbeatSource?.close();
+  documentStreamSource?.close();
+  clearTimeout(hoverTimeout);
+  window.removeEventListener("keydown", handleKeyDown);
+  document.removeEventListener("mousedown", handleClickOutside);
+
+  for (const pos of positionsMap.values()) {
+    pos.dispose();
+  }
+});
+</script>
+
+{#if error}
+  <div class="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
+    <div class="text-red-600">{error}</div>
+  </div>
+{:else if !isInitialized}
+  <div class="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
+    <div class="text-zinc-500 dark:text-zinc-400">
+      {t("app.loading")}
+    </div>
+  </div>
+{:else if app.documentOrder.length === 0}
+  <div class="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col">
+    <TabBar />
+    <div class="flex-1 flex flex-col items-center justify-center gap-3">
+      <p class="text-zinc-400 dark:text-zinc-500 text-sm">
+        {t("app.noDocuments")}
+      </p>
+      <p class="text-zinc-400 dark:text-zinc-500 text-xs">
+        {t("app.noDocumentsHintPrefix")}
+        {#if t("app.noDocumentsHintPrefix")}{" "}{/if}
+        <code class="bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-xs">
+          readit open &lt;file.md&gt;
+        </code>
+        {" "}
+        {t("app.noDocumentsHintSuffix")}
+      </p>
+    </div>
+  </div>
+{:else}
+  <TabBar />
+
+  {#each app.documentOrder as filePath (filePath)}
+    {@const docState = app.documents.get(filePath)}
+    {@const isActive = filePath === app.activeDocumentPath}
+    {@const hasContent = !!docState?.document.html}
+
+    {#if hasContent || isActive}
+      <div style={isActive ? undefined : "display: none"}>
+        {#if !hasContent}
+          <div class="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
+            <div class="text-zinc-500 dark:text-zinc-400">
+              {t("app.loading")}
+            </div>
+          </div>
+        {:else if docState}
+          {@const headings = docState.headings}
+          {@const comments = docState.comments}
+          {@const sortedComments = docState.sortedComments}
+          {@const selection = docState.selection}
+          {@const pendingSelectionTop = docState.pendingSelectionTop}
+          {@const reanchorTarget = docState.reanchorTarget}
+
+          <div class="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col">
+            <Header
+              fileName={docState.document.fileName}
+              {comments}
+              hasReanchorTarget={reanchorTarget !== null}
+              oncopyall={() => handleCopyAll(filePath)}
+              onexportjson={() => handleExportJson(filePath)}
+              onreload={reload}
+              onedit={(id, text) => editComment(filePath, id, text)}
+              ondelete={(id) => deleteComment(filePath, id)}
+              ondeleteall={() => deleteAllComments(filePath)}
+              onnavigate={navigateToComment}
+              onstartreanchor={(id) => startReanchor(filePath, id)}
+            />
+
+            <div class="flex-1 flex gap-4 w-full max-w-7xl mx-auto">
+              {#if headings.length > 0}
+                <aside class="w-48 flex-shrink-0 py-6 pl-6 hidden xl:block">
+                  <div class="sticky top-64 max-h-[calc(100vh-17rem)] overflow-y-auto">
+                    <TableOfContents
+                      {headings}
+                      activeId={null}
+                      onheadingclick={scrollToHeading}
+                    />
+                  </div>
+                </aside>
+              {/if}
+
+              <div class="flex-1 px-6 py-6">
+                <DocumentViewer
+                  content={docState.document.html}
+                  {comments}
+                  {isActive}
+                  onTextSelect={(text, start, end, top) => onTextSelect(filePath, text, start, end, top)}
+                  onHighlightHover={(id) => {
+                    setHoveredCommentId(id);
+                    setFocusedFn?.(id);
+                  }}
+                  onHighlightClick={handleHighlightClick}
+                  {registerHighlighter}
+                  positions={getPositions(filePath)}
+                />
+              </div>
+
+              <div class="w-72 flex-shrink-0 py-6 pr-4 relative">
+                {#if selection && pendingSelectionTop !== undefined}
+                  <div
+                    class="absolute left-0 right-0 z-10 bg-white dark:bg-zinc-900"
+                    style="top: {pendingSelectionTop}px"
+                  >
+                    {#if reanchorTarget !== null}
+                      <ReanchorConfirm
+                        selectionText={selection.text}
+                        onconfirm={() => handleConfirmReanchor(filePath)}
+                        oncancel={() => handleCancelReanchor(filePath)}
+                      />
+                    {:else}
+                      <CommentInput
+                        selectedText={selection.text}
+                        onsubmit={(text) => handleAddComment(filePath, text)}
+                        oncancel={() => clearSelection(filePath)}
+                      />
+                    {/if}
+                  </div>
+                {/if}
+
+                <MarginNotesContainer
+                  {sortedComments}
+                  positions={getPositions(filePath)}
+                  onedit={(id, text) => editComment(filePath, id, text)}
+                  ondelete={(id) => deleteComment(filePath, id)}
+                  oncopy={copyComment}
+                  onnavigate={navigateToComment}
+                />
+              </div>
+            </div>
+
+            <CommentNav
+              {sortedComments}
+              {currentIndex}
+              onprevious={() => navigatePrevious(sortedComments)}
+              onnext={() => navigateNext(sortedComments)}
+            />
+
+            <footer class="py-4 text-center text-sm text-zinc-400 dark:text-zinc-500">
+              {t("app.footer")}
+            </footer>
+          </div>
+        {/if}
+      </div>
+    {/if}
+  {/each}
+{/if}

@@ -1,6 +1,17 @@
 import type { FrameLocator, Page } from "@playwright/test";
 
 /**
+ * Wait for the Svelte app to be fully mounted and interactive.
+ * The app sets data-readit-ready="true" on <html> after onMount.
+ */
+export async function waitForAppReady(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => document.documentElement.dataset.readitReady === "true",
+    { timeout: 10_000 },
+  );
+}
+
+/**
  * Select text within an article element (for markdown documents)
  * Uses custom event to trigger selection handler (workaround for Playwright mouse issues)
  */
@@ -8,9 +19,12 @@ export async function selectTextInArticle(
   page: Page,
   textToSelect: string,
 ): Promise<void> {
+  // Ensure the Svelte app is fully mounted before dispatching events
+  await waitForAppReady(page);
+
   // Find text and calculate offsets, then dispatch custom event
   await page.evaluate((text) => {
-    const article = document.querySelector("article");
+    const article = document.querySelector("article#document-content");
     if (!article) throw new Error("Article element not found");
 
     const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
@@ -52,6 +66,9 @@ export async function selectTextInIframe(
   _iframe: FrameLocator,
   textToSelect: string,
 ): Promise<void> {
+  // Ensure the Svelte app is fully mounted before dispatching events
+  await waitForAppReady(page);
+
   // Get the actual frame object for evaluation
   const frame = page.frame({ url: /^about:srcdoc/ }) || page.frames()[1];
   if (!frame) throw new Error("Could not find iframe frame");

@@ -15,8 +15,9 @@ import {
 } from "./lib/comment-storage.js";
 import { findTextPosition } from "./lib/highlight/resolver.js";
 import { extractTextFromHtml } from "./lib/html-text.js";
-import { renderMarkdown } from "./lib/markdown-renderer.js";
-import { isMarkdownFile } from "./lib/utils.js";
+import { getShiki, renderMarkdown } from "./lib/markdown-renderer.js";
+import { disposeMermaidWorker } from "./lib/mermaid-renderer.js";
+import { isMarkdownFile, isSupportedFile } from "./lib/utils.js";
 import {
   AnchorConfidences,
   type Comment,
@@ -24,6 +25,7 @@ import {
   FontFamilies,
   type FontFamily,
 } from "./schema.js";
+import { renderTemplate } from "./template.js";
 
 function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err;
@@ -653,6 +655,13 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       debounceTimer: null,
     });
     fileOrder.push(entry.filePath);
+
+    // Delete comment file on startup when --clean is passed
+    if (options.clean) {
+      const commentPath = getCommentPath(entry.filePath);
+      fs.unlink(commentPath).catch(() => {});
+      invalidateResolvedComments(entry.filePath);
+    }
   }
 
   const defaultPath = fileOrder[0];
@@ -755,6 +764,99 @@ function createServer(options: ServerOptions): ServerWithWatchers {
   const isDev = process.env.NODE_ENV === "development";
   const distPath = import.meta.dir;
 
+  let manifestCache: Record<string, { file: string; css?: string[] }> | null =
+    null;
+
+  async function getManifest(): Promise<typeof manifestCache> {
+    if (manifestCache) return manifestCache;
+    try {
+      const manifestPath = join(distPath, ".vite", "manifest.json");
+      const content = await fs.readFile(manifestPath, "utf-8");
+      manifestCache = JSON.parse(content);
+      return manifestCache;
+    } catch {
+      return null;
+    }
+  }
+
+  // Cache the rendered page to avoid re-rendering on every request.
+  // Invalidated by file changes (watcher calls invalidatePageCache).
+  let pageCache: string | null = null;
+
+  function invalidatePageCache(): void {
+    pageCache = null;
+  }
+
+  async function serveAppPage(): Promise<Response> {
+    try {
+      if (pageCache) {
+        return new Response(pageCache, {
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
+      }
+
+      const { html, headings } = await ensureRenderedHtml(defaultPath);
+      const content = await ensureFileContent(defaultPath);
+      const comments = await readCommentsFromFile(defaultPath, content, html);
+      const settings = await readSettings();
+
+      const files = fileOrder.map((fp) => ({
+        path: fp,
+        fileName: basename(fp),
+      }));
+
+      const inlineData = {
+        files,
+        activeFile: defaultPath,
+        settings,
+        documents: {
+          [defaultPath]: {
+            // html omitted — already in <article id="document-content">
+            headings,
+            comments,
+          },
+        },
+        clean: options.clean || false,
+        workingDirectory: process.cwd(),
+      };
+
+      let cssPath = "";
+      let jsPath: string;
+
+      if (isDev) {
+        jsPath = `http://127.0.0.1:${VITE_DEV_PORT}/src/main.ts`;
+      } else {
+        const manifest = await getManifest();
+        const entry = manifest?.["index.html"];
+        jsPath = entry ? `/${entry.file}` : "/assets/index.js";
+        if (entry?.css?.[0]) {
+          cssPath = `/${entry.css[0]}`;
+        }
+      }
+
+      const body = renderTemplate({
+        title: basename(defaultPath),
+        cssPath,
+        jsPath,
+        documentHtml: html,
+        inlineData,
+        isDev,
+        fontFamily: settings.fontFamily,
+      });
+
+      if (!isDev) {
+        pageCache = body;
+      }
+
+      return new Response(body, {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    } catch (err) {
+      console.error("Failed to serve app page:", err);
+      return new Response("Internal Server Error", { status: 500 });
+    }
+  }
+
   function watchFile(targetPath: string): FSWatcher | null {
     try {
       const watcher = watch(targetPath, async (eventType) => {
@@ -773,6 +875,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
               state.headings = null;
               state.isLoaded = true;
               invalidateResolvedComments(targetPath);
+              invalidatePageCache();
               console.log(`File changed: ${basename(targetPath)}`);
               sendEvent({ type: "document-updated", path: targetPath });
             }
@@ -793,7 +896,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     hostname: options.host,
     idleTimeout: 255, // max value (seconds) — SSE streams stay open long
 
-    async fetch(req) {
+    async fetch(req: Request) {
       const url = new URL(req.url);
       const { pathname } = url;
       const method = req.method;
@@ -827,9 +930,9 @@ function createServer(options: ServerOptions): ServerWithWatchers {
             }
             throw err;
           }
-          if (!isMarkdownFile(filePath)) {
+          if (!isSupportedFile(filePath)) {
             return errorResponse(
-              `Unsupported file type: ${filePath} (expected .md or .markdown)`,
+              `Unsupported file type: ${filePath} (expected .md, .markdown, .html, or .htm)`,
               400,
             );
           }
@@ -914,12 +1017,14 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       if (pathname === "/api/comments" && method === "POST") {
         const ctxOrRes = requireContext(url);
         if (ctxOrRes instanceof Response) return ctxOrRes;
+        invalidatePageCache();
         return addComment(ctxOrRes, req);
       }
 
       if (pathname === "/api/comments" && method === "DELETE") {
         const ctxOrRes = requireContext(url);
         if (ctxOrRes instanceof Response) return ctxOrRes;
+        invalidatePageCache();
         return clearComments(ctxOrRes);
       }
 
@@ -927,6 +1032,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       if (commentId) {
         const ctxOrRes = requireContext(url);
         if (ctxOrRes instanceof Response) return ctxOrRes;
+        invalidatePageCache();
 
         if (pathname.endsWith("/reanchor") && method === "PUT") {
           return reanchorComment(ctxOrRes, req, commentId);
@@ -945,6 +1051,11 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 
       if (pathname === "/api/settings" && method === "PUT") {
         return updateSettingsRoute(req);
+      }
+
+      // Root route: serve the app page with inline data
+      if (pathname === "/") {
+        return serveAppPage();
       }
 
       if (isDev) {
@@ -966,6 +1077,9 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 export async function startServer(
   options: ServerOptions,
 ): Promise<ServerResult> {
+  // Pre-warm shiki highlighter in background (50-200ms savings on first request)
+  getShiki();
+
   const MAX_PORT = 65535;
 
   for (let port = options.port; port <= MAX_PORT; port++) {
@@ -983,6 +1097,7 @@ export async function startServer(
       const originalStop = server.stop.bind(server);
       const wrappedServer = {
         stop() {
+          disposeMermaidWorker();
           stopVite?.();
           for (const w of watchers) w.close();
           originalStop();

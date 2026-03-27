@@ -5,6 +5,14 @@ export function isMarkdownFile(filePath: string): boolean {
   return filePath.endsWith(".md") || filePath.endsWith(".markdown");
 }
 
+export function isHtmlFile(filePath: string): boolean {
+  return filePath.endsWith(".html") || filePath.endsWith(".htm");
+}
+
+export function isSupportedFile(filePath: string): boolean {
+  return isMarkdownFile(filePath) || isHtmlFile(filePath);
+}
+
 export function cn(...inputs: ReadonlyArray<ClassValue>) {
   return twMerge(clsx(inputs));
 }
