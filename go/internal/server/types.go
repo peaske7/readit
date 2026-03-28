@@ -1,7 +1,5 @@
 package server
 
-import "sync"
-
 // Comment represents a review comment anchored to a text selection.
 type Comment struct {
 	ID               string `json:"id"`
@@ -30,7 +28,6 @@ type FileState struct {
 	RenderedHTML string
 	Headings     []Heading
 	IsLoaded     bool
-	mu           sync.Mutex
 }
 
 // Settings holds user preferences persisted to ~/.readit/settings.json.
@@ -42,19 +39,19 @@ type Settings struct {
 // CommentFile represents the parsed contents of a .comments.md file.
 type CommentFile struct {
 	Source   string
-	Hash    string
-	Version int
+	Hash     string
+	Version  int
 	Comments []Comment
 }
 
 // InlineData is the JSON payload embedded in the initial HTML page.
 type InlineData struct {
-	Files          []FileRef                  `json:"files"`
-	ActiveFile     string                     `json:"activeFile"`
-	Clean          bool                       `json:"clean"`
-	WorkingDir     string                     `json:"workingDirectory"`
-	Documents      map[string]InlineDocData   `json:"documents"`
-	Settings       Settings                   `json:"settings"`
+	Files      []FileRef                `json:"files"`
+	ActiveFile string                   `json:"activeFile"`
+	Clean      bool                     `json:"clean"`
+	WorkingDir string                   `json:"workingDirectory"`
+	Documents  map[string]InlineDocData `json:"documents"`
+	Settings   Settings                 `json:"settings"`
 }
 
 // FileRef is a file entry in the documents list.
@@ -65,8 +62,8 @@ type FileRef struct {
 
 // InlineDocData holds per-document data embedded in the initial page.
 type InlineDocData struct {
-	Headings []Heading  `json:"headings"`
-	Comments []Comment  `json:"comments"`
+	Headings []Heading `json:"headings"`
+	Comments []Comment `json:"comments"`
 }
 
 // Anchor confidence levels.
@@ -94,8 +91,8 @@ const (
 
 // Anchor resolution constants.
 const (
-	DefaultSearchWindow  = 500
+	DefaultSearchWindow   = 500
 	DefaultFuzzyThreshold = 5
-	MaxFuzzyTextLength   = 200
-	FuzzySearchWindow    = 2000
+	MaxFuzzyTextLength    = 200
+	FuzzySearchWindow     = 2000
 )

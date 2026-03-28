@@ -502,7 +502,6 @@ function handleKeyDown(event: KeyboardEvent) {
   const target = event.target as HTMLElement;
   const tagName = target.tagName;
 
-  // Skip when focused on editable elements
   if (
     tagName === "INPUT" ||
     tagName === "TEXTAREA" ||
@@ -511,7 +510,6 @@ function handleKeyDown(event: KeyboardEvent) {
     return;
   }
 
-  // Cmd+1-9 for tab switching
   if (event.metaKey) {
     const digit = Number.parseInt(event.key, 10);
     if (digit >= 1 && digit <= 9) {

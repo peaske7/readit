@@ -64,7 +64,7 @@ func (b *SSEBroker) DocumentStream(w http.ResponseWriter, r *http.Request) {
 		b.mu.Unlock()
 	}()
 
-	fmt.Fprint(w, "data: connected\n\n")
+	_, _ = fmt.Fprint(w, "data: connected\n\n")
 	flusher.Flush()
 
 	ticker := time.NewTicker(5 * time.Second)
@@ -75,10 +75,10 @@ func (b *SSEBroker) DocumentStream(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case msg := <-ch:
-			fmt.Fprintf(w, "data: %s\n\n", msg)
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", msg)
 			flusher.Flush()
 		case <-ticker.C:
-			fmt.Fprint(w, "data: ping\n\n")
+			_, _ = fmt.Fprint(w, "data: ping\n\n")
 			flusher.Flush()
 		}
 	}
@@ -114,7 +114,7 @@ func (b *SSEBroker) Heartbeat(w http.ResponseWriter, r *http.Request) {
 		b.mu.Unlock()
 	}()
 
-	fmt.Fprint(w, "data: connected\n\n")
+	_, _ = fmt.Fprint(w, "data: connected\n\n")
 	flusher.Flush()
 
 	ticker := time.NewTicker(5 * time.Second)
@@ -125,7 +125,7 @@ func (b *SSEBroker) Heartbeat(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-ticker.C:
-			fmt.Fprint(w, "data: ping\n\n")
+			_, _ = fmt.Fprint(w, "data: ping\n\n")
 			flusher.Flush()
 		}
 	}

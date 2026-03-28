@@ -13,11 +13,11 @@ import (
 )
 
 var (
-	frontMatterRe   = regexp.MustCompile(`(?s)^---\n(.*?)\n---`)
+	frontMatterRe      = regexp.MustCompile(`(?s)^---\n(.*?)\n---`)
 	frontMatterStripRe = regexp.MustCompile(`(?s)^---\n.*?\n---\n*`)
-	commentMetaRe   = regexp.MustCompile(`<!--\s*c:([^|]+)\|([^|]+)\|([^>]+)\s*-->`)
-	anchorPrefixRe  = regexp.MustCompile(`<!--\s*anchor:(.+?)\s*-->`)
-	blockquoteRe    = regexp.MustCompile(`(?m)^>\s?(.*)`)
+	commentMetaRe      = regexp.MustCompile(`<!--\s*c:([^|]+)\|([^|]+)\|([^>]+)\s*-->`)
+	anchorPrefixRe     = regexp.MustCompile(`<!--\s*anchor:(.+?)\s*-->`)
+	blockquoteRe       = regexp.MustCompile(`(?m)^>\s?(.*)`)
 )
 
 // CommentPath returns the path to the .comments.md file for a given source file.
@@ -66,7 +66,7 @@ func ParseCommentFile(data []byte) (CommentFile, error) {
 				case "hash":
 					cf.Hash = v
 				case "version":
-					fmt.Sscanf(v, "%d", &cf.Version)
+					_, _ = fmt.Sscanf(v, "%d", &cf.Version)
 				}
 			}
 		}
@@ -158,16 +158,16 @@ func SerializeComments(cf CommentFile) []byte {
 	b.WriteString("---\n")
 	b.WriteString("source: " + cf.Source + "\n")
 	b.WriteString("hash: " + cf.Hash + "\n")
-	b.WriteString(fmt.Sprintf("version: %d\n", cf.Version))
+	fmt.Fprintf(&b, "version: %d\n", cf.Version)
 	b.WriteString("---\n\n")
 
 	for i, c := range cf.Comments {
 		// Metadata
-		b.WriteString(fmt.Sprintf("<!-- c:%s|%s|%s -->\n", c.ID, c.LineHint, c.CreatedAt))
+		fmt.Fprintf(&b, "<!-- c:%s|%s|%s -->\n", c.ID, c.LineHint, c.CreatedAt)
 
 		// Optional anchor prefix
 		if c.AnchorPrefix != "" {
-			b.WriteString(fmt.Sprintf("<!-- anchor:%s -->\n", c.AnchorPrefix))
+			fmt.Fprintf(&b, "<!-- anchor:%s -->\n", c.AnchorPrefix)
 		}
 
 		// Selected text as blockquote

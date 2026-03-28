@@ -4,13 +4,13 @@ import "testing"
 
 func TestParseLineHint(t *testing.T) {
 	tests := []struct {
-		input       string
-		wantStart   int
-		wantEnd     int
+		input     string
+		wantStart int
+		wantEnd   int
 	}{
 		{"L42", 42, 42},
 		{"L42-L55", 42, 55},
-		{"L42-55", 42, 55},    // legacy format
+		{"L42-55", 42, 55}, // legacy format
 		{"invalid", 1, 1},
 	}
 

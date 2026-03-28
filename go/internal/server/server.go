@@ -17,12 +17,12 @@ import (
 
 // Options configures the server.
 type Options struct {
-	Files      []FileEntry
-	Port       int
-	Host       string
-	Clean      bool
-	AssetsDir  string // override embedded assets
-	Dev        bool   // spawn Vite, proxy to it
+	Files     []FileEntry
+	Port      int
+	Host      string
+	Clean     bool
+	AssetsDir string // override embedded assets
+	Dev       bool   // spawn Vite, proxy to it
 }
 
 // FileEntry is a file to load on startup.
@@ -197,7 +197,7 @@ func (s *Server) Start(host string, port int) (int, error) {
 // Stop gracefully shuts down the server.
 func (s *Server) Stop() {
 	if s.httpServer != nil {
-		s.httpServer.Close()
+		_ = s.httpServer.Close()
 	}
 	s.watcher.Close()
 }
@@ -235,7 +235,7 @@ func (s *Server) loadFile(f FileEntry) error {
 	s.fileOrder = append(s.fileOrder, absPath)
 	s.mu.Unlock()
 
-	s.watcher.Add(absPath)
+	_ = s.watcher.Add(absPath)
 	return nil
 }
 
@@ -380,7 +380,7 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(page))
+	_, _ = w.Write([]byte(page))
 }
 
 func (s *Server) resolveAssetPaths() (jsPath, cssPath string) {
@@ -416,7 +416,7 @@ func (s *Server) resolveAssetPaths() (jsPath, cssPath string) {
 func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {
@@ -424,6 +424,6 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 }
 
 func readJSON(r *http.Request, v any) error {
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 	return json.NewDecoder(r.Body).Decode(v)
 }

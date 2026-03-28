@@ -61,7 +61,6 @@ function toggleH2(id: string) {
   expandedH2s = next;
 }
 
-// Scroll spy via IntersectionObserver
 let observedActiveId = $state<string | null>(null);
 
 $effect(() => {

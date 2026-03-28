@@ -74,5 +74,5 @@ func (w *Watcher) Add(path string) error {
 // Close stops the watcher.
 func (w *Watcher) Close() {
 	close(w.done)
-	w.fsWatcher.Close()
+	_ = w.fsWatcher.Close()
 }

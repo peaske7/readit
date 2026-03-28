@@ -21,9 +21,9 @@ func ParseLineHint(hint string) (start, end int) {
 	if m == nil {
 		return 1, 1
 	}
-	fmt.Sscanf(m[1], "%d", &start)
+	_, _ = fmt.Sscanf(m[1], "%d", &start)
 	if m[2] != "" {
-		fmt.Sscanf(m[2], "%d", &end)
+		_, _ = fmt.Sscanf(m[2], "%d", &end)
 	} else {
 		end = start
 	}

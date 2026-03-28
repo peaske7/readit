@@ -559,7 +559,12 @@ async function serveStaticFile(
   const file = Bun.file(filePath);
 
   if (await file.exists()) {
-    return new Response(file);
+    // Content-hashed assets are immutable — cache forever
+    const isHashed = pathname.startsWith("/assets/");
+    const headers: Record<string, string> = isHashed
+      ? { "Cache-Control": "public, max-age=31536000, immutable" }
+      : {};
+    return new Response(file, { headers });
   }
 
   const indexFile = Bun.file(join(distPath, "index.html"));
@@ -656,7 +661,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     });
     fileOrder.push(entry.filePath);
 
-    // Delete comment file on startup when --clean is passed
     if (options.clean) {
       const commentPath = getCommentPath(entry.filePath);
       fs.unlink(commentPath).catch(() => {});
@@ -1053,7 +1057,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         return updateSettingsRoute(req);
       }
 
-      // Root route: serve the app page with inline data
       if (pathname === "/") {
         return serveAppPage();
       }

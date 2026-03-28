@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	htmlTagRe   = regexp.MustCompile(`<\/?([a-zA-Z][a-zA-Z0-9]*)[^>]*\/?>`)
-	entityRe    = regexp.MustCompile(`&(?:#(\d+)|#x([0-9a-fA-F]+)|(\w+));`)
+	htmlTagRe = regexp.MustCompile(`<\/?([a-zA-Z][a-zA-Z0-9]*)[^>]*\/?>`)
+	entityRe  = regexp.MustCompile(`&(?:#(\d+)|#x([0-9a-fA-F]+)|(\w+));`)
 )
 
 var blockElements = map[string]bool{

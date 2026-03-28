@@ -146,7 +146,14 @@ onMount(() => {
     requestAnimationFrame(() => positions.cache());
   }
 
-  hydrateMermaid(contentEl!, content);
+  // Defer mermaid hydration off the critical path to avoid blocking INP
+  const el = contentEl!;
+  const html = content;
+  if ("requestIdleCallback" in window) {
+    requestIdleCallback(() => hydrateMermaid(el, html));
+  } else {
+    setTimeout(() => hydrateMermaid(el, html), 100);
+  }
 
   const handleTestSelect = (e: Event) => {
     const { text, startOffset, endOffset } = (e as CustomEvent).detail;

@@ -19,18 +19,20 @@ func setupBenchServer(b *testing.B, lines int) (*Server, string) {
 	for i := 0; i < lines; i++ {
 		switch i % 10 {
 		case 0:
-			sb.WriteString(fmt.Sprintf("## Section %d\n\n", i/10))
+			fmt.Fprintf(&sb, "## Section %d\n\n", i/10)
 		case 5:
 			sb.WriteString("```go\nfunc hello() {\n\tfmt.Println(\"world\")\n}\n```\n\n")
 		default:
-			sb.WriteString(fmt.Sprintf("Paragraph %d with **bold** and *italic* text and `code`.\n\n", i))
+			fmt.Fprintf(&sb, "Paragraph %d with **bold** and *italic* text and `code`.\n\n", i)
 		}
 	}
 
 	// Write to temp file
 	tmpDir := b.TempDir()
 	filePath := filepath.Join(tmpDir, "bench.md")
-	os.WriteFile(filePath, []byte(sb.String()), 0644)
+	if err := os.WriteFile(filePath, []byte(sb.String()), 0644); err != nil {
+		b.Fatal(err)
+	}
 
 	srv, err := NewServer(Options{
 		Files: []FileEntry{{FilePath: filePath}},
@@ -93,12 +95,14 @@ func BenchmarkServerStartup1000Lines(b *testing.B) {
 	var sb strings.Builder
 	sb.WriteString("# Benchmark Document\n\n")
 	for i := 0; i < 1000; i++ {
-		sb.WriteString(fmt.Sprintf("Paragraph %d with **bold** text.\n\n", i))
+		fmt.Fprintf(&sb, "Paragraph %d with **bold** text.\n\n", i)
 	}
 
 	tmpDir := b.TempDir()
 	filePath := filepath.Join(tmpDir, "bench.md")
-	os.WriteFile(filePath, []byte(sb.String()), 0644)
+	if err := os.WriteFile(filePath, []byte(sb.String()), 0644); err != nil {
+		b.Fatal(err)
+	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

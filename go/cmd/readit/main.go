@@ -83,7 +83,7 @@ func cmdServe() {
 			fileArgs = append(fileArgs, arg)
 		}
 	}
-	fs.Parse(flagArgs)
+	_ = fs.Parse(flagArgs)
 
 	if len(fileArgs) == 0 {
 		fmt.Fprintln(os.Stderr, "Error: at least one file is required")
@@ -129,7 +129,7 @@ func cmdServe() {
 	fmt.Printf("readit v%s serving at %s\n", version, url)
 
 	if !*noOpen {
-		browser.OpenURL(url)
+		_ = browser.OpenURL(url)
 	}
 
 	// Wait for interrupt
@@ -140,7 +140,7 @@ func cmdServe() {
 	fmt.Println("\nShutting down...")
 	srv.Stop()
 	if viteCmd != nil && viteCmd.Process != nil {
-		viteCmd.Process.Kill()
+		_ = viteCmd.Process.Kill()
 	}
 	removeServerInfo()
 }
@@ -149,7 +149,7 @@ func cmdList() {
 	home, _ := os.UserHomeDir()
 	commentsDir := filepath.Join(home, ".readit", "comments")
 
-	filepath.Walk(commentsDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(commentsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
@@ -229,7 +229,7 @@ func cmdOpen() {
 			attachFile(info.Port, f.FilePath)
 		}
 		url := fmt.Sprintf("http://127.0.0.1:%d", info.Port)
-		browser.OpenURL(url)
+		_ = browser.OpenURL(url)
 		return
 	}
 
@@ -260,7 +260,7 @@ func resolveFiles(args []string) ([]server.FileEntry, error) {
 
 		if info.IsDir() {
 			// Scan directory for markdown files
-			filepath.Walk(absPath, func(path string, fi os.FileInfo, err error) error {
+			_ = filepath.Walk(absPath, func(path string, fi os.FileInfo, err error) error {
 				if err != nil || fi.IsDir() {
 					if fi != nil && fi.IsDir() && strings.HasPrefix(fi.Name(), ".") {
 						return filepath.SkipDir
@@ -307,12 +307,12 @@ func writeServerInfo(port int) {
 	info := serverInfo{Port: port, PID: os.Getpid()}
 	data, _ := json.Marshal(info)
 	path := serverInfoPath()
-	os.MkdirAll(filepath.Dir(path), 0755)
-	os.WriteFile(path, data, 0644)
+	_ = os.MkdirAll(filepath.Dir(path), 0755)
+	_ = os.WriteFile(path, data, 0644)
 }
 
 func removeServerInfo() {
-	os.Remove(serverInfoPath())
+	_ = os.Remove(serverInfoPath())
 }
 
 func discoverServer() (*serverInfo, error) {
@@ -341,7 +341,7 @@ func discoverServer() (*serverInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("health check failed")
 	}
@@ -360,7 +360,7 @@ func attachFile(port int, filePath string) {
 		log.Printf("Warning: failed to attach %s: %v", filePath, err)
 		return
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 }
 
 func spawnVite() *exec.Cmd {

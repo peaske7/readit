@@ -24,7 +24,6 @@ function handleKeyDown(e: KeyboardEvent) {
   e.preventDefault();
   e.stopPropagation();
 
-  // Ignore bare modifier keys
   if (
     e.key === "Alt" ||
     e.key === "Shift" ||

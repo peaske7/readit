@@ -65,9 +65,7 @@ async function handleCopy() {
 
   try {
     await navigator.clipboard.writeText(modalState.content);
-  } catch {
-    // Copy failed silently
-  }
+  } catch {}
 }
 </script>
 

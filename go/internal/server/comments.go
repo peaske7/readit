@@ -171,11 +171,9 @@ func (s *Server) updateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	found := false
 	for i := range cf.Comments {
 		if cf.Comments[i].ID == commentID {
 			cf.Comments[i].Comment = strings.TrimSpace(body.Comment)
-			found = true
 
 			if err := WriteCommentFile(commentPath, cf); err != nil {
 				writeError(w, http.StatusInternalServerError, "failed to save")
@@ -187,9 +185,7 @@ func (s *Server) updateComment(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if !found {
-		writeError(w, http.StatusNotFound, "comment not found")
-	}
+	writeError(w, http.StatusNotFound, "comment not found")
 }
 
 // deleteComment handles DELETE /api/comments/{id}?path=...
@@ -223,10 +219,10 @@ func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(filtered) == 0 {
-		os.Remove(commentPath)
+		_ = os.Remove(commentPath)
 	} else {
 		cf.Comments = filtered
-		WriteCommentFile(commentPath, cf)
+		_ = WriteCommentFile(commentPath, cf)
 	}
 	s.invalidateCommentCache(path)
 
@@ -237,7 +233,7 @@ func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 func (s *Server) deleteAllComments(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
 	commentPath := CommentPath(path)
-	os.Remove(commentPath)
+	_ = os.Remove(commentPath)
 	s.invalidateCommentCache(path)
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
