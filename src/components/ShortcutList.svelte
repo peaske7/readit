@@ -49,7 +49,7 @@ let hasModifications = $derived(
   {#each SHORTCUT_GROUPS as group (group.label)}
     <div>
       <Text variant="caption" as="div" class="mb-2 font-medium">
-        {t(group.label as any)}
+        {t(group.label)}
       </Text>
 
       <div class="space-y-1">
@@ -65,7 +65,7 @@ let hasModifications = $derived(
             >
               <div class="flex-1 min-w-0">
                 <div class="text-xs text-zinc-700 dark:text-zinc-300">
-                  {t(shortcut.label as any)}
+                  {t(shortcut.label)}
                 </div>
               </div>
 

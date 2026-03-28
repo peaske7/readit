@@ -700,7 +700,6 @@ onDestroy(() => {
                   <div class="sticky top-64 max-h-[calc(100vh-17rem)] overflow-y-auto">
                     <TableOfContents
                       {headings}
-                      activeId={null}
                       onheadingclick={scrollToHeading}
                     />
                   </div>

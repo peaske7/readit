@@ -1,4 +1,5 @@
 import type { KeybindingOverride, ShortcutBinding } from "../schema";
+import type { TranslationKey } from "./i18n/types";
 
 export const ShortcutActions = {
   COPY_ALL: "copyAll",
@@ -15,8 +16,8 @@ export type ShortcutAction =
 
 export interface ShortcutDefinition {
   id: ShortcutAction;
-  label: string;
-  description: string;
+  label: TranslationKey;
+  description: TranslationKey;
   defaultBinding: ShortcutBinding;
   binding: ShortcutBinding;
   enabled: boolean;
@@ -176,7 +177,7 @@ export function bindingsEqual(a: ShortcutBinding, b: ShortcutBinding): boolean {
 }
 
 export interface ShortcutGroup {
-  label: string;
+  label: TranslationKey;
   ids: ShortcutAction[];
 }
 

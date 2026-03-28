@@ -17,12 +17,13 @@ import (
 
 // Options configures the server.
 type Options struct {
-	Files     []FileEntry
-	Port      int
-	Host      string
-	Clean     bool
-	AssetsDir string // override embedded assets
-	Dev       bool   // spawn Vite, proxy to it
+	Files      []FileEntry
+	Port       int
+	Host       string
+	Clean      bool
+	AssetsDir  string // override embedded assets
+	Dev        bool   // spawn Vite, proxy to it
+	OnShutdown func() // called when all browser clients disconnect
 }
 
 // FileEntry is a file to load on startup.
@@ -82,10 +83,7 @@ func NewServer(opts Options) (*Server, error) {
 	}
 
 	// Setup SSE broker
-	s.sse = NewSSEBroker(opts.Dev, func() {
-		log.Println("All clients disconnected, shutting down")
-		os.Exit(0)
-	})
+	s.sse = NewSSEBroker(opts.Dev, opts.OnShutdown)
 
 	// Setup file watcher
 	w, err := NewWatcher(func(path string) {
@@ -240,24 +238,34 @@ func (s *Server) loadFile(f FileEntry) error {
 }
 
 func (s *Server) onFileChange(path string) {
-	s.mu.Lock()
-	state, ok := s.files[path]
+	// Check the file is tracked before doing I/O
+	s.mu.RLock()
+	_, ok := s.files[path]
+	s.mu.RUnlock()
 	if !ok {
-		s.mu.Unlock()
 		return
 	}
 
+	// Read and render outside the write lock to avoid blocking concurrent reads
 	data, err := os.ReadFile(path)
 	if err != nil {
-		s.mu.Unlock()
 		return
 	}
-
 	result := s.renderer.Render(data)
-	state.Content = data
-	state.RenderedHTML = result.HTML
-	state.Headings = result.Headings
+
+	// Take write lock only for the state swap
+	s.mu.Lock()
+	state, ok := s.files[path]
+	if ok {
+		state.Content = data
+		state.RenderedHTML = result.HTML
+		state.Headings = result.Headings
+	}
 	s.mu.Unlock()
+
+	if !ok {
+		return
+	}
 
 	s.invalidateCommentCache(path)
 

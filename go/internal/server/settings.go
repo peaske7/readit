@@ -52,7 +52,10 @@ func WriteSettings(s Settings) error {
 
 // getSettings handles GET /api/settings.
 func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, s.settings)
+	s.mu.RLock()
+	settings := s.settings
+	s.mu.RUnlock()
+	writeJSON(w, http.StatusOK, settings)
 }
 
 // updateSettings handles PUT /api/settings.
@@ -70,13 +73,19 @@ func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "fontFamily must be 'serif' or 'sans-serif'")
 			return
 		}
+		s.mu.Lock()
 		s.settings.FontFamily = body.FontFamily
+		s.mu.Unlock()
 	}
 
-	if err := WriteSettings(s.settings); err != nil {
+	s.mu.RLock()
+	settings := s.settings
+	s.mu.RUnlock()
+
+	if err := WriteSettings(settings); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save settings")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, s.settings)
+	writeJSON(w, http.StatusOK, settings)
 }

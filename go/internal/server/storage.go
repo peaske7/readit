@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 var (
@@ -200,13 +201,14 @@ func WriteCommentFile(path string, cf CommentFile) error {
 	return os.Rename(tmp, path)
 }
 
-// TruncateSelection clips text to MaxSelectionLength with a middle ellipsis.
+// TruncateSelection clips text to MaxSelectionLength runes with a middle ellipsis.
 func TruncateSelection(text string) string {
-	if len(text) <= MaxSelectionLength {
+	if utf8.RuneCountInString(text) <= MaxSelectionLength {
 		return text
 	}
-	half := (MaxSelectionLength - len(TruncationMarker)) / 2
-	return text[:half] + TruncationMarker + text[len(text)-half:]
+	runes := []rune(text)
+	half := (MaxSelectionLength - utf8.RuneCountInString(TruncationMarker)) / 2
+	return string(runes[:half]) + TruncationMarker + string(runes[len(runes)-half:])
 }
 
 // GetLineNumber returns the 1-indexed line number at a byte offset.

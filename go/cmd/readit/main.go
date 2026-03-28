@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -106,6 +107,10 @@ func cmdServe() {
 		viteCmd = spawnVite()
 	}
 
+	// Setup signal channel before server so the SSE shutdown callback can use it
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+
 	srv, err := server.NewServer(server.Options{
 		Files:     files,
 		Port:      *port,
@@ -113,6 +118,10 @@ func cmdServe() {
 		Clean:     *clean,
 		AssetsDir: *assetsDir,
 		Dev:       *dev,
+		OnShutdown: func() {
+			log.Println("All clients disconnected, shutting down")
+			sig <- syscall.SIGTERM
+		},
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -132,9 +141,7 @@ func cmdServe() {
 		_ = browser.OpenURL(url)
 	}
 
-	// Wait for interrupt
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	// Wait for interrupt or SSE-triggered shutdown
 	<-sig
 
 	fmt.Println("\nShutting down...")
@@ -350,11 +357,11 @@ func discoverServer() (*serverInfo, error) {
 }
 
 func attachFile(port int, filePath string) {
-	body := fmt.Sprintf(`{"path":"%s"}`, filePath)
+	body, _ := json.Marshal(map[string]string{"path": filePath})
 	resp, err := http.Post(
 		fmt.Sprintf("http://127.0.0.1:%d/api/documents", port),
 		"application/json",
-		strings.NewReader(body),
+		bytes.NewReader(body),
 	)
 	if err != nil {
 		log.Printf("Warning: failed to attach %s: %v", filePath, err)

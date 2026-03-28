@@ -44,6 +44,7 @@ let containerEl: HTMLDivElement | undefined = $state();
 let adapter: Highlighter | null = null;
 
 let prevHtml = "";
+let cancelMermaid: (() => void) | undefined;
 
 let mermaidIdCounter = 0;
 
@@ -150,9 +151,13 @@ onMount(() => {
   const el = contentEl!;
   const html = content;
   if ("requestIdleCallback" in window) {
-    requestIdleCallback(() => hydrateMermaid(el, html));
+    requestIdleCallback(async () => {
+      cancelMermaid = await hydrateMermaid(el, html);
+    });
   } else {
-    setTimeout(() => hydrateMermaid(el, html), 100);
+    setTimeout(async () => {
+      cancelMermaid = await hydrateMermaid(el, html);
+    }, 100);
   }
 
   const handleTestSelect = (e: Event) => {
@@ -170,6 +175,7 @@ onMount(() => {
 });
 
 onDestroy(() => {
+  cancelMermaid?.();
   positions.detach();
   adapter?.dispose();
   adapter = null;
@@ -211,13 +217,8 @@ $effect(() => {
   if (isActive) {
     positions.attach(contentEl, containerEl, adapter);
     positions.cache();
+    return () => positions.detach();
   }
-
-  return () => {
-    if (!isActive) {
-      positions.detach();
-    }
-  };
 });
 
 $effect(() => {
@@ -231,9 +232,13 @@ $effect(() => {
   if (!contentEl) return;
 
   if (content && contentEl.innerHTML !== content) {
+    // Safe: content is server-rendered HTML from user's own local files
     contentEl.innerHTML = content;
     contentEl.className = cn("prose", proseClass);
-    hydrateMermaid(contentEl, content);
+    cancelMermaid?.();
+    hydrateMermaid(contentEl, content).then((cancel) => {
+      cancelMermaid = cancel;
+    });
   }
 });
 </script>

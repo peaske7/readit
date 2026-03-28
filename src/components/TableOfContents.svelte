@@ -6,11 +6,10 @@ import { settings } from "../stores/settings.svelte";
 
 interface Props {
   headings: Heading[];
-  activeId: string | null;
   onheadingclick: (id: string) => void;
 }
 
-let { headings, activeId, onheadingclick }: Props = $props();
+let { headings, onheadingclick }: Props = $props();
 
 let fontClass = $derived(
   settings.fontFamily === FontFamilies.SANS_SERIF ? "font-sans" : "font-serif",
@@ -93,7 +92,7 @@ $effect(() => {
   return () => observer.disconnect();
 });
 
-let effectiveActiveId = $derived(activeId ?? observedActiveId);
+let effectiveActiveId = $derived(observedActiveId);
 </script>
 
 {#if headings.length > 0}

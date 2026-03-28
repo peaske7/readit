@@ -102,25 +102,43 @@ func normalizeWhitespace(s string) string {
 }
 
 // FindAnchorNormalized tries a whitespace-normalized match.
+// It searches near the lineHint first, then falls back to the full source.
 func FindAnchorNormalized(source, selectedText, lineHint string) *AnchorResult {
 	normText := normalizeWhitespace(selectedText)
 	normSource := normalizeWhitespace(source)
 	if normText == selectedText && normSource == source {
 		return nil // no normalization needed
 	}
-	idx := strings.Index(normSource, normText)
-	if idx < 0 {
-		return nil
+
+	// Try windowed search near the hint first
+	hintLine, _ := ParseLineHint(lineHint)
+	offset := lineOffset(source, hintLine)
+	normOffset := mapSourceToNormOffset(source, offset)
+
+	windowStart := max(0, normOffset-DefaultSearchWindow)
+	windowEnd := min(len(normSource), normOffset+DefaultSearchWindow)
+	window := normSource[windowStart:windowEnd]
+
+	if idx := strings.Index(window, normText); idx >= 0 {
+		return resolveNormalizedMatch(source, windowStart+idx, normText)
 	}
 
-	// Map normalized offset back to original offset
-	origStart := mapNormalizedOffset(source, idx)
-	origEnd := mapNormalizedOffset(source, idx+len(normText))
+	// Fall back to full source
+	if idx := strings.Index(normSource, normText); idx >= 0 {
+		return resolveNormalizedMatch(source, idx, normText)
+	}
+
+	return nil
+}
+
+// resolveNormalizedMatch maps a match in normalized text back to the original source.
+func resolveNormalizedMatch(source string, normIdx int, normText string) *AnchorResult {
+	origStart := mapNormalizedOffset(source, normIdx)
+	origEnd := mapNormalizedOffset(source, normIdx+len(normText))
 
 	// Trim trailing whitespace at end position
 	for origEnd > origStart && origEnd < len(source) {
-		r := rune(source[origEnd-1])
-		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
+		if c := source[origEnd-1]; c == ' ' || c == '\t' || c == '\n' || c == '\r' {
 			origEnd--
 		} else {
 			break
@@ -132,6 +150,28 @@ func FindAnchorNormalized(source, selectedText, lineHint string) *AnchorResult {
 		EndOffset:   origEnd,
 		Confidence:  AnchorNormalized,
 	}
+}
+
+// mapSourceToNormOffset converts a byte offset in the original text to the
+// corresponding offset in the normalized text.
+func mapSourceToNormOffset(original string, sourceOffset int) int {
+	normPos := 0
+	inSpace := false
+	for i, r := range original {
+		if i >= sourceOffset {
+			return normPos
+		}
+		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
+			if !inSpace {
+				normPos++
+				inSpace = true
+			}
+		} else {
+			normPos++
+			inSpace = false
+		}
+	}
+	return normPos
 }
 
 // mapNormalizedOffset converts an offset in normalized text back to the original text.

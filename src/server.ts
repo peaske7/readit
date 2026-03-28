@@ -895,6 +895,8 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     }
   }
 
+  const watchers: FSWatcher[] = [];
+
   const server = Bun.serve({
     port: options.port,
     hostname: options.host,
@@ -1068,7 +1070,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     },
   });
 
-  const watchers: FSWatcher[] = [];
   for (const fp of fileOrder) {
     const watcher = watchFile(fp);
     if (watcher) watchers.push(watcher);
