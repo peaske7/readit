@@ -153,20 +153,20 @@
 
 ---
 
-### US-010: Review Multiple Files
+### US-010: Review Multiple Files ✅
 
-**As a** reviewer  
-**I want to** review multiple Markdown files in one session  
-**So that** I can review an entire document set  
+**As a** reviewer
+**I want to** review multiple Markdown files in one session
+**So that** I can review an entire document set
 
 **Acceptance Criteria:**
 
-- `readit docs/*.md` opens multi-file view
-- File tabs or sidebar navigation
+- ~~`readit docs/*.md` opens multi-file view~~ `readit file1.md file2.md` or `readit <dir>` opens multi-file view
+- File tabs or sidebar navigation (TabBar.svelte)
 - Comments stored per file
 - Bulk export across all files
 
-**Status:** Not implemented
+**Status:** Implemented (multi-file args, directory scanning, `open` command, tab bar UI). Glob patterns not yet supported.
 
 ---
 

@@ -56,7 +56,6 @@ bun run format        # Format code with Biome
 3. Create/update stores if needed (`src/stores/`)
 4. Create/update Svelte components (`src/components/`)
 5. Add tests
-6. Update CHANGELOG.md
 
 ## Key Files to Review
 

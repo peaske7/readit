@@ -82,11 +82,14 @@ Review documents, add comments, then resolve one-by-one with LLM assistance.
 - [ ] Filter by category
 - [ ] Category in export format
 
-## v0.6.0 - Multi-file Support
+## v0.6.0 - Multi-file Support (Partial ✅)
 
 - [ ] Glob pattern support (`readit docs/*.md`)
-- [ ] File navigation sidebar
-- [ ] Per-file comment storage
+- [x] Multiple file arguments (`readit file1.md file2.md`)
+- [x] Directory scanning (`readit <dir>`)
+- [x] `readit open <files...>` to add files to running server
+- [x] File tab navigation (TabBar.svelte)
+- [x] Per-file comment storage
 - [ ] Bulk export across files
 
 ## Future Considerations

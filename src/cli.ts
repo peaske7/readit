@@ -423,7 +423,7 @@ const WELCOME_PATH = join(os.homedir(), ".readit", "welcome.md");
 program
   .name("readit")
   .description("Review Markdown documents with inline comments")
-  .version("0.1.3");
+  .version("0.2.0");
 
 program
   .command("list")

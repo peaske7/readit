@@ -23,6 +23,12 @@ bun run check         # Run Biome (lint + format check)
 bun run check:fix     # Fix lint + format issues
 bun run format        # Format with Biome
 
+# Go server (production binary)
+make dev              # Go server + Vite HMR
+make build            # Build single binary (dist/readit)
+make test             # Run Go tests
+make clean            # Clean build artifacts
+
 # Usage
 bunx readit <file.md>               # Review Markdown file
 bunx readit <file.html>             # Review HTML file
@@ -91,6 +97,7 @@ readit/
 │       ├── markdown-renderer.ts # Server-side markdown rendering
 │       ├── mermaid-renderer.ts  # Mermaid diagram rendering
 │       ├── mermaid-config.ts  # Mermaid configuration
+│       ├── mermaid-worker.ts  # Mermaid worker thread
 │       ├── positions.ts       # Position calculations
 │       ├── shortcut-registry.ts # Keyboard shortcut registry
 │       ├── utils.ts           # Common utilities (cn, etc.)
@@ -106,15 +113,19 @@ readit/
 │           ├── types.ts
 │           ├── en.ts          # English translations
 │           └── ja.ts          # Japanese translations
+├── go/                        # Go server (production binary)
+│   ├── cmd/readit/main.go     # Go CLI entry point
+│   └── internal/server/       # HTTP server, markdown, comments, SSE
 ├── e2e/                       # Playwright e2e tests
+├── docs/                      # Design docs and specs
 ├── dist/                      # Built output
 ├── .claude/                   # AI agent docs
 │   ├── user-stories.md
 │   ├── roadmap.md
 │   └── settings.json
+├── Makefile                   # Go build targets (make dev, make build)
 ├── CLAUDE.md                  # This file
-├── AGENTS.md                  # AI agent instructions
-└── CHANGELOG.md               # Version changelog
+└── AGENTS.md                  # AI agent instructions
 ```
 
 ## Key Design Decisions
@@ -137,6 +148,7 @@ readit/
 - **Styling**: Tailwind CSS v4
 - **Icons**: lucide-svelte
 - **Testing**: Vitest (unit) + Playwright (e2e)
+- **Production Binary**: Go (embeds frontend via go:embed)
 - **Quality**: Biome (lint + format), lefthook
 
 ## Current Limitations

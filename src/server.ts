@@ -781,14 +781,27 @@ function createServer(options: ServerOptions): ServerWithWatchers {
   // Cache the rendered page to avoid re-rendering on every request.
   // Invalidated by file changes (watcher calls invalidatePageCache).
   let pageCache: string | null = null;
+  let pageCacheGz: Uint8Array<ArrayBuffer> | null = null;
 
   function invalidatePageCache(): void {
     pageCache = null;
+    pageCacheGz = null;
   }
 
-  async function serveAppPage(): Promise<Response> {
+  async function serveAppPage(req: Request): Promise<Response> {
+    const acceptGzip =
+      req.headers.get("accept-encoding")?.includes("gzip") ?? false;
+
     try {
       if (pageCache) {
+        if (acceptGzip && pageCacheGz) {
+          return new Response(pageCacheGz, {
+            headers: {
+              "Content-Type": "text/html; charset=utf-8",
+              "Content-Encoding": "gzip",
+            },
+          });
+        }
         return new Response(pageCache, {
           headers: { "Content-Type": "text/html; charset=utf-8" },
         });
@@ -845,6 +858,19 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 
       if (!isDev) {
         pageCache = body;
+        pageCacheGz = Bun.gzipSync(
+          new TextEncoder().encode(body),
+        ) as Uint8Array<ArrayBuffer>;
+      }
+
+      if (acceptGzip) {
+        const gz = pageCacheGz ?? Bun.gzipSync(new TextEncoder().encode(body));
+        return new Response(gz, {
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "Content-Encoding": "gzip",
+          },
+        });
       }
 
       return new Response(body, {
@@ -1055,7 +1081,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       }
 
       if (pathname === "/") {
-        return serveAppPage();
+        return serveAppPage(req);
       }
 
       if (isDev) {
