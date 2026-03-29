@@ -29,26 +29,4 @@ test.describe("Document Loading", () => {
       await cleanup();
     }
   });
-
-  test("loads HTML document in iframe", async ({ page }) => {
-    const { url, cleanup } = await spawnCli(
-      resolve(FIXTURES_DIR, "sample.html"),
-      { port: 4571 },
-    );
-
-    try {
-      await page.goto(url);
-
-      // Wait for iframe to exist
-      const iframe = page.frameLocator("iframe");
-
-      // Verify content inside iframe
-      await expect(iframe.locator("h1")).toContainText("Test Document");
-      await expect(iframe.locator("p").first()).toContainText(
-        "This is a paragraph for testing text selection",
-      );
-    } finally {
-      await cleanup();
-    }
-  });
 });

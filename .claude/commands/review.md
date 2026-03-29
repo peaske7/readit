@@ -78,7 +78,7 @@ Reference `.claude/rules/style-guide.md` for detailed examples.
 **For surface issues:**
 
 1. Fix silently after addressing fundamental issues
-2. Run `pnpm turbo run fix` to format
+2. Run `bun run check:fix` to format
 
 ## Anti-patterns to Flag
 

@@ -9,7 +9,6 @@ interface Comment {
   id: string;
   selectedText: string;
   comment: string;
-  createdAt: string;
   startOffset: number;
   endOffset: number;
   lineHint: string;
@@ -174,7 +173,6 @@ function makeComment(
     id: `perf${String(index).padStart(4, "0")}`,
     selectedText,
     comment: `Review comment #${index + 1}: This section needs attention regarding clarity and accuracy.`,
-    createdAt: "2025-01-01T00:00:00.000Z",
     startOffset,
     endOffset,
     lineHint,
@@ -199,9 +197,7 @@ function serializeComments(file: CommentFile): string {
 
   for (const comment of file.comments) {
     // Metadata
-    lines.push(
-      `<!-- c:${comment.id}|${comment.lineHint}|${comment.createdAt} -->`,
-    );
+    lines.push(`<!-- c:${comment.id}|${comment.lineHint} -->`);
 
     // Selected text as blockquote
     const quotedLines = comment.selectedText

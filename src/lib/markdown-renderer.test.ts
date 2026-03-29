@@ -1,3 +1,4 @@
+import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 import { renderMarkdown } from "./markdown-renderer";
 
@@ -128,8 +129,8 @@ describe("text offset conformance", () => {
   it("rendered HTML has proper block structure for text offset extraction", async () => {
     const { html } = await renderMarkdown(SAMPLE_MARKDOWN);
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, "text/html");
+    const dom = new JSDOM(html);
+    const doc = dom.window.document;
 
     const paragraphs = doc.querySelectorAll("p");
     expect(paragraphs.length).toBeGreaterThan(0);

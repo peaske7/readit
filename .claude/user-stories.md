@@ -11,7 +11,7 @@
 **Acceptance Criteria:**
 
 - Run `readit document.md` or `readit document.html` and browser opens with rendered content
-- react-markdown for Markdown, unified/rehype for HTML (client-side rendering)
+- markdown-it for Markdown (server-side rendering with shiki syntax highlighting)
 - Clean light theme with good typography for reading
 
 ---
@@ -217,18 +217,22 @@
 
 ### TS-002: Server Architecture
 
-- Express server serves API + static files
-- `/api/document` returns `{ content, type, filePath, fileName, clean }`
-- `/api/heartbeat` SSE for browser disconnect detection
-- Development mode proxies to Vite
+- Bun.serve() serves API + static files
+- `/api/documents` list and add documents
+- `/api/document` fetch individual document HTML and headings
+- `/api/comments` CRUD operations for comments
+- `/api/settings` get/update user settings
+- `/api/heartbeat` SSE for browser connection tracking
+- `/api/document/stream` SSE for document updates (live reload)
+- Development mode proxies to Vite dev server
 - Production mode serves built assets from dist/
 
 ### TS-003: Build System
 
 - Vite for frontend bundling
-- tsup for CLI bundling
-- Single `npm run build` produces complete distributable
-- `npx readit` works without global install
+- `bun build` for CLI bundling (target bun, ESM)
+- Single `bun run build` produces complete distributable
+- `bunx readit` works without global install
 
 ### TS-004: File-Based Comment Storage
 

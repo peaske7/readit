@@ -3,17 +3,17 @@
 ## v0.1.0 - MVP ✅
 
 - [x] CLI with Commander.js
-- [x] react-markdown for Markdown rendering
-- [x] HTML file support with unified/rehype (XSS protection)
-- [x] Express server serving static files
-- [x] React 19 frontend with Tailwind CSS v4
+- [x] markdown-it for Markdown rendering (server-side with shiki syntax highlighting)
+- [x] HTML file support
+- [x] Bun.serve() server serving API + static files
+- [x] Svelte 5 frontend with Tailwind CSS v4
 - [x] Text selection → comment input
 - [x] Margin notes UI (Google Docs style)
 - [x] Highlight commented text with yellow background
 - [x] Copy All / Export JSON
 - [x] File-based comment persistence (`.comments.md` files)
 - [x] Copy for LLM feature (⌘⇧C) - copy selection/comment with surrounding context
-- [x] CLI subcommands: `list`, `show`
+- [x] CLI subcommands: `list`, `show`, `open`
 
 ## v0.2.0 - File-Based Comment Storage ✅
 
@@ -65,7 +65,7 @@ Review documents, add comments, then resolve one-by-one with LLM assistance.
 ## v0.4.0 - Visual Enhancements ✅
 
 - [x] Highlight commented text in document (moved to v0.1.0)
-- [x] Syntax highlighting for code blocks (react-syntax-highlighter)
+- [x] Syntax highlighting for code blocks (shiki, server-side)
 - [x] Click highlight → scroll to margin note
 - [x] Click margin note → scroll to highlighted text
 - [x] Mermaid diagram rendering

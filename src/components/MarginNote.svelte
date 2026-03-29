@@ -36,9 +36,6 @@ let fontClass = $derived(
   settings.fontFamily === FontFamilies.SANS_SERIF ? "font-sans" : "font-serif",
 );
 let hasNote = $derived(comment.comment.trim().length > 0);
-let createdAtFormatted = $derived(
-  new Date(comment.createdAt).toLocaleString(),
-);
 
 $effect(() => {
   if (articleEl) {
@@ -84,7 +81,6 @@ function badgeClass(hovered: boolean): string {
     bind:this={articleEl}
     class="absolute left-0 right-0 group"
     style="visibility: hidden; content-visibility: auto; contain-intrinsic-size: auto 80px;"
-    title="Added: {createdAtFormatted}"
     data-comment-id={comment.id}
     onmouseenter={() => setHoveredCommentId(comment.id)}
     onmouseleave={() => setHoveredCommentId(undefined)}
@@ -115,7 +111,6 @@ function badgeClass(hovered: boolean): string {
     bind:this={articleEl}
     class="absolute left-0 right-0 group"
     style="visibility: hidden"
-    title="Added: {createdAtFormatted}"
     data-comment-id={comment.id}
     onmouseenter={() => setHoveredCommentId(comment.id)}
     onmouseleave={() => setHoveredCommentId(undefined)}

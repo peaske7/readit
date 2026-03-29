@@ -17,7 +17,7 @@ import { findTextPosition } from "./lib/highlight/resolver.js";
 import { extractTextFromHtml } from "./lib/html-text.js";
 import { getShiki, renderMarkdown } from "./lib/markdown-renderer.js";
 import { disposeMermaidWorker } from "./lib/mermaid-renderer.js";
-import { isMarkdownFile, isSupportedFile } from "./lib/utils.js";
+import { isSupportedFile } from "./lib/utils.js";
 import {
   AnchorConfidences,
   type Comment,
@@ -736,15 +736,10 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     }
 
     const content = await ensureFileContent(filePath);
-
-    if (isMarkdownFile(filePath)) {
-      const result = await renderMarkdown(content);
-      state.renderedHtml = result.html;
-      state.headings = result.headings;
-      return result;
-    }
-
-    return { html: content, headings: [] };
+    const result = await renderMarkdown(content);
+    state.renderedHtml = result.html;
+    state.headings = result.headings;
+    return result;
   }
 
   function resolveContext(url: URL): RouteContext | null {
@@ -938,7 +933,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
           }
           if (!isSupportedFile(filePath)) {
             return errorResponse(
-              `Unsupported file type: ${filePath} (expected .md, .markdown, .html, or .htm)`,
+              `Unsupported file type: ${filePath} (expected .md or .markdown)`,
               400,
             );
           }

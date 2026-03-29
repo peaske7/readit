@@ -102,13 +102,15 @@ export function parseCommentFile(content: string): CommentFile {
 }
 
 function parseCommentBlock(block: string): Comment | undefined {
-  // Extract metadata from HTML comment: <!-- c:{id}|{lineHint}|{timestamp} -->
-  const metadataMatch = block.match(/<!--\s*c:([^|]+)\|([^|]+)\|([^>]+)\s*-->/);
+  // Extract metadata from HTML comment: <!-- c:{id}|{lineHint} -->
+  const metadataMatch = block.match(
+    /<!--\s*c:([^|]+)\|([^|>\s]+)(?:\|[^>]*)?\s*-->/,
+  );
   if (!metadataMatch) {
     return undefined;
   }
 
-  const [, id, lineHint, createdAt] = metadataMatch;
+  const [, id, lineHint] = metadataMatch;
 
   const anchorMatch = block.match(/<!--\s*anchor:(.+?)\s*-->/);
   const anchorPrefix = anchorMatch ? anchorMatch[1] : undefined;
@@ -132,7 +134,6 @@ function parseCommentBlock(block: string): Comment | undefined {
     id,
     selectedText,
     comment: commentBody,
-    createdAt: createdAt.trim(),
     lineHint,
     anchorPrefix,
     startOffset: 0,
@@ -164,7 +165,7 @@ function serializeComment(comment: Comment): string {
   const lines: string[] = [];
 
   const lineHint = comment.lineHint || "L0";
-  lines.push(`<!-- c:${comment.id}|${lineHint}|${comment.createdAt} -->`);
+  lines.push(`<!-- c:${comment.id}|${lineHint} -->`);
 
   if (comment.anchorPrefix) {
     lines.push(`<!-- anchor:${comment.anchorPrefix} -->`);
@@ -192,8 +193,6 @@ export function createComment(
 ): Comment {
   const id = crypto.randomUUID().slice(0, 8);
   const lineHint = getLineHint(sourceContent, startOffset, endOffset);
-  const now = new Date();
-  const createdAt = now.toISOString();
 
   const needsTruncation = selectedText.length > MAX_SELECTION_LENGTH;
 
@@ -201,7 +200,6 @@ export function createComment(
     id,
     selectedText: truncateSelection(selectedText),
     comment: commentText,
-    createdAt,
     startOffset,
     endOffset,
     lineHint,

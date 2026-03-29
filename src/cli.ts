@@ -14,7 +14,7 @@ import { join, resolve } from "node:path";
 import { Command } from "commander";
 import open from "open";
 import { getCommentPath, parseCommentFile } from "./lib/comment-storage.js";
-import { isMarkdownFile, isSupportedFile } from "./lib/utils.js";
+import { isSupportedFile } from "./lib/utils.js";
 import type { FileEntry } from "./server.js";
 import { removeServerInfo, startServer } from "./server.js";
 
@@ -258,7 +258,7 @@ function findReviewableFiles(dir: string): FileEntry[] {
         if (lstat.isSymbolicLink()) continue;
         if (lstat.isDirectory()) {
           results.push(...findReviewableFiles(fullPath));
-        } else if (isMarkdownFile(entry)) {
+        } else if (isSupportedFile(entry)) {
           results.push({ filePath: fullPath });
         }
       } catch (err) {
@@ -305,7 +305,7 @@ function resolveFiles(args: string[]): FileEntry[] {
 
       if (!isSupportedFile(filePath)) {
         console.error(
-          `error: unsupported file type: ${arg} (expected .md, .markdown, .html, or .htm)`,
+          `error: unsupported file type: ${arg} (expected .md or .markdown)`,
         );
         process.exit(1);
       }
@@ -492,7 +492,6 @@ program
           `Selected: "${comment.selectedText.slice(0, 80)}${comment.selectedText.length > 80 ? "..." : ""}"`,
         );
         console.log(`Comment: ${comment.comment}`);
-        console.log(`Created: ${comment.createdAt}`);
         console.log();
       }
     } catch (err) {
@@ -645,7 +644,7 @@ program
 
         if (!isSupportedFile(filePath)) {
           console.error(
-            `error: unsupported file type: ${arg} (expected .md, .markdown, .html, or .htm)`,
+            `error: unsupported file type: ${arg} (expected .md or .markdown)`,
           );
           process.exit(1);
         }

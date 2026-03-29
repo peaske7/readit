@@ -72,7 +72,6 @@ async function addComment(
     id: tempId,
     selectedText,
     comment: commentText.trim(),
-    createdAt: new Date().toISOString(),
     startOffset,
     endOffset,
   };
