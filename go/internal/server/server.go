@@ -59,7 +59,6 @@ type resolvedCacheEntry struct {
 	comments       []Comment
 }
 
-// NewServer creates and configures a Server.
 func NewServer(opts Options) (*Server, error) {
 	wd, _ := os.Getwd()
 
@@ -147,7 +146,6 @@ func (s *Server) registerRoutes() {
 	}
 }
 
-// Start begins listening on the configured host:port.
 func (s *Server) Start(host string, port int) (int, error) {
 	for p := port; p <= 65535; p++ {
 		addr := fmt.Sprintf("%s:%d", host, p)
@@ -296,7 +294,6 @@ func (s *Server) getFileState(path string) *FileState {
 	return s.files[path]
 }
 
-// servePage renders the initial HTML with inline data.
 func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	defaultPath := s.defaultFilePath()

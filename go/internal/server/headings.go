@@ -12,7 +12,6 @@ var (
 	dashesRe  = regexp.MustCompile(`-+`)
 )
 
-// ExtractHeadings parses markdown source and returns all headings with slugified IDs.
 func ExtractHeadings(source []byte) []Heading {
 	content := stripCodeBlocks(string(source))
 
@@ -48,7 +47,6 @@ func ExtractHeadings(source []byte) []Heading {
 }
 
 // stripCodeBlocks removes fenced and indented code blocks from markdown content.
-// Go's regexp doesn't support backreferences, so we do this iteratively.
 func stripCodeBlocks(content string) string {
 	var result strings.Builder
 	lines := strings.Split(content, "\n")
@@ -60,13 +58,11 @@ func stripCodeBlocks(content string) string {
 		trimmed := strings.TrimSpace(line)
 
 		if !inFenced && !inIndented {
-			// Check for fence open
 			if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
 				inFenced = true
 				fence = trimmed[:3]
 				continue
 			}
-			// Check for indented code block (4 spaces or tab prefix)
 			if (strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t")) && trimmed != "" {
 				inIndented = true
 				continue
@@ -74,15 +70,12 @@ func stripCodeBlocks(content string) string {
 			result.WriteString(line)
 			result.WriteByte('\n')
 		} else if inFenced {
-			// Check for fence close
 			if strings.HasPrefix(trimmed, fence) && strings.TrimLeft(trimmed, string(fence[0])) == "" {
 				inFenced = false
 				fence = ""
 			}
 		} else if inIndented {
-			// Indented block continues while lines are indented or blank
 			if trimmed == "" {
-				// Blank line might continue the indented block
 				continue
 			}
 			if !strings.HasPrefix(line, "    ") && !strings.HasPrefix(line, "\t") {
@@ -105,7 +98,6 @@ func slugify(text string) string {
 		} else if unicode.IsSpace(c) || c == '-' {
 			b.WriteRune('-')
 		}
-		// Drop everything else (punctuation, symbols, etc.)
 	}
 	s = dashesRe.ReplaceAllString(b.String(), "-")
 	s = strings.Trim(s, "-")

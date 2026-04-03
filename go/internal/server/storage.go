@@ -119,8 +119,6 @@ func parseCommentBlock(block string) (Comment, bool) {
 		c.SelectedText = strings.Join(lines, "\n")
 	}
 
-	// Extract comment body: everything after the last blockquote line
-	// Find the end of the blockquote section
 	bodyLines := strings.Split(block, "\n")
 	inBlockquote := false
 	pastBlockquote := false
@@ -137,7 +135,7 @@ func parseCommentBlock(block string) (Comment, bool) {
 		if inBlockquote && !pastBlockquote {
 			pastBlockquote = true
 			if strings.TrimSpace(line) == "" {
-				continue // skip blank line between blockquote and body
+				continue
 			}
 		}
 		if pastBlockquote {
@@ -145,7 +143,6 @@ func parseCommentBlock(block string) (Comment, bool) {
 		}
 	}
 	comment := strings.TrimSpace(strings.Join(commentLines, "\n"))
-	// Strip trailing thematic break (---) left by block separators
 	comment = strings.TrimRight(comment, "\n")
 	if strings.HasSuffix(comment, "\n---") {
 		comment = strings.TrimSpace(comment[:len(comment)-4])
@@ -157,11 +154,9 @@ func parseCommentBlock(block string) (Comment, bool) {
 	return c, true
 }
 
-// SerializeComments writes a CommentFile back to the .comments.md format.
 func SerializeComments(cf CommentFile) []byte {
 	var b strings.Builder
 
-	// Frontmatter
 	b.WriteString("---\n")
 	b.WriteString("source: " + cf.Source + "\n")
 	b.WriteString("hash: " + cf.Hash + "\n")
@@ -169,20 +164,16 @@ func SerializeComments(cf CommentFile) []byte {
 	b.WriteString("---\n\n")
 
 	for i, c := range cf.Comments {
-		// Metadata
 		fmt.Fprintf(&b, "<!-- c:%s|%s|%s -->\n", c.ID, c.LineHint, c.CreatedAt)
 
-		// Optional anchor prefix
 		if c.AnchorPrefix != "" {
 			fmt.Fprintf(&b, "<!-- anchor:%s -->\n", c.AnchorPrefix)
 		}
 
-		// Selected text as blockquote
 		for _, line := range strings.Split(c.SelectedText, "\n") {
 			b.WriteString("> " + line + "\n")
 		}
 
-		// Comment body
 		b.WriteString("\n")
 		b.WriteString(c.Comment)
 		b.WriteString("\n")
@@ -195,7 +186,6 @@ func SerializeComments(cf CommentFile) []byte {
 	return []byte(b.String())
 }
 
-// WriteCommentFile atomically writes a comment file to disk.
 func WriteCommentFile(path string, cf CommentFile) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
@@ -207,7 +197,6 @@ func WriteCommentFile(path string, cf CommentFile) error {
 	return os.Rename(tmp, path)
 }
 
-// TruncateSelection clips text to MaxSelectionLength runes with a middle ellipsis.
 func TruncateSelection(text string) string {
 	if utf8.RuneCountInString(text) <= MaxSelectionLength {
 		return text
@@ -217,7 +206,6 @@ func TruncateSelection(text string) string {
 	return string(runes[:half]) + TruncationMarker + string(runes[len(runes)-half:])
 }
 
-// GetLineNumber returns the 1-indexed line number at a byte offset.
 func GetLineNumber(content string, offset int) int {
 	if offset <= 0 {
 		return 1
@@ -228,7 +216,6 @@ func GetLineNumber(content string, offset int) int {
 	return strings.Count(content[:offset], "\n") + 1
 }
 
-// GetLineHint returns a line hint string like "L42" or "L42-L55".
 func GetLineHint(content string, startOffset, endOffset int) string {
 	startLine := GetLineNumber(content, startOffset)
 	endLine := GetLineNumber(content, endOffset)
@@ -238,14 +225,12 @@ func GetLineHint(content string, startOffset, endOffset int) string {
 	return fmt.Sprintf("L%d-L%d", startLine, endLine)
 }
 
-// NewCommentID generates an 8-character random hex ID.
 func NewCommentID() string {
 	b := make([]byte, 4)
 	rand.Read(b)
 	return fmt.Sprintf("%x", b)
 }
 
-// CreateComment builds a new Comment from a selection.
 func CreateComment(selectedText, commentText string, startOffset, endOffset int, sourceContent string) Comment {
 	truncated := TruncateSelection(selectedText)
 	c := Comment{

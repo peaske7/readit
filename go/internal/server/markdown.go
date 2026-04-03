@@ -16,23 +16,18 @@ import (
 	"github.com/yuin/goldmark/renderer/html"
 )
 
-// RenderResult holds the output of rendering a markdown document.
 type RenderResult struct {
 	HTML     string
 	Headings []Heading
 }
 
-// Renderer converts markdown source to HTML with syntax highlighting.
 type Renderer struct {
 	md       goldmark.Markdown
 	sanitize *bluemonday.Policy
 }
 
-// NewRenderer creates a Renderer with goldmark + chroma configured.
 func NewRenderer() *Renderer {
-	// Allow raw HTML through goldmark for legitimate use (inline HTML in
-	// markdown), but sanitize the output to strip dangerous elements like
-	// <script>, event handlers, etc.
+	// Allow raw HTML through goldmark, but sanitize to strip dangerous elements.
 	p := bluemonday.UGCPolicy()
 	p.AllowAttrs("class").Globally()
 	p.AllowAttrs("id").Globally()
@@ -74,7 +69,6 @@ var mermaidFenceRe = regexp.MustCompile("(?m)^```mermaid\\s*\n([\\s\\S]*?)^```\\
 func (r *Renderer) Render(source []byte) (RenderResult, error) {
 	content := string(source)
 
-	// Extract mermaid blocks, replace with placeholders
 	var mermaidBlocks []string
 	processed := mermaidFenceRe.ReplaceAllStringFunc(content, func(match string) string {
 		sub := mermaidFenceRe.FindStringSubmatch(match)
@@ -90,10 +84,9 @@ func (r *Renderer) Render(source []byte) (RenderResult, error) {
 	}
 	output := buf.String()
 
-	// Sanitize rendered HTML to prevent XSS from raw HTML in markdown source
 	output = r.sanitize.Sanitize(output)
 
-	// Restore mermaid blocks (after sanitization, since they use escaped content)
+	// Restore mermaid blocks (after sanitization since they use escaped content)
 	for i, code := range mermaidBlocks {
 		placeholder := fmt.Sprintf(`<div data-mermaid-placeholder="%d"></div>`, i)
 		replacement := fmt.Sprintf(`<pre><code class="language-mermaid">%s</code></pre>`, htmlpkg.EscapeString(code))

@@ -6,7 +6,6 @@ import (
 	"strings"
 )
 
-// TemplateData holds all values needed to render the initial HTML page.
 type TemplateData struct {
 	Title        string
 	CSSPath      string
@@ -44,12 +43,10 @@ const pageTemplate = `<!DOCTYPE html>
 </body>
 </html>`
 
-// CompileTemplate parses the page template once.
 func CompileTemplate() *template.Template {
 	return template.Must(template.New("page").Parse(pageTemplate))
 }
 
-// RenderPage builds the full HTML page string.
 func RenderPage(tmpl *template.Template, data TemplateData) (string, error) {
 	var b strings.Builder
 	if err := tmpl.Execute(&b, data); err != nil {
@@ -59,7 +56,6 @@ func RenderPage(tmpl *template.Template, data TemplateData) (string, error) {
 }
 
 // SafeJSONStringify serializes data for embedding in a <script> tag.
-// Replaces < with \u003c to prevent </script> injection.
 func SafeJSONStringify(data any) (template.JS, error) {
 	b, err := json.Marshal(data)
 	if err != nil {

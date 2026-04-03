@@ -7,7 +7,6 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-// Watcher watches files for changes with debouncing.
 type Watcher struct {
 	fsWatcher *fsnotify.Watcher
 	debounce  map[string]*time.Timer
@@ -16,7 +15,6 @@ type Watcher struct {
 	done      chan struct{}
 }
 
-// NewWatcher creates a file watcher that calls onChange on file modifications.
 func NewWatcher(onChange func(string)) (*Watcher, error) {
 	fsw, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -66,12 +64,10 @@ func (w *Watcher) debounceChange(path string) {
 	})
 }
 
-// Add starts watching a file.
 func (w *Watcher) Add(path string) error {
 	return w.fsWatcher.Add(path)
 }
 
-// Close stops the watcher.
 func (w *Watcher) Close() {
 	close(w.done)
 	_ = w.fsWatcher.Close()

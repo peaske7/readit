@@ -9,14 +9,12 @@ import (
 
 var lineHintRe = regexp.MustCompile(`^L(\d+)(?:-L?(\d+))?$`)
 
-// AnchorResult holds the result of an anchor resolution attempt.
 type AnchorResult struct {
 	StartOffset int
 	EndOffset   int
 	Confidence  string
 }
 
-// ParseLineHint extracts start and end line numbers from a hint like "L42" or "L42-L55".
 func ParseLineHint(hint string) (start, end int) {
 	m := lineHintRe.FindStringSubmatch(hint)
 	if m == nil {
@@ -48,8 +46,6 @@ func lineOffset(content string, line int) int {
 	return len(content)
 }
 
-// FindAnchor tries to locate selectedText in source content using lineHint.
-// Returns nil if no match found.
 func FindAnchor(source, selectedText, lineHint string) *AnchorResult {
 	if selectedText == "" {
 		return nil
@@ -72,7 +68,7 @@ func FindAnchor(source, selectedText, lineHint string) *AnchorResult {
 		}
 	}
 
-	// Try exact match in full source
+	// Fall back to full source
 	if idx := strings.Index(source, selectedText); idx >= 0 {
 		return &AnchorResult{
 			StartOffset: idx,
@@ -84,7 +80,6 @@ func FindAnchor(source, selectedText, lineHint string) *AnchorResult {
 	return nil
 }
 
-// normalizeWhitespace collapses all whitespace runs to a single space.
 func normalizeWhitespace(s string) string {
 	var b strings.Builder
 	inSpace := false
@@ -102,8 +97,6 @@ func normalizeWhitespace(s string) string {
 	return strings.TrimSpace(b.String())
 }
 
-// FindAnchorNormalized tries a whitespace-normalized match.
-// It searches near the lineHint first, then falls back to the full source.
 func FindAnchorNormalized(source, selectedText, lineHint string) *AnchorResult {
 	normText := normalizeWhitespace(selectedText)
 	normSource := normalizeWhitespace(source)
@@ -138,7 +131,6 @@ func FindAnchorNormalized(source, selectedText, lineHint string) *AnchorResult {
 	return nil
 }
 
-// resolveNormalizedMatch maps a match in normalized text (given as character offsets) back to the original source.
 func resolveNormalizedMatch(source string, normCharIdx int, normTextRuneLen int) *AnchorResult {
 	origStart := mapNormalizedCharOffset(source, normCharIdx)
 	origEnd := mapNormalizedCharOffset(source, normCharIdx+normTextRuneLen)
@@ -159,8 +151,6 @@ func resolveNormalizedMatch(source string, normCharIdx int, normTextRuneLen int)
 	}
 }
 
-// mapSourceToNormCharOffset converts a byte offset in the original text to the
-// corresponding character (rune) offset in the normalized text.
 func mapSourceToNormCharOffset(original string, sourceOffset int) int {
 	normPos := 0
 	inSpace := false
@@ -181,7 +171,6 @@ func mapSourceToNormCharOffset(original string, sourceOffset int) int {
 	return normPos
 }
 
-// mapNormalizedCharOffset converts a character (rune) offset in normalized text back to a byte offset in the original text.
 func mapNormalizedCharOffset(original string, normCharOffset int) int {
 	normPos := 0
 	inSpace := false
@@ -202,7 +191,6 @@ func mapNormalizedCharOffset(original string, normCharOffset int) int {
 	return len(original)
 }
 
-// FindAnchorFuzzy uses Levenshtein distance for approximate matching.
 func FindAnchorFuzzy(source, selectedText, lineHint string) *AnchorResult {
 	selectedRunes := []rune(selectedText)
 	if len(selectedRunes) > MaxFuzzyTextLength {
@@ -250,7 +238,6 @@ func FindAnchorFuzzy(source, selectedText, lineHint string) *AnchorResult {
 	}
 }
 
-// levenshteinRunes computes edit distance on rune slices with early exit at maxDist.
 func levenshteinRunes(a, b []rune, maxDist int) int {
 	la, lb := len(a), len(b)
 	if abs(la-lb) > maxDist {
@@ -301,7 +288,6 @@ func abs(x int) int {
 	return x
 }
 
-// FindAnchorWithFallback tries exact → normalized → fuzzy matching in order.
 func FindAnchorWithFallback(source, selectedText, lineHint string) *AnchorResult {
 	if r := FindAnchor(source, selectedText, lineHint); r != nil {
 		return r

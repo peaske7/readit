@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 )
 
-// DefaultSettings returns the default settings.
 func DefaultSettings() Settings {
 	return Settings{
 		Version:    1,
@@ -18,13 +17,11 @@ func DefaultSettings() Settings {
 func settingsPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
-		// Fallback to current directory
 		return ".readit/settings.json"
 	}
 	return filepath.Join(home, ".readit", "settings.json")
 }
 
-// ReadSettings loads settings from ~/.readit/settings.json.
 func ReadSettings() (Settings, error) {
 	data, err := os.ReadFile(settingsPath())
 	if err != nil {
@@ -37,7 +34,6 @@ func ReadSettings() (Settings, error) {
 	return s, nil
 }
 
-// WriteSettings atomically saves settings to disk.
 func WriteSettings(s Settings) error {
 	path := settingsPath()
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
@@ -54,7 +50,6 @@ func WriteSettings(s Settings) error {
 	return os.Rename(tmp, path)
 }
 
-// getSettings handles GET /api/settings.
 func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	settings := s.settings
@@ -62,7 +57,6 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, settings)
 }
 
-// updateSettings handles PUT /api/settings.
 func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		FontFamily  string       `json:"fontFamily"`
@@ -80,7 +74,7 @@ func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build new settings from current state under write lock for atomicity
+	// Build new settings under write lock for atomicity
 	s.mu.Lock()
 	newSettings := s.settings
 
@@ -91,7 +85,6 @@ func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 		newSettings.Keybindings = body.Keybindings
 	}
 
-	// Persist first, then publish to in-memory state
 	if err := WriteSettings(newSettings); err != nil {
 		s.mu.Unlock()
 		writeError(w, http.StatusInternalServerError, "failed to save settings")

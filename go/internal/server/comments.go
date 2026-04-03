@@ -76,7 +76,6 @@ func (s *Server) resolveCommentsFor(path string, state *FileState) []Comment {
 	return resolved
 }
 
-// listComments handles GET /api/comments?path=...
 func (s *Server) listComments(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
 	state := s.getFileState(path)
@@ -89,7 +88,6 @@ func (s *Server) listComments(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"comments": comments})
 }
 
-// createComment handles POST /api/comments?path=...
 func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
 	state := s.getFileState(path)
@@ -140,7 +138,6 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"comment": c})
 }
 
-// updateComment handles PUT /api/comments/{id}?path=...
 func (s *Server) updateComment(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
 	commentID := r.PathValue("id")
@@ -183,7 +180,6 @@ func (s *Server) updateComment(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, "comment not found")
 }
 
-// deleteComment handles DELETE /api/comments/{id}?path=...
 func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
 	commentID := r.PathValue("id")
@@ -230,7 +226,6 @@ func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
-// deleteAllComments handles DELETE /api/comments?path=...
 func (s *Server) deleteAllComments(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
 	commentPath := CommentPath(path)
@@ -242,7 +237,6 @@ func (s *Server) deleteAllComments(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
-// reanchorComment handles PUT /api/comments/{id}/reanchor?path=...
 func (s *Server) reanchorComment(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
 	state := s.getFileState(path)
@@ -306,7 +300,6 @@ func (s *Server) reanchorComment(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, "comment not found")
 }
 
-// rawComments handles GET /api/comments/raw?path=...
 func (s *Server) rawComments(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
 	commentPath := CommentPath(path)

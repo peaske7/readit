@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-// listDocuments handles GET /api/documents.
 func (s *Server) listDocuments(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	files := make([]FileRef, 0, len(s.fileOrder))
@@ -27,7 +26,6 @@ func (s *Server) listDocuments(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// addDocument handles POST /api/documents.
 func (s *Server) addDocument(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Path string `json:"path"`
@@ -87,7 +85,6 @@ func (s *Server) addDocument(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// getDocument handles GET /api/document?path=...
 func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
 

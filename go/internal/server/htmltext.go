@@ -22,14 +22,12 @@ var namedEntities = map[string]string{
 	"apos": "'", "nbsp": "\u00a0",
 }
 
-// ExtractTextFromHTML strips HTML tags and returns plain text content.
 func ExtractTextFromHTML(html string) string {
 	var b strings.Builder
 	lastPos := 0
 	prevWasBlock := false
 
 	for _, loc := range htmlTagRe.FindAllStringIndex(html, -1) {
-		// Text before this tag
 		text := html[lastPos:loc[0]]
 		decoded := decodeEntities(text)
 		if decoded != "" {
@@ -86,7 +84,6 @@ func decodeEntities(s string) string {
 	})
 }
 
-// FindTextPosition locates selectedText in textContent, using hintOffset for disambiguation.
 func FindTextPosition(textContent, selectedText string, hintOffset int) (start, end int, ok bool) {
 	if selectedText == "" {
 		return 0, 0, false
@@ -111,7 +108,7 @@ func FindTextPosition(textContent, selectedText string, hintOffset int) (start, 
 		return positions[0], positions[0] + len(selectedText), true
 	}
 
-	// Multiple matches — pick closest to hint
+	// Multiple matches - pick closest to hint
 	best := positions[0]
 	bestDist := abs(best - hintOffset)
 	for _, pos := range positions[1:] {

@@ -13,13 +13,11 @@ type SSEBroker struct {
 	heartbeatClients map[chan string]struct{}
 	mu               sync.Mutex
 	shutdownTimer    *time.Timer
-	shutdownEpoch    int // guards against stale timer callbacks
+	shutdownEpoch    int
 	isDev            bool
 	onShutdown       func()
 }
 
-// NewSSEBroker creates an SSE broker. onShutdown is called when all heartbeat
-// clients disconnect for more than 1.5 seconds (production only).
 func NewSSEBroker(isDev bool, onShutdown func()) *SSEBroker {
 	return &SSEBroker{
 		docClients:       make(map[chan string]struct{}),
@@ -29,7 +27,6 @@ func NewSSEBroker(isDev bool, onShutdown func()) *SSEBroker {
 	}
 }
 
-// Broadcast sends an event to all document stream clients.
 func (b *SSEBroker) Broadcast(event string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -37,12 +34,10 @@ func (b *SSEBroker) Broadcast(event string) {
 		select {
 		case ch <- event:
 		default:
-			// client too slow, skip
 		}
 	}
 }
 
-// DocumentStream handles GET /api/document/stream SSE connections.
 func (b *SSEBroker) DocumentStream(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -85,7 +80,6 @@ func (b *SSEBroker) DocumentStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Heartbeat handles GET /api/heartbeat SSE connections.
 func (b *SSEBroker) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -119,7 +113,6 @@ func (b *SSEBroker) Heartbeat(w http.ResponseWriter, r *http.Request) {
 			b.shutdownTimer = time.AfterFunc(1500*time.Millisecond, func() {
 				b.mu.Lock()
 				defer b.mu.Unlock()
-				// Only fire if no new client reconnected (epoch unchanged)
 				if b.shutdownEpoch == epoch {
 					b.onShutdown()
 				}
