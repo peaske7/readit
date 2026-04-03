@@ -21,12 +21,10 @@ var (
 	blockquoteRe       = regexp.MustCompile(`(?m)^>\s?(.*)`)
 )
 
-// CommentPath returns the path to the .comments.md file for a given source file.
 func CommentPath(filePath string) string {
 	home, _ := os.UserHomeDir()
 	abs, _ := filepath.Abs(filePath)
 
-	// Strip leading "/" on Unix or drive letter on Windows
 	stripped := abs
 	if runtime.GOOS == "windows" {
 		if len(stripped) >= 2 && stripped[1] == ':' {
@@ -35,7 +33,6 @@ func CommentPath(filePath string) string {
 	}
 	stripped = strings.TrimPrefix(stripped, "/")
 
-	// Replace extension with .comments.md
 	ext := filepath.Ext(stripped)
 	if ext != "" {
 		stripped = stripped[:len(stripped)-len(ext)]
@@ -44,18 +41,15 @@ func CommentPath(filePath string) string {
 	return filepath.Join(home, ".readit", "comments", stripped+".comments.md")
 }
 
-// ComputeHash returns the first 16 hex chars of the SHA-256 of content.
 func ComputeHash(content []byte) string {
 	h := sha256.Sum256(content)
 	return fmt.Sprintf("%x", h[:])[:HashLength]
 }
 
-// ParseCommentFile parses a .comments.md file into a CommentFile.
 func ParseCommentFile(data []byte) (CommentFile, error) {
 	content := string(data)
 	cf := CommentFile{Version: FormatVersion}
 
-	// Parse frontmatter
 	if fm := frontMatterRe.FindStringSubmatch(content); len(fm) > 1 {
 		for _, line := range strings.Split(fm[1], "\n") {
 			line = strings.TrimSpace(line)
@@ -73,14 +67,12 @@ func ParseCommentFile(data []byte) (CommentFile, error) {
 		}
 	}
 
-	// Strip frontmatter, then split into blocks by comment markers (<!-- c:... -->)
 	body := frontMatterStripRe.ReplaceAllString(content, "")
 	body = strings.TrimSpace(body)
 	if body == "" {
 		return cf, nil
 	}
 
-	// Find all comment marker positions
 	markers := commentMetaRe.FindAllStringIndex(body, -1)
 	for i, loc := range markers {
 		var block string
@@ -118,7 +110,6 @@ func parseCommentBlock(block string) (Comment, bool) {
 		c.AnchorPrefix = strings.TrimSpace(ap[1])
 	}
 
-	// Extract selected text from blockquote
 	bqMatches := blockquoteRe.FindAllStringSubmatch(block, -1)
 	if len(bqMatches) > 0 {
 		lines := make([]string, len(bqMatches))

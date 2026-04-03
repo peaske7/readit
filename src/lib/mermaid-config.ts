@@ -1,8 +1,3 @@
-/**
- * Shared mermaid configuration — used by both the server-side worker
- * and the client-side fallback (DocumentViewer.svelte).
- */
-
 export const MERMAID_THEME = {
   fontSize: "16px",
   primaryColor: "rgba(245, 222, 160, 0.8)",

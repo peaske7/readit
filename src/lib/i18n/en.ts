@@ -96,6 +96,8 @@ export const en: Translations = {
   "shortcuts.resetToDefaults": "Reset to defaults",
   "shortcuts.enableDisable": "Enable/disable shortcut",
   "shortcutCapture.pressKeys": "Press keys...",
+  "shortcutCapture.reserved": "{{binding}} is reserved",
+  "shortcutCapture.ariaLabel": "Press a key combination",
   "shortcut.copyAll.label": "Copy All (AI)",
   "shortcut.copyAll.description": "Copy all comments in AI prompt format",
   "shortcut.copyAllRaw.label": "Copy All (Raw)",

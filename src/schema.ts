@@ -79,6 +79,7 @@ export interface DocumentSettings {
 export interface ShortcutBinding {
   key: string;
   alt?: boolean;
+  ctrl?: boolean;
   meta?: boolean;
   shift?: boolean;
 }

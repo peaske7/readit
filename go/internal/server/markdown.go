@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/extension"
@@ -23,11 +24,23 @@ type RenderResult struct {
 
 // Renderer converts markdown source to HTML with syntax highlighting.
 type Renderer struct {
-	md goldmark.Markdown
+	md       goldmark.Markdown
+	sanitize *bluemonday.Policy
 }
 
 // NewRenderer creates a Renderer with goldmark + chroma configured.
 func NewRenderer() *Renderer {
+	// Allow raw HTML through goldmark for legitimate use (inline HTML in
+	// markdown), but sanitize the output to strip dangerous elements like
+	// <script>, event handlers, etc.
+	p := bluemonday.UGCPolicy()
+	p.AllowAttrs("class").Globally()
+	p.AllowAttrs("id").Globally()
+	p.AllowAttrs("style").Globally()
+	p.AllowElements("details", "summary", "pre", "code", "span")
+	p.AllowAttrs("open").OnElements("details")
+	p.AllowAttrs("data-mermaid-placeholder").OnElements("div")
+
 	return &Renderer{
 		md: goldmark.New(
 			goldmark.WithExtensions(
@@ -49,6 +62,7 @@ func NewRenderer() *Renderer {
 				html.WithUnsafe(),
 			),
 		),
+		sanitize: p,
 	}
 }
 
@@ -67,7 +81,7 @@ func (r *Renderer) Render(source []byte) (RenderResult, error) {
 		code := strings.TrimSpace(sub[1])
 		idx := len(mermaidBlocks)
 		mermaidBlocks = append(mermaidBlocks, code)
-		return fmt.Sprintf("<!--mermaid-placeholder-%d-->", idx)
+		return fmt.Sprintf(`<div data-mermaid-placeholder="%d"></div>`, idx)
 	})
 
 	var buf bytes.Buffer
@@ -76,9 +90,12 @@ func (r *Renderer) Render(source []byte) (RenderResult, error) {
 	}
 	output := buf.String()
 
-	// Restore mermaid blocks
+	// Sanitize rendered HTML to prevent XSS from raw HTML in markdown source
+	output = r.sanitize.Sanitize(output)
+
+	// Restore mermaid blocks (after sanitization, since they use escaped content)
 	for i, code := range mermaidBlocks {
-		placeholder := fmt.Sprintf("<!--mermaid-placeholder-%d-->", i)
+		placeholder := fmt.Sprintf(`<div data-mermaid-placeholder="%d"></div>`, i)
 		replacement := fmt.Sprintf(`<pre><code class="language-mermaid">%s</code></pre>`, htmlpkg.EscapeString(code))
 		output = strings.Replace(output, placeholder, replacement, 1)
 	}

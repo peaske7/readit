@@ -5,10 +5,6 @@ export function isMarkdownFile(filePath: string): boolean {
   return filePath.endsWith(".md") || filePath.endsWith(".markdown");
 }
 
-export function isSupportedFile(filePath: string): boolean {
-  return isMarkdownFile(filePath);
-}
-
 export function cn(...inputs: ReadonlyArray<ClassValue>) {
   return twMerge(clsx(inputs));
 }

@@ -53,7 +53,6 @@ func (s *Server) addDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if already loaded
 	s.mu.RLock()
 	_, exists := s.files[absPath]
 	s.mu.RUnlock()
@@ -74,7 +73,6 @@ func (s *Server) addDocument(w http.ResponseWriter, r *http.Request) {
 
 	fileName := filepath.Base(absPath)
 
-	// Broadcast SSE event
 	event, _ := json.Marshal(map[string]string{
 		"type":     "document-added",
 		"path":     absPath,

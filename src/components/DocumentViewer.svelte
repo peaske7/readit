@@ -43,6 +43,7 @@ let {
 let contentEl: HTMLElement | undefined;
 let containerEl: HTMLDivElement | undefined = $state();
 let adapter: Highlighter | null = null;
+let renderedContent = "";
 
 let proseClass = $derived(
   settings.fontFamily === FontFamilies.SANS_SERIF
@@ -50,12 +51,41 @@ let proseClass = $derived(
     : "prose-serif",
 );
 
-// --- Setup highlighter ---
+let mermaidCounter = 0;
+
+async function hydrateMermaid(root: HTMLElement) {
+  const mermaidBlocks = root.querySelectorAll("pre code.language-mermaid");
+  if (mermaidBlocks.length === 0) return;
+
+  requestIdleCallback(async () => {
+    try {
+      const { default: mermaid } = await import("mermaid");
+      const { getMermaidInitConfig } = await import("../lib/mermaid-config");
+      mermaid.initialize(getMermaidInitConfig());
+
+      for (const codeEl of mermaidBlocks) {
+        const preEl = codeEl.parentElement;
+        if (!preEl) continue;
+        const code = codeEl.textContent ?? "";
+        try {
+          const { svg } = await mermaid.render(
+            `mermaid-${mermaidCounter++}`,
+            code,
+          );
+          const wrapper = document.createElement("div");
+          wrapper.className = "mermaid-container";
+          wrapper.innerHTML = svg;
+          preEl.replaceWith(wrapper);
+        } catch {}
+      }
+      if (isActive) requestAnimationFrame(() => positions.cache());
+    } catch {}
+  });
+}
 
 onMount(() => {
   if (!containerEl) return;
 
-  // Adopt the server-rendered article if it exists, otherwise create one
   const existingArticle = document.getElementById(
     "document-content",
   ) as HTMLElement | null;
@@ -66,9 +96,6 @@ onMount(() => {
     contentEl = existingArticle;
     existingArticle.className = cn("prose", proseClass);
   } else if (!contentEl) {
-    // Fallback: create article for tab-switch / non-initial load
-    // Safe: content is server-rendered HTML from user's own local files
-    // Mermaid diagrams are already rendered as SVG by the server
     const article = document.createElement("article");
     article.className = cn("prose", proseClass);
     article.innerHTML = content; // eslint-disable-line -- trusted server content
@@ -92,7 +119,6 @@ onMount(() => {
     adapter.onHighlightClick(onHighlightClick);
   }
 
-  // Apply highlights immediately — DOM is already present
   if (isActive && comments.length > 0) {
     const hc: HighlightComment[] = comments
       .filter((c) => c.anchorConfidence !== AnchorConfidences.UNRESOLVED)
@@ -105,49 +131,16 @@ onMount(() => {
     adapter.applyHighlights(hc);
   }
 
-  if (isActive) {
-    positions.attach(contentEl!, containerEl, adapter);
-    requestAnimationFrame(() => positions.cache());
-  }
+  renderedContent = content;
 
-  // Lazy mermaid hydration — only loads mermaid if the document has mermaid blocks
-  const mermaidBlocks = contentEl!.querySelectorAll("pre code.language-mermaid");
-  if (mermaidBlocks.length > 0) {
-    requestIdleCallback(async () => {
-      try {
-        const { default: mermaid } = await import("mermaid");
-        const { getMermaidInitConfig } = await import("../lib/mermaid-config");
-        mermaid.initialize(getMermaidInitConfig());
+  void hydrateMermaid(contentEl!);
 
-        let counter = 0;
-        for (const codeEl of mermaidBlocks) {
-          const preEl = codeEl.parentElement;
-          if (!preEl) continue;
-          const code = codeEl.textContent ?? "";
-          try {
-            const { svg } = await mermaid.render(`mermaid-${counter++}`, code);
-            const wrapper = document.createElement("div");
-            wrapper.className = "mermaid-container";
-            wrapper.innerHTML = svg;
-            preEl.replaceWith(wrapper);
-          } catch {
-            // Leave as code block on render failure
-          }
-        }
-      } catch {
-        // mermaid import failed — leave as code blocks
-      }
-    });
-  }
-
-  // Test event support
   const handleTestSelect = (e: Event) => {
     const { text, startOffset, endOffset } = (e as CustomEvent).detail;
     onTextSelect(text, startOffset, endOffset, 0);
   };
   window.addEventListener("test:select-text", handleTestSelect);
 
-  // Signal that the viewer is interactive (used by e2e tests)
   document.documentElement.dataset.readitReady = "true";
 
   return () => {
@@ -162,9 +155,7 @@ onDestroy(() => {
   unregisterHighlighter?.();
 });
 
-// --- Re-apply highlights on comment/content changes ---
-
-let initialHighlightsDone = false;
+let initialHighlightsDone = !isActive;
 
 $effect(() => {
   if (!isActive || !adapter) return;
@@ -193,8 +184,6 @@ $effect(() => {
   adapter.applyHighlights(hc);
 });
 
-// --- Re-attach positions when isActive changes ---
-
 $effect(() => {
   if (!contentEl || !containerEl || !adapter) return;
 
@@ -205,8 +194,6 @@ $effect(() => {
   }
 });
 
-// --- Update sorted comment IDs in positions ---
-
 $effect(() => {
   const sorted = comments
     .filter((c) => c.anchorConfidence !== AnchorConfidences.UNRESOLVED)
@@ -214,21 +201,17 @@ $effect(() => {
   positions.setIds(sorted.map((c) => c.id));
 });
 
-// --- Content change (tab switch / live reload) ---
-
 $effect(() => {
   if (!contentEl) return;
   contentEl.className = cn("prose", proseClass);
 
-  if (contentEl.innerHTML !== content) {
-    // Safe: content is server-rendered HTML from user's own local files
+  if (renderedContent !== content) {
     contentEl.innerHTML = content; // eslint-disable-line -- trusted server content
+    renderedContent = content;
+    void hydrateMermaid(contentEl);
   }
 });
 </script>
 
 <div bind:this={containerEl} class="flex-1 min-w-0">
-  <!-- Article is adopted from server-rendered DOM on initial load,
-       or created dynamically on tab switch. Mermaid diagrams are
-       pre-rendered as SVG by the server — no client-side mermaid needed. -->
 </div>

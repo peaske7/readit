@@ -101,6 +101,8 @@ export interface Translations {
   "shortcuts.resetToDefaults": string;
   "shortcuts.enableDisable": string;
   "shortcutCapture.pressKeys": string;
+  "shortcutCapture.reserved": string;
+  "shortcutCapture.ariaLabel": string;
   "shortcut.copyAll.label": string;
   "shortcut.copyAll.description": string;
   "shortcut.copyAllRaw.label": string;

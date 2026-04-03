@@ -1,10 +1,3 @@
-/**
- * Worker manager for server-side mermaid rendering.
- *
- * Lazily spawns a Bun Worker that runs mermaid inside a JSDOM environment.
- * Handles request correlation, timeouts, and crash recovery.
- */
-
 interface PendingRequest {
   resolve: (svg: string) => void;
   reject: (err: Error) => void;
@@ -20,6 +13,22 @@ const pendingRequests = new Map<string, PendingRequest>();
 let requestCounter = 0;
 let consecutiveErrors = 0;
 
+function resetWorker(
+  reason: Error,
+  currentWorker: Worker | null = worker,
+): void {
+  if (currentWorker) currentWorker.terminate();
+  if (worker === currentWorker) {
+    worker = null;
+    workerReady = null;
+  }
+  for (const [, pending] of pendingRequests) {
+    clearTimeout(pending.timer);
+    pending.reject(reason);
+  }
+  pendingRequests.clear();
+}
+
 function createWorker(): { worker: Worker; ready: Promise<void> } {
   const w = new Worker(new URL("./mermaid-worker.ts", import.meta.url).href, {
     type: "module",
@@ -28,20 +37,37 @@ function createWorker(): { worker: Worker; ready: Promise<void> } {
   const ready = new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
       w.removeEventListener("message", onReady);
+      w.removeEventListener("error", onStartupError);
       w.terminate();
-      worker = null;
-      workerReady = null;
+      if (worker === w) {
+        worker = null;
+        workerReady = null;
+      }
       reject(new Error("Mermaid worker failed to start within 30s"));
     }, 30_000);
+
+    function onStartupError(event: ErrorEvent) {
+      clearTimeout(timeout);
+      w.removeEventListener("message", onReady);
+      w.removeEventListener("error", onStartupError);
+      w.terminate();
+      if (worker === w) {
+        worker = null;
+        workerReady = null;
+      }
+      reject(new Error(`Mermaid worker failed to start: ${event.message}`));
+    }
 
     function onReady(event: MessageEvent) {
       if (event.data?.type === "ready") {
         clearTimeout(timeout);
         w.removeEventListener("message", onReady);
+        w.removeEventListener("error", onStartupError);
         resolve();
       }
     }
     w.addEventListener("message", onReady);
+    w.addEventListener("error", onStartupError);
   });
 
   w.addEventListener("message", (event: MessageEvent) => {
@@ -64,13 +90,7 @@ function createWorker(): { worker: Worker; ready: Promise<void> } {
   });
 
   w.addEventListener("error", (event) => {
-    for (const [, pending] of pendingRequests) {
-      clearTimeout(pending.timer);
-      pending.reject(new Error(`Worker error: ${event.message}`));
-    }
-    pendingRequests.clear();
-    worker = null;
-    workerReady = null;
+    resetWorker(new Error(`Worker error: ${event.message}`), w);
   });
 
   return { worker: w, ready };
@@ -81,9 +101,9 @@ async function ensureWorker(): Promise<Worker> {
     await workerReady;
 
     if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-      worker.terminate();
-      worker = null;
-      workerReady = null;
+      resetWorker(
+        new Error("Mermaid worker restarted after repeated render failures"),
+      );
       consecutiveErrors = 0;
     }
   }
@@ -107,6 +127,10 @@ async function renderMermaidSvg(code: string): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     const timer = setTimeout(() => {
       pendingRequests.delete(id);
+      resetWorker(
+        new Error(`Mermaid render timed out after ${RENDER_TIMEOUT_MS}ms`),
+        w,
+      );
       reject(
         new Error(`Mermaid render timed out after ${RENDER_TIMEOUT_MS}ms`),
       );
@@ -118,10 +142,6 @@ async function renderMermaidSvg(code: string): Promise<string> {
   });
 }
 
-/**
- * Render multiple mermaid blocks sequentially.
- * Returns null for blocks that failed (caller should leave them for client fallback).
- */
 export async function renderMermaidBlocks(
   blocks: string[],
 ): Promise<(string | null)[]> {
@@ -138,14 +158,5 @@ export async function renderMermaidBlocks(
 }
 
 export function disposeMermaidWorker(): void {
-  if (worker) {
-    worker.terminate();
-    worker = null;
-    workerReady = null;
-    for (const [, pending] of pendingRequests) {
-      clearTimeout(pending.timer);
-      pending.reject(new Error("Mermaid worker disposed"));
-    }
-    pendingRequests.clear();
-  }
+  resetWorker(new Error("Mermaid worker disposed"));
 }

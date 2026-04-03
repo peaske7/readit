@@ -88,6 +88,7 @@ export function matchesBinding(
 ): boolean {
   if (event.key.toLowerCase() !== binding.key.toLowerCase()) return false;
   if (!!binding.alt !== event.altKey) return false;
+  if (!!binding.ctrl !== event.ctrlKey) return false;
   if (!!binding.meta !== event.metaKey) return false;
   if (!!binding.shift !== event.shiftKey) return false;
   return true;
@@ -99,8 +100,11 @@ export function formatBinding(
 ): string {
   const parts: string[] = [];
 
+  if (binding.ctrl) {
+    parts.push(isMac ? "\u2303" : "Ctrl");
+  }
   if (binding.meta) {
-    parts.push(isMac ? "\u2318" : "Ctrl");
+    parts.push(isMac ? "\u2318" : "Meta");
   }
   if (binding.alt) {
     parts.push(isMac ? "\u2325" : "Alt");
@@ -162,6 +166,7 @@ export function eventToBinding(event: KeyboardEvent): ShortcutBinding {
   return {
     key: event.key,
     ...(event.altKey && { alt: true }),
+    ...(event.ctrlKey && { ctrl: true }),
     ...(event.metaKey && { meta: true }),
     ...(event.shiftKey && { shift: true }),
   };
@@ -171,6 +176,7 @@ export function bindingsEqual(a: ShortcutBinding, b: ShortcutBinding): boolean {
   return (
     a.key.toLowerCase() === b.key.toLowerCase() &&
     !!a.alt === !!b.alt &&
+    !!a.ctrl === !!b.ctrl &&
     !!a.meta === !!b.meta &&
     !!a.shift === !!b.shift
   );

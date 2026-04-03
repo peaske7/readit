@@ -17,7 +17,7 @@ import { findTextPosition } from "./lib/highlight/resolver.js";
 import { extractTextFromHtml } from "./lib/html-text.js";
 import { getShiki, renderMarkdown } from "./lib/markdown-renderer.js";
 import { disposeMermaidWorker } from "./lib/mermaid-renderer.js";
-import { isSupportedFile } from "./lib/utils.js";
+import { isMarkdownFile } from "./lib/utils.js";
 import {
   AnchorConfidences,
   type Comment,
@@ -112,7 +112,7 @@ async function readCommentsFromFile(
         const domPos = findTextPosition(
           domText,
           comment.selectedText,
-          anchor.start, // markdown offset as hint
+          anchor.start,
         );
         if (domPos) {
           startOffset = domPos.start;
@@ -559,7 +559,6 @@ async function serveStaticFile(
   const file = Bun.file(filePath);
 
   if (await file.exists()) {
-    // Content-hashed assets are immutable — cache forever
     const isHashed = pathname.startsWith("/assets/");
     const headers: Record<string, string> = isHashed
       ? { "Cache-Control": "public, max-age=31536000, immutable" }
@@ -778,8 +777,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     }
   }
 
-  // Cache the rendered page to avoid re-rendering on every request.
-  // Invalidated by file changes (watcher calls invalidatePageCache).
   let pageCache: string | null = null;
   let pageCacheGz: Uint8Array<ArrayBuffer> | null = null;
 
@@ -823,7 +820,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         settings,
         documents: {
           [defaultPath]: {
-            // html omitted — already in <article id="document-content">
             headings,
             comments,
           },
@@ -921,7 +917,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
   const server = Bun.serve({
     port: options.port,
     hostname: options.host,
-    idleTimeout: 255, // max value (seconds) — SSE streams stay open long
+    idleTimeout: 255,
 
     async fetch(req: Request) {
       const url = new URL(req.url);
@@ -957,7 +953,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
             }
             throw err;
           }
-          if (!isSupportedFile(filePath)) {
+          if (!isMarkdownFile(filePath)) {
             return errorResponse(
               `Unsupported file type: ${filePath} (expected .md or .markdown)`,
               400,
@@ -1102,7 +1098,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 export async function startServer(
   options: ServerOptions,
 ): Promise<ServerResult> {
-  // Pre-warm shiki highlighter in background (50-200ms savings on first request)
   getShiki();
 
   const MAX_PORT = 65535;

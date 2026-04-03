@@ -98,6 +98,8 @@ export const ja: Translations = {
   "shortcuts.resetToDefaults": "初期設定に戻す",
   "shortcuts.enableDisable": "ショートカットの有効/無効",
   "shortcutCapture.pressKeys": "キーを入力...",
+  "shortcutCapture.reserved": "{{binding}} は予約されています",
+  "shortcutCapture.ariaLabel": "キーの組み合わせを入力",
   "shortcut.copyAll.label": "全てコピー (AI)",
   "shortcut.copyAll.description": "全コメントをAIプロンプト形式でコピー",
   "shortcut.copyAllRaw.label": "全てコピー (テキスト)",

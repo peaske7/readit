@@ -36,6 +36,27 @@ export async function updateBinding(
 }
 
 export async function toggleEnabled(id: string): Promise<void> {
+  const target = shortcutState.shortcuts.find((s) => s.id === id);
+  if (!target) return;
+
+  // When re-enabling, check for binding conflicts with other enabled shortcuts
+  if (!target.enabled) {
+    const conflict = shortcutState.shortcuts.find(
+      (s) =>
+        s.id !== id && s.enabled && bindingsEqual(s.binding, target.binding),
+    );
+    if (conflict) {
+      // Disable the conflicting shortcut to resolve the conflict
+      shortcutState.shortcuts = shortcutState.shortcuts.map((s) => {
+        if (s.id === id) return { ...s, enabled: true };
+        if (s.id === conflict.id) return { ...s, enabled: false };
+        return s;
+      });
+      await persistOverrides(shortcutState.shortcuts);
+      return;
+    }
+  }
+
   shortcutState.shortcuts = shortcutState.shortcuts.map((s) =>
     s.id === id ? { ...s, enabled: !s.enabled } : s,
   );

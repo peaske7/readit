@@ -13,6 +13,7 @@ type SSEBroker struct {
 	heartbeatClients map[chan string]struct{}
 	mu               sync.Mutex
 	shutdownTimer    *time.Timer
+	shutdownEpoch    int // guards against stale timer callbacks
 	isDev            bool
 	onShutdown       func()
 }
@@ -103,6 +104,7 @@ func (b *SSEBroker) Heartbeat(w http.ResponseWriter, r *http.Request) {
 		b.shutdownTimer.Stop()
 		b.shutdownTimer = nil
 	}
+	b.shutdownEpoch++
 	b.mu.Unlock()
 
 	defer func() {
@@ -112,7 +114,16 @@ func (b *SSEBroker) Heartbeat(w http.ResponseWriter, r *http.Request) {
 			if b.shutdownTimer != nil {
 				b.shutdownTimer.Stop()
 			}
-			b.shutdownTimer = time.AfterFunc(1500*time.Millisecond, b.onShutdown)
+			b.shutdownEpoch++
+			epoch := b.shutdownEpoch
+			b.shutdownTimer = time.AfterFunc(1500*time.Millisecond, func() {
+				b.mu.Lock()
+				defer b.mu.Unlock()
+				// Only fire if no new client reconnected (epoch unchanged)
+				if b.shutdownEpoch == epoch {
+					b.onShutdown()
+				}
+			})
 		}
 		b.mu.Unlock()
 	}()

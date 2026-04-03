@@ -18,9 +18,7 @@ function getStoredTheme(): ThemeMode {
     ) {
       return stored;
     }
-  } catch {
-    // localStorage may be unavailable (private browsing, etc.)
-  }
+  } catch {}
   return ThemeModes.SYSTEM;
 }
 
@@ -62,9 +60,7 @@ export function updateThemeMode(mode: ThemeMode): void {
 
   try {
     localStorage.setItem(THEME_STORAGE_KEY, mode);
-  } catch {
-    // localStorage may be unavailable
-  }
+  } catch {}
 }
 
 export function initSettings(data?: { fontFamily?: string }): void {

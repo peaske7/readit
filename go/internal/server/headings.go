@@ -47,31 +47,48 @@ func ExtractHeadings(source []byte) []Heading {
 	return headings
 }
 
-// stripCodeBlocks removes fenced code blocks from markdown content.
+// stripCodeBlocks removes fenced and indented code blocks from markdown content.
 // Go's regexp doesn't support backreferences, so we do this iteratively.
 func stripCodeBlocks(content string) string {
 	var result strings.Builder
 	lines := strings.Split(content, "\n")
 	inFenced := false
+	inIndented := false
 	var fence string
 
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
-		if !inFenced {
+		if !inFenced && !inIndented {
 			// Check for fence open
 			if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
 				inFenced = true
 				fence = trimmed[:3]
 				continue
 			}
+			// Check for indented code block (4 spaces or tab prefix)
+			if (strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t")) && trimmed != "" {
+				inIndented = true
+				continue
+			}
 			result.WriteString(line)
 			result.WriteByte('\n')
-		} else {
+		} else if inFenced {
 			// Check for fence close
 			if strings.HasPrefix(trimmed, fence) && strings.TrimLeft(trimmed, string(fence[0])) == "" {
 				inFenced = false
 				fence = ""
+			}
+		} else if inIndented {
+			// Indented block continues while lines are indented or blank
+			if trimmed == "" {
+				// Blank line might continue the indented block
+				continue
+			}
+			if !strings.HasPrefix(line, "    ") && !strings.HasPrefix(line, "\t") {
+				inIndented = false
+				result.WriteString(line)
+				result.WriteByte('\n')
 			}
 		}
 	}

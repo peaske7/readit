@@ -25,6 +25,38 @@ function escapeAttr(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
+/**
+ * Sanitize server-rendered HTML to prevent XSS from raw HTML in markdown source.
+ * While readit is designed for local use with the user's own files, this
+ * provides defense-in-depth against untrusted markdown content.
+ *
+ * Uses a simple tag-stripping approach to remove dangerous elements while
+ * preserving the rendered content. The Go server uses bluemonday for the
+ * same purpose.
+ */
+function sanitizeHtml(html: string): string {
+  // Remove <script> tags and their content
+  let sanitized = html.replace(
+    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+    "",
+  );
+  // Remove event handler attributes (onclick, onerror, onload, etc.)
+  sanitized = sanitized.replace(
+    /\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi,
+    "",
+  );
+  // Remove javascript: URLs
+  sanitized = sanitized.replace(
+    /\bhref\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi,
+    "",
+  );
+  sanitized = sanitized.replace(
+    /\bsrc\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi,
+    "",
+  );
+  return sanitized;
+}
+
 export function renderTemplate(options: TemplateOptions): string {
   const {
     title,
@@ -63,7 +95,7 @@ export function renderTemplate(options: TemplateOptions): string {
   ${cssLink}
 </head>
 <body class="min-h-screen">
-  <article id="document-content" class="prose ${proseClass}">${documentHtml}</article>
+  <article id="document-content" class="prose ${proseClass}">${sanitizeHtml(documentHtml)}</article>
   <div id="app"></div>
   <script type="application/json" id="__readit">${safeJsonStringify(inlineData)}</script>
   <script type="module" src="${escapeAttr(jsPath)}" defer></script>

@@ -16,7 +16,11 @@ func DefaultSettings() Settings {
 }
 
 func settingsPath() string {
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		// Fallback to current directory
+		return ".readit/settings.json"
+	}
 	return filepath.Join(home, ".readit", "settings.json")
 }
 
@@ -76,10 +80,9 @@ func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build new settings from current state
-	s.mu.RLock()
+	// Build new settings from current state under write lock for atomicity
+	s.mu.Lock()
 	newSettings := s.settings
-	s.mu.RUnlock()
 
 	if body.FontFamily != "" {
 		newSettings.FontFamily = body.FontFamily
@@ -90,11 +93,11 @@ func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 
 	// Persist first, then publish to in-memory state
 	if err := WriteSettings(newSettings); err != nil {
+		s.mu.Unlock()
 		writeError(w, http.StatusInternalServerError, "failed to save settings")
 		return
 	}
 
-	s.mu.Lock()
 	s.settings = newSettings
 	s.mu.Unlock()
 

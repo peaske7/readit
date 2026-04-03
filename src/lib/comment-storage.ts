@@ -7,7 +7,7 @@ const FORMAT_VERSION = 1;
 const HASH_LENGTH = 16;
 const MAX_SELECTION_LENGTH = 1000;
 const TRUNCATION_MARKER = "\n...\n";
-const ANCHOR_PREFIX_LENGTH = 200; // chars stored for anchor matching when text is truncated
+const ANCHOR_PREFIX_LENGTH = 200;
 
 export function truncateSelection(text: string): string {
   if (text.length <= MAX_SELECTION_LENGTH) {
@@ -102,7 +102,6 @@ export function parseCommentFile(content: string): CommentFile {
 }
 
 function parseCommentBlock(block: string): Comment | undefined {
-  // Extract metadata from HTML comment: <!-- c:{id}|{lineHint} -->
   const metadataMatch = block.match(
     /<!--\s*c:([^|]+)\|([^|>\s]+)(?:\|[^>]*)?\s*-->/,
   );

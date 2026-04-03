@@ -198,8 +198,6 @@ export function hydrateFromInlineData(data: InlineData): void {
   const newDocs = new Map<string, DocumentState>();
   const order: string[] = [];
 
-  // Read HTML from the server-rendered article if not in inline data
-  // (avoids duplicating the full document HTML in the JSON payload)
   const articleEl =
     typeof document !== "undefined"
       ? document.getElementById("document-content")

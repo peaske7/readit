@@ -14,7 +14,7 @@ import { join, resolve } from "node:path";
 import { Command } from "commander";
 import open from "open";
 import { getCommentPath, parseCommentFile } from "./lib/comment-storage.js";
-import { isSupportedFile } from "./lib/utils.js";
+import { isMarkdownFile } from "./lib/utils.js";
 import type { FileEntry } from "./server.js";
 import { removeServerInfo, startServer } from "./server.js";
 
@@ -80,9 +80,7 @@ async function clearStaleServerLock(): Promise<void> {
       try {
         const lock = JSON.parse(content) as { pid?: number };
         pid = lock.pid;
-      } catch {
-        // Ignore malformed lock files and fall back to age-based cleanup.
-      }
+      } catch {}
     }
 
     if (age > SERVER_LOCK_MAX_AGE_MS || (pid !== undefined && !isAlive(pid))) {
@@ -258,7 +256,7 @@ function findReviewableFiles(dir: string): FileEntry[] {
         if (lstat.isSymbolicLink()) continue;
         if (lstat.isDirectory()) {
           results.push(...findReviewableFiles(fullPath));
-        } else if (isSupportedFile(entry)) {
+        } else if (isMarkdownFile(entry)) {
           results.push({ filePath: fullPath });
         }
       } catch (err) {
@@ -303,7 +301,7 @@ function resolveFiles(args: string[]): FileEntry[] {
     } else {
       if (seen.has(filePath)) continue;
 
-      if (!isSupportedFile(filePath)) {
+      if (!isMarkdownFile(filePath)) {
         console.error(
           `error: unsupported file type: ${arg} (expected .md or .markdown)`,
         );
@@ -552,7 +550,6 @@ program
         process.exit(1);
       }
 
-      // Snapshot previous session before startServer() overwrites server.json
       let previousPort: number | undefined;
       try {
         const info = JSON.parse(readFileSync(SERVER_INFO_PATH, "utf-8"));
@@ -642,7 +639,7 @@ program
 
         const filePath = realpathSync(inputPath);
 
-        if (!isSupportedFile(filePath)) {
+        if (!isMarkdownFile(filePath)) {
           console.error(
             `error: unsupported file type: ${arg} (expected .md or .markdown)`,
           );

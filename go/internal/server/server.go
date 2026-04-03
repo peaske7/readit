@@ -21,18 +21,16 @@ type Options struct {
 	Port       int
 	Host       string
 	Clean      bool
-	AssetsDir  string // override embedded assets
-	Dev        bool   // spawn Vite, proxy to it
-	OnShutdown func() // called when all browser clients disconnect
+	AssetsDir  string
+	Dev        bool
+	OnShutdown func()
 }
 
-// FileEntry is a file to load on startup.
 type FileEntry struct {
 	FilePath string
-	Content  []byte // optional pre-loaded content
+	Content  []byte
 }
 
-// Server is the readit HTTP server.
 type Server struct {
 	mux        *http.ServeMux
 	files      map[string]*FileState
@@ -77,15 +75,12 @@ func NewServer(opts Options) (*Server, error) {
 		commentCache: make(map[string]*resolvedCacheEntry),
 	}
 
-	// Load settings from disk
 	if loaded, err := ReadSettings(); err == nil {
 		s.settings = loaded
 	}
 
-	// Setup SSE broker
 	s.sse = NewSSEBroker(opts.Dev, opts.OnShutdown)
 
-	// Setup file watcher
 	w, err := NewWatcher(func(path string) {
 		s.onFileChange(path)
 	})
@@ -94,39 +89,33 @@ func NewServer(opts Options) (*Server, error) {
 	}
 	s.watcher = w
 
-	// Setup assets
 	if opts.AssetsDir != "" {
 		s.assetsFS = os.DirFS(opts.AssetsDir)
 	} else if !opts.Dev {
 		s.assetsFS = EmbeddedAssetsFS()
 	}
 
-	// Dev mode: setup Vite proxy
 	if opts.Dev {
 		viteURL, _ := url.Parse("http://127.0.0.1:24678")
 		s.viteProxy = httputil.NewSingleHostReverseProxy(viteURL)
 	}
 
-	// Load initial files
 	for _, f := range opts.Files {
 		if err := s.loadFile(f); err != nil {
 			log.Printf("Warning: failed to load %s: %v", f.FilePath, err)
 		}
 	}
 
-	// Register routes
 	s.registerRoutes()
 
 	return s, nil
 }
 
 func (s *Server) registerRoutes() {
-	// Document routes
 	s.mux.HandleFunc("GET /api/documents", s.listDocuments)
 	s.mux.HandleFunc("POST /api/documents", s.addDocument)
 	s.mux.HandleFunc("GET /api/document", s.getDocument)
 
-	// Comment routes
 	s.mux.HandleFunc("GET /api/comments/raw", s.rawComments)
 	s.mux.HandleFunc("GET /api/comments", s.listComments)
 	s.mux.HandleFunc("POST /api/comments", s.createComment)
@@ -135,28 +124,22 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("DELETE /api/comments/{id}", s.deleteComment)
 	s.mux.HandleFunc("DELETE /api/comments", s.deleteAllComments)
 
-	// Settings routes
 	s.mux.HandleFunc("GET /api/settings", s.getSettings)
 	s.mux.HandleFunc("PUT /api/settings", s.updateSettings)
 
-	// SSE
 	s.mux.HandleFunc("GET /api/document/stream", s.sse.DocumentStream)
 	s.mux.HandleFunc("GET /api/heartbeat", s.sse.Heartbeat)
 
-	// Health
 	s.mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	// Root page (SSR)
 	s.mux.HandleFunc("GET /{$}", s.servePage)
 
-	// Static assets — assetsFS root maps to dist/, files are at assets/* within it
 	if s.assetsFS != nil {
 		s.mux.Handle("GET /assets/", http.FileServer(http.FS(s.assetsFS)))
 	}
 
-	// Dev mode: proxy everything else to Vite
 	if s.isDev && s.viteProxy != nil {
 		s.mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 			s.viteProxy.ServeHTTP(w, r)
@@ -165,7 +148,6 @@ func (s *Server) registerRoutes() {
 }
 
 // Start begins listening on the configured host:port.
-// It tries sequential ports if the requested one is busy.
 func (s *Server) Start(host string, port int) (int, error) {
 	for p := port; p <= 65535; p++ {
 		addr := fmt.Sprintf("%s:%d", host, p)
@@ -192,7 +174,6 @@ func (s *Server) Start(host string, port int) (int, error) {
 	return 0, fmt.Errorf("no available port")
 }
 
-// Stop gracefully shuts down the server.
 func (s *Server) Stop() {
 	if s.httpServer != nil {
 		_ = s.httpServer.Close()
@@ -225,6 +206,7 @@ func (s *Server) loadFile(f FileEntry) error {
 	}
 
 	s.mu.Lock()
+	_, alreadyExists := s.files[absPath]
 	s.files[absPath] = &FileState{
 		FilePath:     absPath,
 		FileName:     filepath.Base(absPath),
@@ -233,7 +215,9 @@ func (s *Server) loadFile(f FileEntry) error {
 		Headings:     result.Headings,
 		IsLoaded:     true,
 	}
-	s.fileOrder = append(s.fileOrder, absPath)
+	if !alreadyExists {
+		s.fileOrder = append(s.fileOrder, absPath)
+	}
 	s.mu.Unlock()
 
 	_ = s.watcher.Add(absPath)
@@ -241,7 +225,6 @@ func (s *Server) loadFile(f FileEntry) error {
 }
 
 func (s *Server) onFileChange(path string) {
-	// Check the file is tracked before doing I/O
 	s.mu.RLock()
 	_, ok := s.files[path]
 	s.mu.RUnlock()
@@ -249,7 +232,6 @@ func (s *Server) onFileChange(path string) {
 		return
 	}
 
-	// Read and render outside the write lock to avoid blocking concurrent reads
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return
@@ -259,7 +241,6 @@ func (s *Server) onFileChange(path string) {
 		return
 	}
 
-	// Take write lock only for the state swap
 	s.mu.Lock()
 	state, ok := s.files[path]
 	if ok {
@@ -299,7 +280,6 @@ func (s *Server) defaultFilePath() string {
 
 func (s *Server) resolveFilePath(r *http.Request) string {
 	if p := r.URL.Query().Get("path"); p != "" {
-		// Canonicalize to match how files are stored (symlinks resolved)
 		if abs, err := filepath.Abs(p); err == nil {
 			if resolved, err := filepath.EvalSymlinks(abs); err == nil {
 				return resolved
@@ -328,7 +308,6 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build inline data under a single lock
 	docs := make(map[string]InlineDocData)
 	for path, fs := range s.files {
 		comments := s.resolveCommentsFor(path, fs)
@@ -365,7 +344,6 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Resolve asset paths
 	jsPath, cssPath := s.resolveAssetPaths()
 
 	proseClass := "prose-serif"
@@ -405,7 +383,6 @@ func (s *Server) resolveAssetPaths() (jsPath, cssPath string) {
 		return "http://127.0.0.1:24678/src/main.ts", ""
 	}
 
-	// Try reading Vite manifest
 	if s.assetsFS != nil {
 		data, err := fs.ReadFile(s.assetsFS, ".vite/manifest.json")
 		if err == nil {
@@ -427,8 +404,6 @@ func (s *Server) resolveAssetPaths() (jsPath, cssPath string) {
 
 	return "/assets/index.js", ""
 }
-
-// Helper functions for JSON responses.
 
 func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")

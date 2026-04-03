@@ -6,11 +6,9 @@ import (
 	"strings"
 )
 
-// resolveCommentsFor reads and anchor-resolves comments for a file.
 func (s *Server) resolveCommentsFor(path string, state *FileState) []Comment {
 	commentPath := CommentPath(path)
 
-	// Check cache
 	s.commentCacheMu.RLock()
 	cached := s.commentCache[path]
 	s.commentCacheMu.RUnlock()
@@ -30,7 +28,6 @@ func (s *Server) resolveCommentsFor(path string, state *FileState) []Comment {
 		return cached.comments
 	}
 
-	// Parse comment file
 	data, err := os.ReadFile(commentPath)
 	if err != nil {
 		return []Comment{}
@@ -41,7 +38,6 @@ func (s *Server) resolveCommentsFor(path string, state *FileState) []Comment {
 		return []Comment{}
 	}
 
-	// Resolve anchors
 	sourceContent := string(state.Content)
 	domText := ExtractTextFromHTML(state.RenderedHTML)
 
@@ -58,7 +54,6 @@ func (s *Server) resolveCommentsFor(path string, state *FileState) []Comment {
 			c.EndOffset = result.EndOffset
 			c.AnchorConfidence = result.Confidence
 
-			// Map to DOM text position for highlighting
 			if start, end, ok := FindTextPosition(domText, searchText, result.StartOffset); ok {
 				c.StartOffset = start
 				c.EndOffset = end
@@ -70,7 +65,6 @@ func (s *Server) resolveCommentsFor(path string, state *FileState) []Comment {
 		resolved = append(resolved, c)
 	}
 
-	// Cache result
 	s.commentCacheMu.Lock()
 	s.commentCache[path] = &resolvedCacheEntry{
 		commentMtimeMs: mtimeMs,
@@ -122,7 +116,6 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 
 	c := CreateComment(body.SelectedText, body.Comment, body.StartOffset, body.EndOffset, string(state.Content))
 
-	// Read existing comments
 	commentPath := CommentPath(path)
 	cf := CommentFile{
 		Source:  path,

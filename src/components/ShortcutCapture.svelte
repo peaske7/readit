@@ -41,7 +41,9 @@ function handleKeyDown(e: KeyboardEvent) {
   const binding = eventToBinding(e);
 
   if (isReservedBinding(binding)) {
-    error = `${formatBinding(binding, isMac)} is reserved`;
+    error = t("shortcutCapture.reserved", {
+      binding: formatBinding(binding, isMac),
+    });
     return;
   }
 
@@ -57,7 +59,7 @@ onMount(() => {
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
   role="button"
-  aria-label="Press a key combination"
+  aria-label={t("shortcutCapture.ariaLabel")}
   bind:this={captureEl}
   tabindex={0}
   onkeydown={handleKeyDown}
