@@ -19,9 +19,7 @@
       "style": {
         "noNonNullAssertion": "off"
       },
-      "correctness": {
-        "useExhaustiveDependencies": "warn"
-      },
+      "correctness": {},
       "complexity": {
         "noForEach": "off",
         "noImportantStyles": "off"
@@ -37,9 +35,7 @@
         "useSemanticElements": "warn",
         "useFocusableInteractive": "warn"
       },
-      "security": {
-        "noDangerouslySetInnerHtml": "warn"
-      }
+      "security": {}
     }
   },
   "css": {

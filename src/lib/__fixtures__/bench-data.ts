@@ -82,7 +82,6 @@ function makeComment(index: number, doc: string): Comment {
     id: `bench${String(index).padStart(3, "0")}`,
     selectedText,
     comment: `Benchmark comment ${index}: This text needs to be reviewed and updated.`,
-    createdAt: "2025-01-01T00:00:00.000Z",
     startOffset,
     endOffset,
     lineHint: `L${targetLine + 1}`,

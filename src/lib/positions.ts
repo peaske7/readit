@@ -24,8 +24,6 @@ export class Positions {
     this.highlighter = highlighter;
     window.addEventListener("resize", this.onResize);
 
-    // Defer to next frame: synchronous getBoundingClientRect() after
-    // CSS.highlights.set() would force a full style recalc.
     this.unsubCache = highlighter.onCacheInvalidated(() => {
       if (this.cacheRaf !== null) return;
       this.cacheRaf = requestAnimationFrame(() => {
@@ -51,9 +49,6 @@ export class Positions {
   cache() {
     if (!this.root || !this.container || !this.highlighter) return;
 
-    // Skip layout-forcing getBoundingClientRect when there are no highlights.
-    // The initial render inserts 10k+ DOM elements; reading layout before any
-    // highlights exist would force style recalculation on the entire DOM for nothing.
     const highlightedIds = this.highlighter.getHighlightedIds();
     if (highlightedIds.length === 0) return;
 

@@ -66,7 +66,7 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
 
     const range = selection.getRangeAt(0);
 
-    // Reject erroneous whole-document selections (caused by DOM mutation during interaction)
+    // Reject whole-document selections caused by DOM mutation
     if (
       range.startContainer === root &&
       range.startOffset === 0 &&
@@ -89,10 +89,6 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
 
     onSelect(text, startOffset, endOffset, selectionTop);
 
-    // Apply pending highlight after React re-render settles.
-    // onSelect triggers a state update that may cause React to re-render,
-    // replacing DOM nodes and invalidating pre-existing Range objects.
-    // Deferring to rAF ensures Ranges are created against the final DOM.
     requestAnimationFrame(() => {
       const pendingRanges = createRangesForHighlight(
         root,

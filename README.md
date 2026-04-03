@@ -29,6 +29,7 @@ readit <file> --clean         # Clear existing comments
 
 readit list                  # List all files with comments
 readit show <file>           # Show comments for a file
+readit open <files...>       # Add files to running server
 ```
 
 Select text to add comments. Comments appear as margin notes. Copy all comments formatted for AI with a single click.

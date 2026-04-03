@@ -19,7 +19,7 @@ test.describe("Comment Export", () => {
       await page.goto(url);
 
       // Wait for document to load
-      const article = page.locator("article");
+      const article = page.locator("article#document-content");
       await expect(article).toBeVisible();
 
       // Add a comment
@@ -48,9 +48,9 @@ test.describe("Comment Export", () => {
       expect(clipboardContent).toContain(textToSelect);
       expect(clipboardContent).toContain(commentText);
 
-      // Verify it follows the prompt format (selected text + comment structure)
-      expect(clipboardContent).toContain("Selected text:");
-      expect(clipboardContent).toContain("Comment:");
+      // Verify it follows the prompt format (quoted selected text + comment)
+      expect(clipboardContent).toMatch(/"testing text selection"/);
+      expect(clipboardContent).toContain("This is my review comment");
     } finally {
       await cleanup();
     }

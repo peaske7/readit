@@ -1,6 +1,7 @@
 import MarkdownIt from "markdown-it";
 import type { BundledLanguage, BundledTheme, HighlighterGeneric } from "shiki";
 import { type Heading, parseMarkdownHeadings } from "./headings";
+import { renderMermaidBlocks } from "./mermaid-renderer";
 
 const SHIKI_LANGUAGES: BundledLanguage[] = [
   "bash",
@@ -28,7 +29,7 @@ let shikiPromise: Promise<
   HighlighterGeneric<BundledLanguage, BundledTheme>
 > | null = null;
 
-async function getShiki(): Promise<
+export async function getShiki(): Promise<
   HighlighterGeneric<BundledLanguage, BundledTheme>
 > {
   if (shikiInstance) return shikiInstance;
@@ -115,6 +116,52 @@ interface RenderResult {
   headings: Heading[];
 }
 
+const MERMAID_BLOCK_RE =
+  /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g;
+
+function unescapeHtml(str: string): string {
+  return str
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"');
+}
+
+async function replaceMermaidBlocks(html: string): Promise<string> {
+  MERMAID_BLOCK_RE.lastIndex = 0;
+  const matches: { fullMatch: string; code: string; index: number }[] = [];
+
+  let match: RegExpExecArray | null = MERMAID_BLOCK_RE.exec(html);
+  while (match !== null) {
+    matches.push({
+      fullMatch: match[0],
+      code: unescapeHtml(match[1]),
+      index: match.index,
+    });
+    match = MERMAID_BLOCK_RE.exec(html);
+  }
+
+  if (matches.length === 0) return html;
+
+  const codes = matches.map((m) => m.code);
+  const svgs = await renderMermaidBlocks(codes);
+
+  // Replace in reverse order to preserve string indices
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const svg = svgs[i];
+    if (svg !== null) {
+      const { fullMatch, index } = matches[i];
+      const replacement = `<div class="mermaid-container">${svg}</div>`;
+      html =
+        html.slice(0, index) +
+        replacement +
+        html.slice(index + fullMatch.length);
+    }
+  }
+
+  return html;
+}
+
 export async function renderMarkdown(content: string): Promise<RenderResult> {
   const shiki = await getShiki();
   const md = createMarkdownRenderer(shiki);
@@ -124,6 +171,7 @@ export async function renderMarkdown(content: string): Promise<RenderResult> {
   let html = md.render(content);
 
   html = injectHeadingIds(html, headings);
+  html = await replaceMermaidBlocks(html);
 
   return { html, headings };
 }

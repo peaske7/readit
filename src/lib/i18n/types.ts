@@ -92,6 +92,31 @@ export interface Translations {
   // Comment badge
   "commentBadge.title": string;
   "commentBadge.titlePlural": string;
+
+  // Keyboard shortcuts
+  "shortcuts.title": string;
+  "shortcutGroup.copy": string;
+  "shortcutGroup.navigate": string;
+  "shortcutGroup.other": string;
+  "shortcuts.resetToDefaults": string;
+  "shortcuts.enableDisable": string;
+  "shortcutCapture.pressKeys": string;
+  "shortcutCapture.reserved": string;
+  "shortcutCapture.ariaLabel": string;
+  "shortcut.copyAll.label": string;
+  "shortcut.copyAll.description": string;
+  "shortcut.copyAllRaw.label": string;
+  "shortcut.copyAllRaw.description": string;
+  "shortcut.navigateNext.label": string;
+  "shortcut.navigateNext.description": string;
+  "shortcut.navigatePrevious.label": string;
+  "shortcut.navigatePrevious.description": string;
+  "shortcut.copySelectionRaw.label": string;
+  "shortcut.copySelectionRaw.description": string;
+  "shortcut.copySelectionLLM.label": string;
+  "shortcut.copySelectionLLM.description": string;
+  "shortcut.clearSelection.label": string;
+  "shortcut.clearSelection.description": string;
 }
 
 export type TranslationKey = keyof Translations;

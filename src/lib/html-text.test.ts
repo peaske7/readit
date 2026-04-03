@@ -1,15 +1,33 @@
+import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 import { getDOMTextContent } from "./highlight/dom";
 import { extractTextFromHtml } from "./html-text";
 import { renderMarkdown } from "./markdown-renderer";
 
+const DOM_GLOBALS = ["document", "NodeFilter"] as const;
+
 function browserExtract(html: string): string {
-  const container = document.createElement("article");
-  container.innerHTML = html;
-  document.body.appendChild(container);
-  const text = getDOMTextContent(container);
-  document.body.removeChild(container);
-  return text;
+  const dom = new JSDOM(
+    `<!DOCTYPE html><body><article>${html}</article></body>`,
+  );
+  const saved = Object.fromEntries(
+    DOM_GLOBALS.map((k) => [k, (globalThis as Record<string, unknown>)[k]]),
+  );
+  try {
+    for (const k of DOM_GLOBALS) {
+      (globalThis as Record<string, unknown>)[k] = dom.window[k];
+    }
+    const container = dom.window.document.querySelector("article")!;
+    return getDOMTextContent(container);
+  } finally {
+    for (const k of DOM_GLOBALS) {
+      if (saved[k] !== undefined) {
+        (globalThis as Record<string, unknown>)[k] = saved[k];
+      } else {
+        delete (globalThis as Record<string, unknown>)[k];
+      }
+    }
+  }
 }
 
 describe("extractTextFromHtml", () => {

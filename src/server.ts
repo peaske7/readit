@@ -15,7 +15,8 @@ import {
 } from "./lib/comment-storage.js";
 import { findTextPosition } from "./lib/highlight/resolver.js";
 import { extractTextFromHtml } from "./lib/html-text.js";
-import { renderMarkdown } from "./lib/markdown-renderer.js";
+import { getShiki, renderMarkdown } from "./lib/markdown-renderer.js";
+import { disposeMermaidWorker } from "./lib/mermaid-renderer.js";
 import { isMarkdownFile } from "./lib/utils.js";
 import {
   AnchorConfidences,
@@ -24,6 +25,7 @@ import {
   FontFamilies,
   type FontFamily,
 } from "./schema.js";
+import { renderTemplate } from "./template.js";
 
 function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err;
@@ -110,7 +112,7 @@ async function readCommentsFromFile(
         const domPos = findTextPosition(
           domText,
           comment.selectedText,
-          anchor.start, // markdown offset as hint
+          anchor.start,
         );
         if (domPos) {
           startOffset = domPos.start;
@@ -557,7 +559,11 @@ async function serveStaticFile(
   const file = Bun.file(filePath);
 
   if (await file.exists()) {
-    return new Response(file);
+    const isHashed = pathname.startsWith("/assets/");
+    const headers: Record<string, string> = isHashed
+      ? { "Cache-Control": "public, max-age=31536000, immutable" }
+      : {};
+    return new Response(file, { headers });
   }
 
   const indexFile = Bun.file(join(distPath, "index.html"));
@@ -653,6 +659,12 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       debounceTimer: null,
     });
     fileOrder.push(entry.filePath);
+
+    if (options.clean) {
+      const commentPath = getCommentPath(entry.filePath);
+      fs.unlink(commentPath).catch(() => {});
+      invalidateResolvedComments(entry.filePath);
+    }
   }
 
   const defaultPath = fileOrder[0];
@@ -723,15 +735,10 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     }
 
     const content = await ensureFileContent(filePath);
-
-    if (isMarkdownFile(filePath)) {
-      const result = await renderMarkdown(content);
-      state.renderedHtml = result.html;
-      state.headings = result.headings;
-      return result;
-    }
-
-    return { html: content, headings: [] };
+    const result = await renderMarkdown(content);
+    state.renderedHtml = result.html;
+    state.headings = result.headings;
+    return result;
   }
 
   function resolveContext(url: URL): RouteContext | null {
@@ -755,6 +762,122 @@ function createServer(options: ServerOptions): ServerWithWatchers {
   const isDev = process.env.NODE_ENV === "development";
   const distPath = import.meta.dir;
 
+  let manifestCache: Record<string, { file: string; css?: string[] }> | null =
+    null;
+
+  async function getManifest(): Promise<typeof manifestCache> {
+    if (manifestCache) return manifestCache;
+    try {
+      const manifestPath = join(distPath, ".vite", "manifest.json");
+      const content = await fs.readFile(manifestPath, "utf-8");
+      manifestCache = JSON.parse(content);
+      return manifestCache;
+    } catch {
+      return null;
+    }
+  }
+
+  let pageCache: string | null = null;
+  let pageCacheGz: Uint8Array<ArrayBuffer> | null = null;
+
+  function invalidatePageCache(): void {
+    pageCache = null;
+    pageCacheGz = null;
+  }
+
+  async function serveAppPage(req: Request): Promise<Response> {
+    const acceptGzip =
+      req.headers.get("accept-encoding")?.includes("gzip") ?? false;
+
+    try {
+      if (pageCache) {
+        if (acceptGzip && pageCacheGz) {
+          return new Response(pageCacheGz, {
+            headers: {
+              "Content-Type": "text/html; charset=utf-8",
+              "Content-Encoding": "gzip",
+            },
+          });
+        }
+        return new Response(pageCache, {
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
+      }
+
+      const { html, headings } = await ensureRenderedHtml(defaultPath);
+      const content = await ensureFileContent(defaultPath);
+      const comments = await readCommentsFromFile(defaultPath, content, html);
+      const settings = await readSettings();
+
+      const files = fileOrder.map((fp) => ({
+        path: fp,
+        fileName: basename(fp),
+      }));
+
+      const inlineData = {
+        files,
+        activeFile: defaultPath,
+        settings,
+        documents: {
+          [defaultPath]: {
+            headings,
+            comments,
+          },
+        },
+        clean: options.clean || false,
+        workingDirectory: process.cwd(),
+      };
+
+      let cssPath = "";
+      let jsPath: string;
+
+      if (isDev) {
+        jsPath = `http://127.0.0.1:${VITE_DEV_PORT}/src/main.ts`;
+      } else {
+        const manifest = await getManifest();
+        const entry = manifest?.["index.html"];
+        jsPath = entry ? `/${entry.file}` : "/assets/index.js";
+        if (entry?.css?.[0]) {
+          cssPath = `/${entry.css[0]}`;
+        }
+      }
+
+      const body = renderTemplate({
+        title: basename(defaultPath),
+        cssPath,
+        jsPath,
+        documentHtml: html,
+        inlineData,
+        isDev,
+        fontFamily: settings.fontFamily,
+      });
+
+      if (!isDev) {
+        pageCache = body;
+        pageCacheGz = Bun.gzipSync(
+          new TextEncoder().encode(body),
+        ) as Uint8Array<ArrayBuffer>;
+      }
+
+      if (acceptGzip) {
+        const gz = pageCacheGz ?? Bun.gzipSync(new TextEncoder().encode(body));
+        return new Response(gz, {
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "Content-Encoding": "gzip",
+          },
+        });
+      }
+
+      return new Response(body, {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    } catch (err) {
+      console.error("Failed to serve app page:", err);
+      return new Response("Internal Server Error", { status: 500 });
+    }
+  }
+
   function watchFile(targetPath: string): FSWatcher | null {
     try {
       const watcher = watch(targetPath, async (eventType) => {
@@ -773,6 +896,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
               state.headings = null;
               state.isLoaded = true;
               invalidateResolvedComments(targetPath);
+              invalidatePageCache();
               console.log(`File changed: ${basename(targetPath)}`);
               sendEvent({ type: "document-updated", path: targetPath });
             }
@@ -788,12 +912,14 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     }
   }
 
+  const watchers: FSWatcher[] = [];
+
   const server = Bun.serve({
     port: options.port,
     hostname: options.host,
-    idleTimeout: 255, // max value (seconds) — SSE streams stay open long
+    idleTimeout: 255,
 
-    async fetch(req) {
+    async fetch(req: Request) {
       const url = new URL(req.url);
       const { pathname } = url;
       const method = req.method;
@@ -914,12 +1040,14 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       if (pathname === "/api/comments" && method === "POST") {
         const ctxOrRes = requireContext(url);
         if (ctxOrRes instanceof Response) return ctxOrRes;
+        invalidatePageCache();
         return addComment(ctxOrRes, req);
       }
 
       if (pathname === "/api/comments" && method === "DELETE") {
         const ctxOrRes = requireContext(url);
         if (ctxOrRes instanceof Response) return ctxOrRes;
+        invalidatePageCache();
         return clearComments(ctxOrRes);
       }
 
@@ -927,6 +1055,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       if (commentId) {
         const ctxOrRes = requireContext(url);
         if (ctxOrRes instanceof Response) return ctxOrRes;
+        invalidatePageCache();
 
         if (pathname.endsWith("/reanchor") && method === "PUT") {
           return reanchorComment(ctxOrRes, req, commentId);
@@ -947,6 +1076,10 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         return updateSettingsRoute(req);
       }
 
+      if (pathname === "/") {
+        return serveAppPage(req);
+      }
+
       if (isDev) {
         return proxyToVite(req, pathname, url.search);
       }
@@ -954,7 +1087,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     },
   });
 
-  const watchers: FSWatcher[] = [];
   for (const fp of fileOrder) {
     const watcher = watchFile(fp);
     if (watcher) watchers.push(watcher);
@@ -966,6 +1098,8 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 export async function startServer(
   options: ServerOptions,
 ): Promise<ServerResult> {
+  getShiki();
+
   const MAX_PORT = 65535;
 
   for (let port = options.port; port <= MAX_PORT; port++) {
@@ -983,6 +1117,7 @@ export async function startServer(
       const originalStop = server.stop.bind(server);
       const wrappedServer = {
         stop() {
+          disposeMermaidWorker();
           stopVite?.();
           for (const w of watchers) w.close();
           originalStop();

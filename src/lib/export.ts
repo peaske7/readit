@@ -21,7 +21,6 @@ export function exportCommentsAsJson(
       selectedText: c.selectedText,
       comment: c.comment,
       lineHint: c.lineHint,
-      createdAt: c.createdAt,
     })),
   };
 

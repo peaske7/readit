@@ -31,7 +31,6 @@ export function normalizeWhitespace(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-/** Wagner-Fischer with O(min(m,n)) space. Returns Infinity when > maxDistance. */
 export function levenshteinDistance(
   a: string,
   b: string,
@@ -100,7 +99,6 @@ export function getLineOffset(content: string, lineNumber: number): number {
   return content.length;
 }
 
-/** Supports "L42", "L42-L55", and legacy "L42-45" format. */
 export function parseLineHint(lineHint: string): {
   start: number;
   end: number;

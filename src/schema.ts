@@ -17,7 +17,7 @@ export interface Comment {
   id: string;
   selectedText: string;
   comment: string;
-  createdAt: string;
+  createdAt?: string;
   startOffset: number;
   endOffset: number;
   lineHint?: string;
@@ -75,4 +75,18 @@ export interface DocumentSettings {
   version: number;
   fontFamily: FontFamily;
   onboarded?: boolean;
+}
+
+export interface ShortcutBinding {
+  key: string;
+  alt?: boolean;
+  ctrl?: boolean;
+  meta?: boolean;
+  shift?: boolean;
+}
+
+export interface KeybindingOverride {
+  id: string;
+  binding?: ShortcutBinding;
+  enabled: boolean;
 }

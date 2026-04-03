@@ -80,9 +80,7 @@ async function clearStaleServerLock(): Promise<void> {
       try {
         const lock = JSON.parse(content) as { pid?: number };
         pid = lock.pid;
-      } catch {
-        // Ignore malformed lock files and fall back to age-based cleanup.
-      }
+      } catch {}
     }
 
     if (age > SERVER_LOCK_MAX_AGE_MS || (pid !== undefined && !isAlive(pid))) {
@@ -423,7 +421,7 @@ const WELCOME_PATH = join(os.homedir(), ".readit", "welcome.md");
 program
   .name("readit")
   .description("Review Markdown documents with inline comments")
-  .version("0.1.3");
+  .version("0.2.0");
 
 program
   .command("list")
@@ -492,7 +490,6 @@ program
           `Selected: "${comment.selectedText.slice(0, 80)}${comment.selectedText.length > 80 ? "..." : ""}"`,
         );
         console.log(`Comment: ${comment.comment}`);
-        console.log(`Created: ${comment.createdAt}`);
         console.log();
       }
     } catch (err) {
@@ -553,7 +550,6 @@ program
         process.exit(1);
       }
 
-      // Snapshot previous session before startServer() overwrites server.json
       let previousPort: number | undefined;
       try {
         const info = JSON.parse(readFileSync(SERVER_INFO_PATH, "utf-8"));

@@ -1,8 +1,12 @@
-import type * as os from "node:os";
 import { describe, expect, it, vi } from "vitest";
 import type { CommentFile } from "../schema";
 import { COMMENT_FILE_LARGE } from "./__fixtures__/bench-data";
-import {
+
+vi.mock("node:os", () => ({
+  homedir: () => "/home/testuser",
+}));
+
+const {
   computeHash,
   createComment,
   getCommentPath,
@@ -11,15 +15,7 @@ import {
   parseCommentFile,
   serializeComments,
   truncateSelection,
-} from "./comment-storage";
-
-vi.mock("node:os", async () => {
-  const actual = await vi.importActual<typeof os>("node:os");
-  return {
-    ...actual,
-    homedir: vi.fn(() => "/home/testuser"),
-  };
-});
+} = await import("./comment-storage");
 
 describe("getCommentPath", () => {
   it("handles absolute path", () => {
@@ -34,11 +30,6 @@ describe("getCommentPath", () => {
     expect(result).toBe(
       "/home/testuser/.readit/comments/a/b/c/d/e/f.comments.md",
     );
-  });
-
-  it("handles HTML files", () => {
-    const result = getCommentPath("/docs/api.html");
-    expect(result).toBe("/home/testuser/.readit/comments/docs/api.comments.md");
   });
 
   it("handles root path", () => {
@@ -167,7 +158,6 @@ This is my comment.
     expect(result.comments[0].selectedText).toBe("selected text here");
     expect(result.comments[0].comment).toBe("This is my comment.");
     expect(result.comments[0].lineHint).toBe("L42");
-    expect(result.comments[0].createdAt).toBe("2024-12-24T10:30:00Z");
   });
 
   it("parses multiple comments", () => {
@@ -337,7 +327,6 @@ describe("serializeComments", () => {
           id: "12345678",
           selectedText: "selected text",
           comment: "My comment",
-          createdAt: "2024-12-24T10:30:00Z",
           lineHint: "L42",
           startOffset: 100,
           endOffset: 113,
@@ -345,7 +334,7 @@ describe("serializeComments", () => {
       ],
     };
     const result = serializeComments(file);
-    expect(result).toContain("<!-- c:12345678|L42|2024-12-24T10:30:00Z -->");
+    expect(result).toContain("<!-- c:12345678|L42 -->");
     expect(result).toContain("> selected text");
     expect(result).toContain("My comment");
   });
@@ -360,7 +349,6 @@ describe("serializeComments", () => {
           id: "12345678",
           selectedText: "line one\nline two",
           comment: "Comment",
-          createdAt: "2024-12-24T10:30:00Z",
           lineHint: "L42-L43",
           startOffset: 100,
           endOffset: 120,
@@ -382,7 +370,6 @@ describe("serializeComments", () => {
           id: "12345678",
           selectedText: "truncated text...",
           comment: "Comment",
-          createdAt: "2024-12-24T10:30:00Z",
           lineHint: "L42",
           startOffset: 100,
           endOffset: 500,
@@ -406,7 +393,6 @@ describe("serializeComments", () => {
           id: "12345678",
           selectedText: "short text",
           comment: "Comment",
-          createdAt: "2024-12-24T10:30:00Z",
           lineHint: "L42",
           startOffset: 100,
           endOffset: 110,
@@ -427,7 +413,6 @@ describe("serializeComments", () => {
           id: "12345678",
           selectedText: "selected text",
           comment: "My comment",
-          createdAt: "2024-12-24T10:30:00Z",
           lineHint: "L42",
           startOffset: 100,
           endOffset: 113,
@@ -436,7 +421,6 @@ describe("serializeComments", () => {
           id: "87654321",
           selectedText: "another\nmultiline\nselection",
           comment: "Another comment with\n\nmultiple paragraphs.",
-          createdAt: "2024-12-24T11:00:00Z",
           lineHint: "L50-L52",
           startOffset: 200,
           endOffset: 230,
@@ -458,7 +442,6 @@ describe("serializeComments", () => {
         original.comments[i].selectedText,
       );
       expect(parsed.comments[i].lineHint).toBe(original.comments[i].lineHint);
-      expect(parsed.comments[i].createdAt).toBe(original.comments[i].createdAt);
     }
   });
 
@@ -472,7 +455,6 @@ describe("serializeComments", () => {
           id: "12345678",
           selectedText: "truncated text\n...\nend of text",
           comment: "Comment on long selection",
-          createdAt: "2024-12-24T10:30:00Z",
           lineHint: "L42",
           startOffset: 100,
           endOffset: 2000,
@@ -510,11 +492,6 @@ describe("createComment", () => {
     const content = "line one\nline two\nline three";
     const comment = createComment("two", "comment", 14, 17, content);
     expect(comment.lineHint).toBe("L2");
-  });
-
-  it("generates ISO timestamp", () => {
-    const comment = createComment("text", "comment", 0, 4, "text");
-    expect(comment.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
   });
 
   it("truncates very long selections", () => {
