@@ -11,7 +11,9 @@ build-client:
 	bunx vite build
 
 build-server: build-client
-	cp -r dist/ go/internal/server/dist/
+	rm -rf go/internal/server/dist
+	mkdir -p go/internal/server/dist
+	cp -r dist/. go/internal/server/dist/
 	cd go && go build -o ../dist/readit ./cmd/readit
 
 # Tests

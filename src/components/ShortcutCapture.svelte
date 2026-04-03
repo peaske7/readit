@@ -54,9 +54,9 @@ onMount(() => {
 });
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
-  role="textbox"
+  role="button"
   aria-label="Press a key combination"
   bind:this={captureEl}
   tabindex={0}

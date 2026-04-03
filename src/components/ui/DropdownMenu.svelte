@@ -33,6 +33,11 @@ function handleKeydown(e: KeyboardEvent) {
     e.stopPropagation();
     close();
   }
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    e.stopPropagation();
+    toggle();
+  }
 }
 
 $effect(() => {
@@ -56,7 +61,7 @@ $effect(() => {
   onkeydown={handleKeydown}
 >
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div onclick={toggle} role="button" tabindex="-1">
+  <div onclick={toggle} role="button" tabindex="0" aria-expanded={open}>
     {@render trigger()}
   </div>
 

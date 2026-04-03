@@ -15,15 +15,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/peaske7/readit/internal/server"
+	"github.com/peaske7/readit/go/internal/server"
 	"github.com/pkg/browser"
 )
 
 const version = "0.3.0"
 
 type serverInfo struct {
-	Port int `json:"port"`
-	PID  int `json:"pid"`
+	Port int    `json:"port"`
+	PID  int    `json:"pid"`
+	Host string `json:"host,omitempty"`
 }
 
 func main() {
@@ -132,7 +133,7 @@ func cmdServe() {
 		log.Fatal(err)
 	}
 
-	writeServerInfo(actualPort)
+	writeServerInfo(actualPort, *host)
 
 	url := fmt.Sprintf("http://%s:%d", *host, actualPort)
 	fmt.Printf("readit v%s serving at %s\n", version, url)
@@ -233,9 +234,9 @@ func cmdOpen() {
 	if err == nil && info != nil {
 		// Attach to existing server
 		for _, f := range files {
-			attachFile(info.Port, f.FilePath)
+			attachFile(info, f.FilePath)
 		}
-		url := fmt.Sprintf("http://127.0.0.1:%d", info.Port)
+		url := fmt.Sprintf("http://%s:%d", info.resolvedHost(), info.Port)
 		_ = browser.OpenURL(url)
 		return
 	}
@@ -310,8 +311,8 @@ func serverInfoPath() string {
 	return filepath.Join(home, ".readit", "server.json")
 }
 
-func writeServerInfo(port int) {
-	info := serverInfo{Port: port, PID: os.Getpid()}
+func writeServerInfo(port int, host string) {
+	info := serverInfo{Port: port, PID: os.Getpid(), Host: host}
 	data, _ := json.Marshal(info)
 	path := serverInfoPath()
 	_ = os.MkdirAll(filepath.Dir(path), 0755)
@@ -320,6 +321,13 @@ func writeServerInfo(port int) {
 
 func removeServerInfo() {
 	_ = os.Remove(serverInfoPath())
+}
+
+func (si *serverInfo) resolvedHost() string {
+	if si.Host != "" {
+		return si.Host
+	}
+	return "127.0.0.1"
 }
 
 func discoverServer() (*serverInfo, error) {
@@ -344,7 +352,7 @@ func discoverServer() (*serverInfo, error) {
 
 	// Health check
 	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/api/health", info.Port))
+	resp, err := client.Get(fmt.Sprintf("http://%s:%d/api/health", info.resolvedHost(), info.Port))
 	if err != nil {
 		return nil, err
 	}
@@ -356,10 +364,10 @@ func discoverServer() (*serverInfo, error) {
 	return &info, nil
 }
 
-func attachFile(port int, filePath string) {
+func attachFile(info *serverInfo, filePath string) {
 	body, _ := json.Marshal(map[string]string{"path": filePath})
 	resp, err := http.Post(
-		fmt.Sprintf("http://127.0.0.1:%d/api/documents", port),
+		fmt.Sprintf("http://%s:%d/api/documents", info.resolvedHost(), info.Port),
 		"application/json",
 		bytes.NewReader(body),
 	)

@@ -16,12 +16,14 @@ func (s *Server) listDocuments(w http.ResponseWriter, r *http.Request) {
 			files = append(files, FileRef{Path: p, FileName: f.FileName})
 		}
 	}
+	clean := s.clean
+	workingDir := s.workingDir
 	s.mu.RUnlock()
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"files":            files,
-		"clean":            s.clean,
-		"workingDirectory": s.workingDir,
+		"clean":            clean,
+		"workingDirectory": workingDir,
 	})
 }
 
@@ -90,7 +92,12 @@ func (s *Server) addDocument(w http.ResponseWriter, r *http.Request) {
 // getDocument handles GET /api/document?path=...
 func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
-	state := s.getFileState(path)
+
+	s.mu.RLock()
+	state := s.files[path]
+	clean := s.clean
+	s.mu.RUnlock()
+
 	if state == nil {
 		writeError(w, http.StatusNotFound, "document not found")
 		return
@@ -101,7 +108,7 @@ func (s *Server) getDocument(w http.ResponseWriter, r *http.Request) {
 		"headings": state.Headings,
 		"filePath": state.FilePath,
 		"fileName": state.FileName,
-		"clean":    s.clean,
+		"clean":    clean,
 	})
 }
 

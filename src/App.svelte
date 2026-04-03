@@ -40,8 +40,13 @@ let isInitialized = $state(false);
 let error = $state<string | null>(null);
 const positionsMap = new Map<string, Positions>();
 let currentIndex = $state(0);
-let setFocusedFn: ((id: string | undefined) => void) | undefined;
-let scrollToCommentFn: ((id: string) => void) | undefined;
+const highlighterMap = new Map<
+  string,
+  {
+    setFocused: (id: string | undefined) => void;
+    scrollTo: (id: string) => void;
+  }
+>();
 let hoverTimeout: ReturnType<typeof setTimeout> | undefined;
 const prevActiveMap = new Map<string, boolean>();
 
@@ -237,21 +242,27 @@ async function reanchorComment(
 }
 
 function registerHighlighter(
+  filePath: string,
   focused: (id: string | undefined) => void,
   scrollTo: (id: string) => void,
 ) {
-  setFocusedFn = focused;
-  scrollToCommentFn = scrollTo;
+  highlighterMap.set(filePath, { setFocused: focused, scrollTo });
+}
+
+function unregisterHighlighter(filePath: string) {
+  highlighterMap.delete(filePath);
 }
 
 function navigateToComment(commentId: string) {
-  scrollToCommentFn?.(commentId);
+  const active = app.activeDocumentPath;
+  const entry = active ? highlighterMap.get(active) : undefined;
+  entry?.scrollTo(commentId);
   setHoveredCommentId(commentId);
-  setFocusedFn?.(commentId);
+  entry?.setFocused(commentId);
   clearTimeout(hoverTimeout);
   hoverTimeout = setTimeout(() => {
     setHoveredCommentId(undefined);
-    setFocusedFn?.(undefined);
+    entry?.setFocused(undefined);
   }, 1500);
 }
 
@@ -430,15 +441,24 @@ function setupDocumentStream() {
         return;
       }
       if (data.type === "document-updated" && data.path) {
-        const state = app.documents.get(data.path);
+        const path = data.path;
+        const state = app.documents.get(path);
         if (!state?.document.html) return;
         const res = await fetch(
-          `/api/document?path=${encodeURIComponent(data.path)}`,
+          `/api/document?path=${encodeURIComponent(path)}`,
         );
         if (res.ok) {
           const doc = await res.json();
-          setHeadings(doc.headings ?? [], data.path);
-          updateDocumentHtml(doc.html, data.path);
+          setHeadings(doc.headings ?? [], path);
+          updateDocumentHtml(doc.html, path);
+        }
+        // Refresh comments (server may have reanchored)
+        const commentsRes = await fetch(
+          `/api/comments?path=${encodeURIComponent(path)}`,
+        );
+        if (commentsRes.ok) {
+          const commentsData = await commentsRes.json();
+          setComments(commentsData.comments ?? [], path);
         }
       }
     } catch (err) {
@@ -483,15 +503,25 @@ $effect(() => {
 });
 
 async function reload() {
-  if (!app.activeDocumentPath) return;
+  const path = app.activeDocumentPath;
+  if (!path) return;
   try {
     const res = await fetch(
-      `/api/document?path=${encodeURIComponent(app.activeDocumentPath)}`,
+      `/api/document?path=${encodeURIComponent(path)}`,
     );
     if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const data = await res.json();
-    setHeadings(data.headings ?? [], app.activeDocumentPath);
-    updateDocumentHtml(data.html, app.activeDocumentPath);
+    setHeadings(data.headings ?? [], path);
+    updateDocumentHtml(data.html, path);
+
+    // Also refresh comments
+    const commentsRes = await fetch(
+      `/api/comments?path=${encodeURIComponent(path)}`,
+    );
+    if (commentsRes.ok) {
+      const commentsData = await commentsRes.json();
+      setComments(commentsData.comments ?? [], path);
+    }
   } catch (err) {
     console.error("Failed to reload:", err);
   }
@@ -713,10 +743,12 @@ onDestroy(() => {
                   onTextSelect={(text, start, end, top) => onTextSelect(filePath, text, start, end, top)}
                   onHighlightHover={(id) => {
                     setHoveredCommentId(id);
-                    setFocusedFn?.(id);
+                    const entry = highlighterMap.get(filePath);
+                    entry?.setFocused(id);
                   }}
                   onHighlightClick={handleHighlightClick}
-                  {registerHighlighter}
+                  registerHighlighter={(focused, scrollTo) => registerHighlighter(filePath, focused, scrollTo)}
+                  unregisterHighlighter={() => unregisterHighlighter(filePath)}
                   positions={getPositions(filePath)}
                 />
               </div>

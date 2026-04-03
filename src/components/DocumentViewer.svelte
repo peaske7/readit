@@ -18,6 +18,7 @@ let {
   onHighlightHover,
   onHighlightClick,
   registerHighlighter,
+  unregisterHighlighter,
   positions,
 }: {
   content: string;
@@ -35,6 +36,7 @@ let {
     setFocused: (id: string | undefined) => void,
     scrollToComment: (id: string) => void,
   ) => void;
+  unregisterHighlighter?: () => void;
   positions: Positions;
 } = $props();
 
@@ -57,7 +59,9 @@ onMount(() => {
   const existingArticle = document.getElementById(
     "document-content",
   ) as HTMLElement | null;
-  if (existingArticle) {
+  if (existingArticle && !existingArticle.dataset.readitAdopted) {
+    existingArticle.dataset.readitAdopted = "true";
+    existingArticle.removeAttribute("id");
     containerEl.appendChild(existingArticle);
     contentEl = existingArticle;
     existingArticle.className = cn("prose", proseClass);
@@ -155,6 +159,7 @@ onDestroy(() => {
   positions.detach();
   adapter?.dispose();
   adapter = null;
+  unregisterHighlighter?.();
 });
 
 // --- Re-apply highlights on comment/content changes ---
@@ -213,11 +218,11 @@ $effect(() => {
 
 $effect(() => {
   if (!contentEl) return;
+  contentEl.className = cn("prose", proseClass);
 
-  if (content && contentEl.innerHTML !== content) {
+  if (contentEl.innerHTML !== content) {
     // Safe: content is server-rendered HTML from user's own local files
     contentEl.innerHTML = content; // eslint-disable-line -- trusted server content
-    contentEl.className = cn("prose", proseClass);
   }
 });
 </script>

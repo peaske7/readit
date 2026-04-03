@@ -6,7 +6,7 @@ export interface LoadMetrics {
   fcp: number | null;
   domContentLoaded: number;
   allHighlightsPainted: number;
-  pageReady: number;
+  pageReady: number | null;
   highlightCount: number;
 }
 
@@ -149,16 +149,22 @@ export async function collectLoadMetrics(
 
   // Wait for positions to be computed AFTER highlights
   // (captures the forced reflow cost from getBoundingClientRect)
-  let pageReadyTimestamp: number;
+  let pageReadyTimestamp: number | null;
   try {
     pageReadyTimestamp = await waitForPositionsReady(
       page,
       highlightTimestamp,
       10_000,
     );
-  } catch {
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      !error.message.includes("Timed out waiting for positions")
+    ) {
+      throw error;
+    }
     // Positions may not fire in all configurations
-    pageReadyTimestamp = highlightTimestamp;
+    pageReadyTimestamp = null;
   }
 
   const navMetrics = await page.evaluate(() => {
@@ -297,7 +303,7 @@ export function reportLoadMetrics(
     `  FCP:                    ${metrics.fcp !== null ? `${Math.round(metrics.fcp)}ms` : "N/A"}`,
     `  DOM Content Loaded:     ${Math.round(metrics.domContentLoaded)}ms`,
     `  All highlights painted: ${Math.round(metrics.allHighlightsPainted)}ms`,
-    `  Page ready (+ layout):  ${Math.round(metrics.pageReady)}ms`,
+    `  Page ready (+ layout):  ${metrics.pageReady !== null ? `${Math.round(metrics.pageReady)}ms` : "N/A (positions timed out)"}`,
     `  Highlights found:       ${metrics.highlightCount}`,
   ];
   console.log(lines.join("\n"));

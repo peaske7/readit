@@ -73,15 +73,22 @@ func ParseCommentFile(data []byte) (CommentFile, error) {
 		}
 	}
 
-	// Strip frontmatter, split into blocks
+	// Strip frontmatter, then split into blocks by comment markers (<!-- c:... -->)
 	body := frontMatterStripRe.ReplaceAllString(content, "")
 	body = strings.TrimSpace(body)
 	if body == "" {
 		return cf, nil
 	}
 
-	blocks := strings.Split(body, "\n---\n")
-	for _, block := range blocks {
+	// Find all comment marker positions
+	markers := commentMetaRe.FindAllStringIndex(body, -1)
+	for i, loc := range markers {
+		var block string
+		if i+1 < len(markers) {
+			block = body[loc[0]:markers[i+1][0]]
+		} else {
+			block = body[loc[0]:]
+		}
 		block = strings.TrimSpace(block)
 		if block == "" {
 			continue
@@ -146,7 +153,15 @@ func parseCommentBlock(block string) (Comment, bool) {
 			commentLines = append(commentLines, line)
 		}
 	}
-	c.Comment = strings.TrimSpace(strings.Join(commentLines, "\n"))
+	comment := strings.TrimSpace(strings.Join(commentLines, "\n"))
+	// Strip trailing thematic break (---) left by block separators
+	comment = strings.TrimRight(comment, "\n")
+	if strings.HasSuffix(comment, "\n---") {
+		comment = strings.TrimSpace(comment[:len(comment)-4])
+	} else if comment == "---" {
+		comment = ""
+	}
+	c.Comment = comment
 
 	return c, true
 }
@@ -251,8 +266,9 @@ func CreateComment(selectedText, commentText string, startOffset, endOffset int,
 		EndOffset:    endOffset,
 		LineHint:     GetLineHint(sourceContent, startOffset, endOffset),
 	}
-	if len(selectedText) > MaxSelectionLength {
-		c.AnchorPrefix = selectedText[:min(AnchorPrefixLength, len(selectedText))]
+	if utf8.RuneCountInString(selectedText) > MaxSelectionLength {
+		runes := []rune(selectedText)
+		c.AnchorPrefix = string(runes[:min(AnchorPrefixLength, len(runes))])
 	}
 	return c
 }

@@ -7,7 +7,10 @@ import (
 
 func TestRenderBasicMarkdown(t *testing.T) {
 	r := NewRenderer()
-	result := r.Render([]byte("# Hello\n\nSome **bold** text."))
+	result, err := r.Render([]byte("# Hello\n\nSome **bold** text."))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if !strings.Contains(result.HTML, "<h1") {
 		t.Error("expected <h1> in output")
@@ -20,9 +23,10 @@ func TestRenderBasicMarkdown(t *testing.T) {
 func TestRenderCodeBlock(t *testing.T) {
 	r := NewRenderer()
 	src := "```go\nfmt.Println(\"hello\")\n```"
-	result := r.Render([]byte(src))
-
-	// Chroma should produce highlighted output with CSS classes
+	result, err := r.Render([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !strings.Contains(result.HTML, "chroma") {
 		t.Error("expected chroma class in highlighted code")
 	}
@@ -31,7 +35,10 @@ func TestRenderCodeBlock(t *testing.T) {
 func TestRenderMermaidPassthrough(t *testing.T) {
 	r := NewRenderer()
 	src := "```mermaid\ngraph TD\n  A --> B\n```"
-	result := r.Render([]byte(src))
+	result, err := r.Render([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Mermaid blocks should pass through as code blocks for client-side rendering
 	if !strings.Contains(result.HTML, "language-mermaid") {
@@ -42,7 +49,10 @@ func TestRenderMermaidPassthrough(t *testing.T) {
 func TestRenderGFMTable(t *testing.T) {
 	r := NewRenderer()
 	src := "| A | B |\n|---|---|\n| 1 | 2 |"
-	result := r.Render([]byte(src))
+	result, err := r.Render([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if !strings.Contains(result.HTML, "<table>") {
 		t.Error("expected <table> in GFM table output")
@@ -51,7 +61,10 @@ func TestRenderGFMTable(t *testing.T) {
 
 func TestRenderHeadings(t *testing.T) {
 	r := NewRenderer()
-	result := r.Render([]byte("# Title\n\n## Section\n\n### Sub"))
+	result, err := r.Render([]byte("# Title\n\n## Section\n\n### Sub"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if len(result.Headings) != 3 {
 		t.Fatalf("expected 3 headings, got %d", len(result.Headings))

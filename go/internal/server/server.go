@@ -183,7 +183,7 @@ func (s *Server) Start(host string, port int) (int, error) {
 
 		go func() {
 			if err := s.httpServer.Serve(ln); err != nil && err != http.ErrServerClosed {
-				log.Fatal(err)
+				log.Printf("HTTP server error: %v", err)
 			}
 		}()
 
@@ -219,7 +219,10 @@ func (s *Server) loadFile(f FileEntry) error {
 		content = data
 	}
 
-	result := s.renderer.Render(content)
+	result, err := s.renderer.Render(content)
+	if err != nil {
+		return err
+	}
 
 	s.mu.Lock()
 	s.files[absPath] = &FileState{
@@ -251,7 +254,10 @@ func (s *Server) onFileChange(path string) {
 	if err != nil {
 		return
 	}
-	result := s.renderer.Render(data)
+	result, err := s.renderer.Render(data)
+	if err != nil {
+		return
+	}
 
 	// Take write lock only for the state swap
 	s.mu.Lock()
@@ -315,16 +321,15 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	defaultPath := s.defaultFilePath()
 	state := s.files[defaultPath]
-	s.mu.RUnlock()
 
 	if state == nil {
+		s.mu.RUnlock()
 		http.Error(w, "no document loaded", http.StatusNotFound)
 		return
 	}
 
-	// Build inline data
+	// Build inline data under a single lock
 	docs := make(map[string]InlineDocData)
-	s.mu.RLock()
 	for path, fs := range s.files {
 		comments := s.resolveCommentsFor(path, fs)
 		docs[path] = InlineDocData{
@@ -339,15 +344,19 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 			files = append(files, FileRef{Path: p, FileName: f.FileName})
 		}
 	}
+
+	clean := s.clean
+	workingDir := s.workingDir
+	settings := s.settings
 	s.mu.RUnlock()
 
 	inline := InlineData{
 		Files:      files,
 		ActiveFile: defaultPath,
-		Clean:      s.clean,
-		WorkingDir: s.workingDir,
+		Clean:      clean,
+		WorkingDir: workingDir,
 		Documents:  docs,
-		Settings:   s.settings,
+		Settings:   settings,
 	}
 
 	inlineJSON, err := SafeJSONStringify(inline)
@@ -360,7 +369,7 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 	jsPath, cssPath := s.resolveAssetPaths()
 
 	proseClass := "prose-serif"
-	if s.settings.FontFamily == FontSansSerif {
+	if settings.FontFamily == FontSansSerif {
 		proseClass = "prose-sans"
 	}
 
@@ -376,7 +385,7 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 		DocumentHTML: template.HTML(state.RenderedHTML),
 		InlineJSON:   inlineJSON,
 		IsDev:        s.isDev,
-		FontFamily:   s.settings.FontFamily,
+		FontFamily:   settings.FontFamily,
 		ProseClass:   proseClass,
 		ViteClient:   viteClient,
 	}

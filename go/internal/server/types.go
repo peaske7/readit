@@ -30,10 +30,21 @@ type FileState struct {
 	IsLoaded     bool
 }
 
+// Keybinding represents a single shortcut key binding override.
+type Keybinding struct {
+	Action string `json:"action"`
+	Key    string `json:"key"`
+	Meta   bool   `json:"meta,omitempty"`
+	Ctrl   bool   `json:"ctrl,omitempty"`
+	Shift  bool   `json:"shift,omitempty"`
+	Alt    bool   `json:"alt,omitempty"`
+}
+
 // Settings holds user preferences persisted to ~/.readit/settings.json.
 type Settings struct {
-	Version    int    `json:"version"`
-	FontFamily string `json:"fontFamily"`
+	Version     int          `json:"version"`
+	FontFamily  string       `json:"fontFamily"`
+	Keybindings []Keybinding `json:"keybindings,omitempty"`
 }
 
 // CommentFile represents the parsed contents of a .comments.md file.

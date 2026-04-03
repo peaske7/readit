@@ -58,6 +58,7 @@ export async function updateFontFamily(font: FontFamily): Promise<void> {
 export function updateThemeMode(mode: ThemeMode): void {
   settings.themeMode = mode;
   applyTheme(mode);
+  syncSystemPreference();
 
   try {
     localStorage.setItem(THEME_STORAGE_KEY, mode);
@@ -80,6 +81,7 @@ let mediaCleanup: (() => void) | undefined;
 function syncSystemPreference(): void {
   if (mediaCleanup) {
     mediaCleanup();
+    mediaCleanup = undefined;
   }
 
   if (settings.themeMode !== ThemeModes.SYSTEM) return;

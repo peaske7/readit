@@ -57,7 +57,7 @@ var mermaidFenceRe = regexp.MustCompile("(?m)^```mermaid\\s*\n([\\s\\S]*?)^```\\
 // Render converts markdown source to HTML and extracts headings.
 // Mermaid fenced blocks are extracted before rendering so chroma doesn't
 // consume them, then re-injected as <pre><code class="language-mermaid">.
-func (r *Renderer) Render(source []byte) RenderResult {
+func (r *Renderer) Render(source []byte) (RenderResult, error) {
 	content := string(source)
 
 	// Extract mermaid blocks, replace with placeholders
@@ -71,7 +71,9 @@ func (r *Renderer) Render(source []byte) RenderResult {
 	})
 
 	var buf bytes.Buffer
-	_ = r.md.Convert([]byte(processed), &buf)
+	if err := r.md.Convert([]byte(processed), &buf); err != nil {
+		return RenderResult{}, fmt.Errorf("goldmark render: %w", err)
+	}
 	output := buf.String()
 
 	// Restore mermaid blocks
@@ -82,5 +84,5 @@ func (r *Renderer) Render(source []byte) RenderResult {
 	}
 
 	headings := ExtractHeadings(source)
-	return RenderResult{HTML: output, Headings: headings}
+	return RenderResult{HTML: output, Headings: headings}, nil
 }

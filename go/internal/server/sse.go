@@ -109,6 +109,9 @@ func (b *SSEBroker) Heartbeat(w http.ResponseWriter, r *http.Request) {
 		b.mu.Lock()
 		delete(b.heartbeatClients, ch)
 		if len(b.heartbeatClients) == 0 && !b.isDev && b.onShutdown != nil {
+			if b.shutdownTimer != nil {
+				b.shutdownTimer.Stop()
+			}
 			b.shutdownTimer = time.AfterFunc(1500*time.Millisecond, b.onShutdown)
 		}
 		b.mu.Unlock()

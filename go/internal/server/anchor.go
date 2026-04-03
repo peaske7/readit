@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 var lineHintRe = regexp.MustCompile(`^L(\d+)(?:-L?(\d+))?$`)
@@ -113,28 +114,34 @@ func FindAnchorNormalized(source, selectedText, lineHint string) *AnchorResult {
 	// Try windowed search near the hint first
 	hintLine, _ := ParseLineHint(lineHint)
 	offset := lineOffset(source, hintLine)
-	normOffset := mapSourceToNormOffset(source, offset)
+	normCharOffset := mapSourceToNormCharOffset(source, offset)
 
-	windowStart := max(0, normOffset-DefaultSearchWindow)
-	windowEnd := min(len(normSource), normOffset+DefaultSearchWindow)
-	window := normSource[windowStart:windowEnd]
+	normRunes := []rune(normSource)
+	normTextRunes := []rune(normText)
+	normTextRuneLen := len(normTextRunes)
 
-	if idx := strings.Index(window, normText); idx >= 0 {
-		return resolveNormalizedMatch(source, windowStart+idx, normText)
+	windowStart := max(0, normCharOffset-DefaultSearchWindow)
+	windowEnd := min(len(normRunes), normCharOffset+DefaultSearchWindow)
+	window := string(normRunes[windowStart:windowEnd])
+
+	if byteIdx := strings.Index(window, normText); byteIdx >= 0 {
+		charIdx := utf8.RuneCountInString(window[:byteIdx])
+		return resolveNormalizedMatch(source, windowStart+charIdx, normTextRuneLen)
 	}
 
 	// Fall back to full source
-	if idx := strings.Index(normSource, normText); idx >= 0 {
-		return resolveNormalizedMatch(source, idx, normText)
+	if byteIdx := strings.Index(normSource, normText); byteIdx >= 0 {
+		charIdx := utf8.RuneCountInString(normSource[:byteIdx])
+		return resolveNormalizedMatch(source, charIdx, normTextRuneLen)
 	}
 
 	return nil
 }
 
-// resolveNormalizedMatch maps a match in normalized text back to the original source.
-func resolveNormalizedMatch(source string, normIdx int, normText string) *AnchorResult {
-	origStart := mapNormalizedOffset(source, normIdx)
-	origEnd := mapNormalizedOffset(source, normIdx+len(normText))
+// resolveNormalizedMatch maps a match in normalized text (given as character offsets) back to the original source.
+func resolveNormalizedMatch(source string, normCharIdx int, normTextRuneLen int) *AnchorResult {
+	origStart := mapNormalizedCharOffset(source, normCharIdx)
+	origEnd := mapNormalizedCharOffset(source, normCharIdx+normTextRuneLen)
 
 	// Trim trailing whitespace at end position
 	for origEnd > origStart && origEnd < len(source) {
@@ -152,9 +159,9 @@ func resolveNormalizedMatch(source string, normIdx int, normText string) *Anchor
 	}
 }
 
-// mapSourceToNormOffset converts a byte offset in the original text to the
-// corresponding offset in the normalized text.
-func mapSourceToNormOffset(original string, sourceOffset int) int {
+// mapSourceToNormCharOffset converts a byte offset in the original text to the
+// corresponding character (rune) offset in the normalized text.
+func mapSourceToNormCharOffset(original string, sourceOffset int) int {
 	normPos := 0
 	inSpace := false
 	for i, r := range original {
@@ -174,12 +181,12 @@ func mapSourceToNormOffset(original string, sourceOffset int) int {
 	return normPos
 }
 
-// mapNormalizedOffset converts an offset in normalized text back to the original text.
-func mapNormalizedOffset(original string, normOffset int) int {
+// mapNormalizedCharOffset converts a character (rune) offset in normalized text back to a byte offset in the original text.
+func mapNormalizedCharOffset(original string, normCharOffset int) int {
 	normPos := 0
 	inSpace := false
 	for i, r := range original {
-		if normPos >= normOffset {
+		if normPos >= normCharOffset {
 			return i
 		}
 		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
@@ -197,7 +204,8 @@ func mapNormalizedOffset(original string, normOffset int) int {
 
 // FindAnchorFuzzy uses Levenshtein distance for approximate matching.
 func FindAnchorFuzzy(source, selectedText, lineHint string) *AnchorResult {
-	if len(selectedText) > MaxFuzzyTextLength {
+	selectedRunes := []rune(selectedText)
+	if len(selectedRunes) > MaxFuzzyTextLength {
 		return nil
 	}
 
@@ -208,21 +216,25 @@ func FindAnchorFuzzy(source, selectedText, lineHint string) *AnchorResult {
 	windowEnd := min(len(source), offset+FuzzySearchWindow)
 	window := source[windowStart:windowEnd]
 
-	textLen := len(selectedText)
+	windowRunes := []rune(window)
+	textRuneLen := len(selectedRunes)
 	threshold := DefaultFuzzyThreshold
 
 	bestDist := threshold + 1
 	bestStart := -1
 	bestEnd := -1
 
-	for i := 0; i <= len(window)-textLen+threshold; i++ {
-		for candLen := max(1, textLen-threshold); candLen <= min(len(window)-i, textLen+threshold); candLen++ {
-			candidate := window[i : i+candLen]
-			dist := levenshtein(selectedText, candidate, threshold)
+	for i := 0; i <= len(windowRunes)-textRuneLen+threshold; i++ {
+		for candLen := max(1, textRuneLen-threshold); candLen <= min(len(windowRunes)-i, textRuneLen+threshold); candLen++ {
+			candidate := windowRunes[i : i+candLen]
+			dist := levenshteinRunes(selectedRunes, candidate, threshold)
 			if dist <= threshold && dist < bestDist {
 				bestDist = dist
-				bestStart = windowStart + i
-				bestEnd = windowStart + i + candLen
+				// Convert rune indices back to byte offsets
+				byteStart := len(string(windowRunes[:i]))
+				byteEnd := len(string(windowRunes[:i+candLen]))
+				bestStart = windowStart + byteStart
+				bestEnd = windowStart + byteEnd
 			}
 		}
 	}
@@ -238,8 +250,8 @@ func FindAnchorFuzzy(source, selectedText, lineHint string) *AnchorResult {
 	}
 }
 
-// levenshtein computes edit distance with early exit at maxDist.
-func levenshtein(a, b string, maxDist int) int {
+// levenshteinRunes computes edit distance on rune slices with early exit at maxDist.
+func levenshteinRunes(a, b []rune, maxDist int) int {
 	la, lb := len(a), len(b)
 	if abs(la-lb) > maxDist {
 		return maxDist + 1

@@ -46,15 +46,13 @@ $effect(() => {
 });
 
 function handleBackdropClick(e: MouseEvent) {
-  if (e.target === dialogEl) {
-    open = false;
-    onclose?.();
+  if (e.target === dialogEl && dialogEl?.open) {
+    dialogEl.close();
   }
 }
 
 function handleCloseClick() {
-  open = false;
-  onclose?.();
+  if (dialogEl?.open) dialogEl.close();
 }
 </script>
 

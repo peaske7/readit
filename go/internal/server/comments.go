@@ -19,7 +19,9 @@ func (s *Server) resolveCommentsFor(path string, state *FileState) []Comment {
 
 	info, err := os.Stat(commentPath)
 	if err != nil {
-		// No comment file — return empty
+		if os.IsNotExist(err) {
+			return []Comment{}
+		}
 		return []Comment{}
 	}
 
@@ -219,10 +221,16 @@ func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(filtered) == 0 {
-		_ = os.Remove(commentPath)
+		if err := os.Remove(commentPath); err != nil && !os.IsNotExist(err) {
+			writeError(w, http.StatusInternalServerError, "failed to delete comment file")
+			return
+		}
 	} else {
 		cf.Comments = filtered
-		_ = WriteCommentFile(commentPath, cf)
+		if err := WriteCommentFile(commentPath, cf); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to save comments")
+			return
+		}
 	}
 	s.invalidateCommentCache(path)
 
@@ -233,7 +241,10 @@ func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 func (s *Server) deleteAllComments(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
 	commentPath := CommentPath(path)
-	_ = os.Remove(commentPath)
+	if err := os.Remove(commentPath); err != nil && !os.IsNotExist(err) {
+		writeError(w, http.StatusInternalServerError, "failed to delete comment file")
+		return
+	}
 	s.invalidateCommentCache(path)
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }

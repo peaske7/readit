@@ -53,7 +53,7 @@ export async function selectTextInArticle(
     throw new Error(`Text "${text}" not found in article`);
   }, textToSelect);
 
-  // Wait for React to process the selection
+  // Wait for Svelte to process the selection
   await page.waitForTimeout(100);
 }
 

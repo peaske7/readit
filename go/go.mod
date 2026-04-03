@@ -1,4 +1,4 @@
-module github.com/peaske7/readit
+module github.com/peaske7/readit/go
 
 go 1.24
 

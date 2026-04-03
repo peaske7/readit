@@ -1,8 +1,8 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, vi } from "vitest";
 import type { CommentFile } from "../schema";
 import { COMMENT_FILE_LARGE } from "./__fixtures__/bench-data";
 
-mock.module("node:os", () => ({
+vi.mock("node:os", () => ({
   homedir: () => "/home/testuser",
 }));
 

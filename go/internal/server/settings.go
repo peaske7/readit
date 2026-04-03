@@ -61,7 +61,8 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 // updateSettings handles PUT /api/settings.
 func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		FontFamily string `json:"fontFamily"`
+		FontFamily  string       `json:"fontFamily"`
+		Keybindings []Keybinding `json:"keybindings"`
 	}
 	if err := readJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -73,19 +74,29 @@ func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "fontFamily must be 'serif' or 'sans-serif'")
 			return
 		}
-		s.mu.Lock()
-		s.settings.FontFamily = body.FontFamily
-		s.mu.Unlock()
 	}
 
+	// Build new settings from current state
 	s.mu.RLock()
-	settings := s.settings
+	newSettings := s.settings
 	s.mu.RUnlock()
 
-	if err := WriteSettings(settings); err != nil {
+	if body.FontFamily != "" {
+		newSettings.FontFamily = body.FontFamily
+	}
+	if body.Keybindings != nil {
+		newSettings.Keybindings = body.Keybindings
+	}
+
+	// Persist first, then publish to in-memory state
+	if err := WriteSettings(newSettings); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save settings")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, settings)
+	s.mu.Lock()
+	s.settings = newSettings
+	s.mu.Unlock()
+
+	writeJSON(w, http.StatusOK, newSettings)
 }

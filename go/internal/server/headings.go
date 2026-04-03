@@ -9,8 +9,6 @@ import (
 
 var (
 	headingRe = regexp.MustCompile(`(?m)^(#{1,6})\s+(.+)$`)
-	nonWordRe = regexp.MustCompile(`[^\w\s-]`)
-	spacesRe  = regexp.MustCompile(`\s+`)
 	dashesRe  = regexp.MustCompile(`-+`)
 )
 
@@ -49,7 +47,7 @@ func ExtractHeadings(source []byte) []Heading {
 	return headings
 }
 
-// stripCodeBlocks removes fenced and indented code blocks from markdown content.
+// stripCodeBlocks removes fenced code blocks from markdown content.
 // Go's regexp doesn't support backreferences, so we do this iteratively.
 func stripCodeBlocks(content string) string {
 	var result strings.Builder
@@ -65,10 +63,6 @@ func stripCodeBlocks(content string) string {
 			if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
 				inFenced = true
 				fence = trimmed[:3]
-				continue
-			}
-			// Skip indented code blocks (4 spaces or tab)
-			if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t") {
 				continue
 			}
 			result.WriteString(line)
@@ -87,15 +81,16 @@ func stripCodeBlocks(content string) string {
 
 func slugify(text string) string {
 	s := strings.ToLower(strings.TrimSpace(text))
-	s = nonWordRe.ReplaceAllStringFunc(s, func(r string) string {
-		for _, c := range r {
-			if unicode.IsSpace(c) || c == '-' {
-				return string(c)
-			}
+	var b strings.Builder
+	for _, c := range s {
+		if unicode.IsLetter(c) || unicode.IsDigit(c) {
+			b.WriteRune(c)
+		} else if unicode.IsSpace(c) || c == '-' {
+			b.WriteRune('-')
 		}
-		return ""
-	})
-	s = spacesRe.ReplaceAllString(s, "-")
-	s = dashesRe.ReplaceAllString(s, "-")
+		// Drop everything else (punctuation, symbols, etc.)
+	}
+	s = dashesRe.ReplaceAllString(b.String(), "-")
+	s = strings.Trim(s, "-")
 	return s
 }

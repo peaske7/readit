@@ -51,19 +51,23 @@ function resetBody() {
   body.appendChild(container);
 }
 
-self.onmessage = async (event: MessageEvent<RenderRequest>) => {
+let renderQueue: Promise<void> = Promise.resolve();
+
+self.onmessage = (event: MessageEvent<RenderRequest>) => {
   const { id, code, diagramId } = event.data;
 
-  try {
-    resetBody();
-    const { svg } = await mermaid.render(diagramId, code);
-    self.postMessage({ id, svg });
-  } catch (err) {
-    self.postMessage({
-      id,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
+  renderQueue = renderQueue.then(async () => {
+    try {
+      resetBody();
+      const { svg } = await mermaid.render(diagramId, code);
+      self.postMessage({ id, svg });
+    } catch (err) {
+      self.postMessage({
+        id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
 };
 
 self.postMessage({ type: "ready" });

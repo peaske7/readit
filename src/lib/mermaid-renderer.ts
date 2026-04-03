@@ -27,6 +27,10 @@ function createWorker(): { worker: Worker; ready: Promise<void> } {
 
   const ready = new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
+      w.removeEventListener("message", onReady);
+      w.terminate();
+      worker = null;
+      workerReady = null;
       reject(new Error("Mermaid worker failed to start within 30s"));
     }, 30_000);
 
@@ -140,6 +144,7 @@ export function disposeMermaidWorker(): void {
     workerReady = null;
     for (const [, pending] of pendingRequests) {
       clearTimeout(pending.timer);
+      pending.reject(new Error("Mermaid worker disposed"));
     }
     pendingRequests.clear();
   }

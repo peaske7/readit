@@ -12,6 +12,19 @@ function safeJsonStringify(data: object): string {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeAttr(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
 export function renderTemplate(options: TemplateOptions): string {
   const {
     title,
@@ -27,7 +40,9 @@ export function renderTemplate(options: TemplateOptions): string {
     ? '<script type="module" src="http://127.0.0.1:24678/@vite/client"></script>'
     : "";
 
-  const cssLink = cssPath ? `<link rel="stylesheet" href="${cssPath}">` : "";
+  const cssLink = cssPath
+    ? `<link rel="stylesheet" href="${escapeAttr(cssPath)}">`
+    : "";
   const proseClass = fontFamily === "sans-serif" ? "prose-sans" : "prose-serif";
 
   return `<!DOCTYPE html>
@@ -35,7 +50,7 @@ export function renderTemplate(options: TemplateOptions): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>readit — ${title}</title>
+  <title>readit — ${escapeHtml(title)}</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
   <script>
     (() => {
@@ -51,7 +66,7 @@ export function renderTemplate(options: TemplateOptions): string {
   <article id="document-content" class="prose ${proseClass}">${documentHtml}</article>
   <div id="app"></div>
   <script type="application/json" id="__readit">${safeJsonStringify(inlineData)}</script>
-  <script type="module" src="${jsPath}" defer></script>
+  <script type="module" src="${escapeAttr(jsPath)}" defer></script>
 </body>
 </html>`;
 }

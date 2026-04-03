@@ -72,7 +72,7 @@ function handleReanchor() {
     </Text>
 
     <div
-      class="flex items-center text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity gap-3 mt-1.5"
+      class="flex items-center text-xs text-zinc-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 transition-opacity gap-3 mt-1.5"
     >
       <ActionLink onclick={() => (isEditing = true)}>
         {t("commentList.edit")}

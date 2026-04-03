@@ -58,8 +58,7 @@
       "!!**/.temp",
       "!!**/.wrangler",
       "!!**/playwright-report",
-      "!!**/test-results",
-      "!!**/*.svelte"
+      "!!**/test-results"
     ],
     "ignoreUnknown": true
   }

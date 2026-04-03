@@ -49,6 +49,7 @@ func setupBenchServer(b *testing.B, lines int) (*Server, string) {
 // BenchmarkSSRPage measures the full SSR page render (TTFB equivalent).
 func BenchmarkSSRPage1000Lines(b *testing.B) {
 	srv, _ := setupBenchServer(b, 1000)
+	defer srv.watcher.Close()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -63,6 +64,7 @@ func BenchmarkSSRPage1000Lines(b *testing.B) {
 
 func BenchmarkSSRPage3000Lines(b *testing.B) {
 	srv, _ := setupBenchServer(b, 3000)
+	defer srv.watcher.Close()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -78,6 +80,7 @@ func BenchmarkSSRPage3000Lines(b *testing.B) {
 // BenchmarkGetDocument measures the /api/document JSON response.
 func BenchmarkGetDocument1000Lines(b *testing.B) {
 	srv, filePath := setupBenchServer(b, 1000)
+	defer srv.watcher.Close()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {

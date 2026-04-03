@@ -63,11 +63,14 @@ async function persistOverrides(
   shortcuts: ShortcutDefinition[],
 ): Promise<void> {
   try {
-    await fetch("/api/settings", {
+    const response = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ keybindings: toOverrides(shortcuts) }),
     });
+    if (!response.ok) {
+      throw new Error(`Failed to save keybindings: ${response.status}`);
+    }
   } catch (err) {
     console.error("Failed to save keybindings:", err);
   }

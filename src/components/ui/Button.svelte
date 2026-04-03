@@ -1,5 +1,6 @@
 <script lang="ts">
 import type { Snippet } from "svelte";
+import type { HTMLButtonAttributes } from "svelte/elements";
 import { cn } from "../../lib/utils";
 
 const baseStyles =
@@ -27,35 +28,26 @@ const sizeStyles = {
 type ButtonVariant = keyof typeof variantStyles;
 type ButtonSize = keyof typeof sizeStyles;
 
-interface Props {
+interface Props extends HTMLButtonAttributes {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  disabled?: boolean;
-  class?: string;
-  onclick?: (e: MouseEvent) => void;
-  type?: "button" | "submit" | "reset";
-  title?: string;
   children: Snippet;
 }
 
 let {
   variant = "default",
   size = "default",
-  disabled = false,
   class: className,
-  onclick,
   type = "button",
-  title,
   children,
+  ...rest
 }: Props = $props();
 </script>
 
 <button
+  {...rest}
   {type}
-  {disabled}
-  {title}
   class={cn(baseStyles, variantStyles[variant], sizeStyles[size], className)}
-  {onclick}
 >
   {@render children()}
 </button>
