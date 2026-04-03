@@ -16,7 +16,7 @@ func setupBenchServer(b *testing.B, lines int) (*Server, string) {
 	// Generate markdown content
 	var sb strings.Builder
 	sb.WriteString("# Benchmark Document\n\n")
-	for i := 0; i < lines; i++ {
+	for i := range lines {
 		switch i % 10 {
 		case 0:
 			fmt.Fprintf(&sb, "## Section %d\n\n", i/10)
@@ -97,7 +97,7 @@ func BenchmarkGetDocument1000Lines(b *testing.B) {
 func BenchmarkServerStartup1000Lines(b *testing.B) {
 	var sb strings.Builder
 	sb.WriteString("# Benchmark Document\n\n")
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		fmt.Fprintf(&sb, "Paragraph %d with **bold** text.\n\n", i)
 	}
 

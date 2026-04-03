@@ -9,7 +9,7 @@ import (
 func generateMarkdown(lines int) []byte {
 	var b strings.Builder
 	b.WriteString("# Document Title\n\n")
-	for i := 0; i < lines; i++ {
+	for i := range lines {
 		switch i % 10 {
 		case 0:
 			fmt.Fprintf(&b, "## Section %d\n\n", i/10)

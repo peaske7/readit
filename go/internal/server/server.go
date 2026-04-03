@@ -50,7 +50,7 @@ type Server struct {
 	commentCache   map[string]*resolvedCacheEntry
 	commentCacheMu sync.RWMutex
 
-	commentFileMu   sync.Mutex
+	commentFileMu    sync.Mutex
 	commentFileLocks map[string]*sync.Mutex
 
 	httpServer *http.Server
@@ -69,14 +69,14 @@ func NewServer(opts Options) (*Server, error) {
 	}
 
 	s := &Server{
-		mux:          http.NewServeMux(),
-		files:        make(map[string]*FileState),
-		renderer:     NewRenderer(),
-		settings:     DefaultSettings(),
-		workingDir:   wd,
-		clean:        opts.Clean,
-		tmpl:         CompileTemplate(),
-		isDev:        opts.Dev,
+		mux:              http.NewServeMux(),
+		files:            make(map[string]*FileState),
+		renderer:         NewRenderer(),
+		settings:         DefaultSettings(),
+		workingDir:       wd,
+		clean:            opts.Clean,
+		tmpl:             CompileTemplate(),
+		isDev:            opts.Dev,
 		commentCache:     make(map[string]*resolvedCacheEntry),
 		commentFileLocks: make(map[string]*sync.Mutex),
 	}
@@ -319,18 +319,18 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 
 	// Collect file data under the read lock, but resolve comments after releasing it
 	type fileSnapshot struct {
-		path        string
-		content     []byte
+		path         string
+		content      []byte
 		renderedHTML string
-		headings    []Heading
+		headings     []Heading
 	}
 	snapshots := make([]fileSnapshot, 0, len(s.files))
 	for path, fs := range s.files {
 		snapshots = append(snapshots, fileSnapshot{
-			path:        path,
-			content:     fs.Content,
+			path:         path,
+			content:      fs.Content,
 			renderedHTML: fs.RenderedHTML,
-			headings:    fs.Headings,
+			headings:     fs.Headings,
 		})
 	}
 

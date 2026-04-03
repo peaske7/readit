@@ -117,14 +117,14 @@ func FindAnchorNormalized(source, selectedText, lineHint string) *AnchorResult {
 	windowEnd := min(len(normRunes), normCharOffset+DefaultSearchWindow)
 	window := string(normRunes[windowStart:windowEnd])
 
-	if byteIdx := strings.Index(window, normText); byteIdx >= 0 {
-		charIdx := utf8.RuneCountInString(window[:byteIdx])
+	if before, _, ok := strings.Cut(window, normText); ok {
+		charIdx := utf8.RuneCountInString(before)
 		return resolveNormalizedMatch(source, windowStart+charIdx, normTextRuneLen)
 	}
 
 	// Fall back to full source
-	if byteIdx := strings.Index(normSource, normText); byteIdx >= 0 {
-		charIdx := utf8.RuneCountInString(normSource[:byteIdx])
+	if before, _, ok := strings.Cut(normSource, normText); ok {
+		charIdx := utf8.RuneCountInString(before)
 		return resolveNormalizedMatch(source, charIdx, normTextRuneLen)
 	}
 

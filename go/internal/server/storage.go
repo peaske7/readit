@@ -58,7 +58,7 @@ func ParseCommentFile(data []byte) (CommentFile, error) {
 	cf := CommentFile{Version: FormatVersion}
 
 	if fm := frontMatterRe.FindStringSubmatch(content); len(fm) > 1 {
-		for _, line := range strings.Split(fm[1], "\n") {
+		for line := range strings.SplitSeq(fm[1], "\n") {
 			line = strings.TrimSpace(line)
 			if k, v, ok := strings.Cut(line, ":"); ok {
 				v = strings.TrimSpace(v)
@@ -189,7 +189,7 @@ func SerializeComments(cf CommentFile) []byte {
 			fmt.Fprintf(&b, "<!-- anchor:%s -->\n", encoded)
 		}
 
-		for _, line := range strings.Split(c.SelectedText, "\n") {
+		for line := range strings.SplitSeq(c.SelectedText, "\n") {
 			b.WriteString("> " + line + "\n")
 		}
 
