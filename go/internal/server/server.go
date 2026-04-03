@@ -50,6 +50,9 @@ type Server struct {
 	commentCache   map[string]*resolvedCacheEntry
 	commentCacheMu sync.RWMutex
 
+	commentFileMu   sync.Mutex
+	commentFileLocks map[string]*sync.Mutex
+
 	httpServer *http.Server
 }
 
@@ -71,7 +74,8 @@ func NewServer(opts Options) (*Server, error) {
 		clean:        opts.Clean,
 		tmpl:         CompileTemplate(),
 		isDev:        opts.Dev,
-		commentCache: make(map[string]*resolvedCacheEntry),
+		commentCache:     make(map[string]*resolvedCacheEntry),
+		commentFileLocks: make(map[string]*sync.Mutex),
 	}
 
 	if loaded, err := ReadSettings(); err == nil {
@@ -218,7 +222,9 @@ func (s *Server) loadFile(f FileEntry) error {
 	}
 	s.mu.Unlock()
 
-	_ = s.watcher.Add(absPath)
+	if err := s.watcher.Add(absPath); err != nil {
+		log.Printf("Warning: failed to watch %s: %v", absPath, err)
+	}
 	return nil
 }
 
@@ -296,7 +302,10 @@ func (s *Server) getFileState(path string) *FileState {
 
 func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
-	defaultPath := s.defaultFilePath()
+	var defaultPath string
+	if len(s.fileOrder) > 0 {
+		defaultPath = s.fileOrder[0]
+	}
 	state := s.files[defaultPath]
 
 	if state == nil {
@@ -305,13 +314,14 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	docs := make(map[string]InlineDocData)
+	// Collect file data under the read lock, but resolve comments after releasing it
+	type fileSnapshot struct {
+		path     string
+		state    *FileState
+	}
+	snapshots := make([]fileSnapshot, 0, len(s.files))
 	for path, fs := range s.files {
-		comments := s.resolveCommentsFor(path, fs)
-		docs[path] = InlineDocData{
-			Headings: fs.Headings,
-			Comments: comments,
-		}
+		snapshots = append(snapshots, fileSnapshot{path: path, state: fs})
 	}
 
 	files := make([]FileRef, 0, len(s.fileOrder))
@@ -325,6 +335,16 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 	workingDir := s.workingDir
 	settings := s.settings
 	s.mu.RUnlock()
+
+	// Resolve comments outside the main lock to avoid nested locking
+	docs := make(map[string]InlineDocData)
+	for _, snap := range snapshots {
+		comments := s.resolveCommentsFor(snap.path, snap.state)
+		docs[snap.path] = InlineDocData{
+			Headings: snap.state.Headings,
+			Comments: comments,
+		}
+	}
 
 	inline := InlineData{
 		Files:      files,

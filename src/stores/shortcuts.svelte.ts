@@ -18,6 +18,7 @@ export async function updateBinding(
   id: string,
   binding: ShortcutBinding,
 ): Promise<void> {
+  const target = shortcutState.shortcuts.find((s) => s.id === id);
   const conflict = shortcutState.shortcuts.find(
     (s) => s.id !== id && s.enabled && bindingsEqual(s.binding, binding),
   );
@@ -25,8 +26,13 @@ export async function updateBinding(
   const updated = shortcutState.shortcuts.map((s) => {
     if (s.id === id) return { ...s, binding };
     if (conflict && s.id === conflict.id) {
-      const current = shortcutState.shortcuts.find((x) => x.id === id);
-      return { ...s, binding: current?.binding ?? s.defaultBinding };
+      // Only swap bindings when the target is enabled; otherwise
+      // just revert the conflicting shortcut to its default binding
+      // to avoid creating two enabled shortcuts on the same combo.
+      if (target?.enabled) {
+        return { ...s, binding: target.binding };
+      }
+      return { ...s, binding: s.defaultBinding };
     }
     return s;
   });

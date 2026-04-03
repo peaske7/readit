@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,8 +18,7 @@ var (
 	frontMatterRe      = regexp.MustCompile(`(?s)^---\n(.*?)\n---`)
 	frontMatterStripRe = regexp.MustCompile(`(?s)^---\n.*?\n---\n*`)
 	commentMetaRe      = regexp.MustCompile(`<!--\s*c:([^|]+)\|([^|]+)\|([^>]+)\s*-->`)
-	anchorPrefixRe     = regexp.MustCompile(`<!--\s*anchor:(.+?)\s*-->`)
-	blockquoteRe       = regexp.MustCompile(`(?m)^>\s?(.*)`)
+	anchorPrefixRe     = regexp.MustCompile(`<!--\s*anchor:([A-Za-z0-9+/=]+)\s*-->`)
 )
 
 func CommentPath(filePath string) string {
@@ -105,43 +105,54 @@ func parseCommentBlock(block string) (Comment, bool) {
 		CreatedAt: strings.TrimSpace(meta[3]),
 	}
 
-	// Optional anchor prefix
+	// Optional anchor prefix (base64-encoded)
 	if ap := anchorPrefixRe.FindStringSubmatch(block); len(ap) > 1 {
-		c.AnchorPrefix = strings.TrimSpace(ap[1])
-	}
-
-	bqMatches := blockquoteRe.FindAllStringSubmatch(block, -1)
-	if len(bqMatches) > 0 {
-		lines := make([]string, len(bqMatches))
-		for i, m := range bqMatches {
-			lines[i] = m[1]
+		if decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(ap[1])); err == nil {
+			c.AnchorPrefix = string(decoded)
+		} else {
+			// Fallback: treat as raw text for backward compatibility
+			c.AnchorPrefix = strings.TrimSpace(ap[1])
 		}
-		c.SelectedText = strings.Join(lines, "\n")
 	}
 
 	bodyLines := strings.Split(block, "\n")
-	inBlockquote := false
+	pastMeta := false
+	inLeadingBlockquote := false
 	pastBlockquote := false
+	var selectedLines []string
 	var commentLines []string
 
 	for _, line := range bodyLines {
 		if commentMetaRe.MatchString(line) || anchorPrefixRe.MatchString(line) {
+			pastMeta = true
 			continue
 		}
-		if strings.HasPrefix(line, "> ") || line == ">" {
-			inBlockquote = true
+		if !pastBlockquote && pastMeta && (strings.HasPrefix(line, "> ") || line == ">") {
+			inLeadingBlockquote = true
+			// Extract the text after "> "
+			if strings.HasPrefix(line, "> ") {
+				selectedLines = append(selectedLines, line[2:])
+			} else {
+				selectedLines = append(selectedLines, "")
+			}
 			continue
 		}
-		if inBlockquote && !pastBlockquote {
+		if inLeadingBlockquote && !pastBlockquote {
 			pastBlockquote = true
 			if strings.TrimSpace(line) == "" {
 				continue
 			}
 		}
-		if pastBlockquote {
+		if pastBlockquote || (pastMeta && !inLeadingBlockquote) {
+			pastBlockquote = true
 			commentLines = append(commentLines, line)
 		}
 	}
+
+	if len(selectedLines) > 0 {
+		c.SelectedText = strings.Join(selectedLines, "\n")
+	}
+
 	comment := strings.TrimSpace(strings.Join(commentLines, "\n"))
 	comment = strings.TrimRight(comment, "\n")
 	if strings.HasSuffix(comment, "\n---") {
@@ -167,7 +178,8 @@ func SerializeComments(cf CommentFile) []byte {
 		fmt.Fprintf(&b, "<!-- c:%s|%s|%s -->\n", c.ID, c.LineHint, c.CreatedAt)
 
 		if c.AnchorPrefix != "" {
-			fmt.Fprintf(&b, "<!-- anchor:%s -->\n", c.AnchorPrefix)
+			encoded := base64.StdEncoding.EncodeToString([]byte(c.AnchorPrefix))
+			fmt.Fprintf(&b, "<!-- anchor:%s -->\n", encoded)
 		}
 
 		for _, line := range strings.Split(c.SelectedText, "\n") {

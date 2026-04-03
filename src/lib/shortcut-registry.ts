@@ -146,7 +146,8 @@ export function resolveShortcuts(
   });
 }
 
-export const RESERVED_BINDINGS: ShortcutBinding[] = [
+// Mac-specific reserved bindings (Cmd+key)
+export const RESERVED_BINDINGS_MAC: ShortcutBinding[] = [
   { key: "r", meta: true },
   { key: "w", meta: true },
   { key: "t", meta: true },
@@ -158,8 +159,30 @@ export const RESERVED_BINDINGS: ShortcutBinding[] = [
   { key: "p", meta: true },
 ];
 
-export function isReservedBinding(binding: ShortcutBinding): boolean {
-  return RESERVED_BINDINGS.some((r) => bindingsEqual(r, binding));
+// Windows/Linux reserved bindings (Ctrl+key consumed by browser)
+export const RESERVED_BINDINGS_OTHER: ShortcutBinding[] = [
+  { key: "r", ctrl: true },
+  { key: "w", ctrl: true },
+  { key: "t", ctrl: true },
+  { key: "n", ctrl: true },
+  { key: "l", ctrl: true },
+  { key: "a", ctrl: true },
+  { key: "f", ctrl: true },
+  { key: "p", ctrl: true },
+];
+
+/** @deprecated Use isReservedBinding(binding, isMac) instead */
+export const RESERVED_BINDINGS: ShortcutBinding[] = RESERVED_BINDINGS_MAC;
+
+export function isReservedBinding(
+  binding: ShortcutBinding,
+  isMac?: boolean,
+): boolean {
+  const reserved =
+    isMac === undefined || isMac
+      ? RESERVED_BINDINGS_MAC
+      : RESERVED_BINDINGS_OTHER;
+  return reserved.some((r) => bindingsEqual(r, binding));
 }
 
 export function eventToBinding(event: KeyboardEvent): ShortcutBinding {

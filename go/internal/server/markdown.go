@@ -10,10 +10,12 @@ import (
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
+	"github.com/yuin/goldmark/text"
 )
 
 type RenderResult struct {
@@ -78,8 +80,18 @@ func (r *Renderer) Render(source []byte) (RenderResult, error) {
 		return fmt.Sprintf(`<div data-mermaid-placeholder="%d"></div>`, idx)
 	})
 
+	processedBytes := []byte(processed)
+
+	// Parse into AST so we can extract headings with correct IDs
+	reader := text.NewReader(processedBytes)
+	doc := r.md.Parser().Parse(reader)
+
+	// Extract headings from the AST (IDs match rendered HTML exactly)
+	headings := extractHeadingsFromAST(doc, processedBytes)
+
+	// Render the AST to HTML
 	var buf bytes.Buffer
-	if err := r.md.Convert([]byte(processed), &buf); err != nil {
+	if err := r.md.Renderer().Render(&buf, processedBytes, doc); err != nil {
 		return RenderResult{}, fmt.Errorf("goldmark render: %w", err)
 	}
 	output := buf.String()
@@ -93,6 +105,53 @@ func (r *Renderer) Render(source []byte) (RenderResult, error) {
 		output = strings.Replace(output, placeholder, replacement, 1)
 	}
 
-	headings := ExtractHeadings(source)
 	return RenderResult{HTML: output, Headings: headings}, nil
+}
+
+// extractHeadingsFromAST walks the goldmark AST to collect heading nodes.
+// This produces IDs that match the rendered HTML exactly (via WithAutoHeadingID).
+func extractHeadingsFromAST(doc ast.Node, source []byte) []Heading {
+	var headings []Heading
+
+	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering || n.Kind() != ast.KindHeading {
+			return ast.WalkContinue, nil
+		}
+		h := n.(*ast.Heading)
+
+		var id string
+		if raw, ok := h.AttributeString("id"); ok {
+			if b, isByte := raw.([]byte); isByte {
+				id = string(b)
+			}
+		}
+
+		// Collect plain text from all inline children recursively
+		var textBuf bytes.Buffer
+		collectText(h, source, &textBuf)
+
+		headings = append(headings, Heading{
+			ID:    id,
+			Text:  strings.TrimSpace(textBuf.String()),
+			Level: h.Level,
+		})
+
+		return ast.WalkSkipChildren, nil
+	})
+
+	return headings
+}
+
+// collectText recursively collects plain text from AST nodes.
+func collectText(n ast.Node, source []byte, buf *bytes.Buffer) {
+	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
+		if t, ok := c.(*ast.Text); ok {
+			buf.Write(t.Segment.Value(source))
+			if t.SoftLineBreak() {
+				buf.WriteByte(' ')
+			}
+		} else {
+			collectText(c, source, buf)
+		}
+	}
 }

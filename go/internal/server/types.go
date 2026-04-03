@@ -27,13 +27,18 @@ type FileState struct {
 	IsLoaded     bool
 }
 
+type ShortcutBinding struct {
+	Key   string `json:"key"`
+	Alt   bool   `json:"alt,omitempty"`
+	Ctrl  bool   `json:"ctrl,omitempty"`
+	Meta  bool   `json:"meta,omitempty"`
+	Shift bool   `json:"shift,omitempty"`
+}
+
 type Keybinding struct {
-	Action string `json:"action"`
-	Key    string `json:"key"`
-	Meta   bool   `json:"meta,omitempty"`
-	Ctrl   bool   `json:"ctrl,omitempty"`
-	Shift  bool   `json:"shift,omitempty"`
-	Alt    bool   `json:"alt,omitempty"`
+	ID      string           `json:"id"`
+	Binding *ShortcutBinding `json:"binding,omitempty"`
+	Enabled bool             `json:"enabled"`
 }
 
 type Settings struct {

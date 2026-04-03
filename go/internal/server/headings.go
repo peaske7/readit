@@ -1,105 +1,33 @@
 package server
 
 import (
-	"fmt"
-	"regexp"
+	"bytes"
 	"strings"
-	"unicode"
+
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/text"
 )
 
-var (
-	headingRe = regexp.MustCompile(`(?m)^(#{1,6})\s+(.+)$`)
-	dashesRe  = regexp.MustCompile(`-+`)
-)
-
+// ExtractHeadings parses markdown source and returns headings using goldmark's AST.
+// This ensures heading IDs match exactly what goldmark renders in HTML.
 func ExtractHeadings(source []byte) []Heading {
-	content := stripCodeBlocks(string(source))
+	md := goldmark.New(
+		goldmark.WithParserOptions(
+			parser.WithAutoHeadingID(),
+		),
+	)
 
-	matches := headingRe.FindAllStringSubmatch(content, -1)
-	if len(matches) == 0 {
-		return nil
-	}
+	reader := text.NewReader(source)
+	doc := md.Parser().Parse(reader)
 
-	seen := make(map[string]int)
-	headings := make([]Heading, 0, len(matches))
-
-	for _, m := range matches {
-		level := len(m[1])
-		text := strings.TrimSpace(m[2])
-		baseID := slugify(text)
-
-		id := baseID
-		if count, exists := seen[baseID]; exists {
-			id = fmt.Sprintf("%s-%d", baseID, count)
-			seen[baseID] = count + 1
-		} else {
-			seen[baseID] = 1
-		}
-
-		headings = append(headings, Heading{
-			ID:    id,
-			Text:  text,
-			Level: level,
-		})
-	}
-
-	return headings
+	return extractHeadingsFromAST(doc, source)
 }
 
-// stripCodeBlocks removes fenced and indented code blocks from markdown content.
-func stripCodeBlocks(content string) string {
-	var result strings.Builder
-	lines := strings.Split(content, "\n")
-	inFenced := false
-	inIndented := false
-	var fence string
-
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-
-		if !inFenced && !inIndented {
-			if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
-				inFenced = true
-				fence = trimmed[:3]
-				continue
-			}
-			if (strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t")) && trimmed != "" {
-				inIndented = true
-				continue
-			}
-			result.WriteString(line)
-			result.WriteByte('\n')
-		} else if inFenced {
-			if strings.HasPrefix(trimmed, fence) && strings.TrimLeft(trimmed, string(fence[0])) == "" {
-				inFenced = false
-				fence = ""
-			}
-		} else if inIndented {
-			if trimmed == "" {
-				continue
-			}
-			if !strings.HasPrefix(line, "    ") && !strings.HasPrefix(line, "\t") {
-				inIndented = false
-				result.WriteString(line)
-				result.WriteByte('\n')
-			}
-		}
-	}
-
-	return result.String()
-}
-
-func slugify(text string) string {
-	s := strings.ToLower(strings.TrimSpace(text))
-	var b strings.Builder
-	for _, c := range s {
-		if unicode.IsLetter(c) || unicode.IsDigit(c) {
-			b.WriteRune(c)
-		} else if unicode.IsSpace(c) || c == '-' {
-			b.WriteRune('-')
-		}
-	}
-	s = dashesRe.ReplaceAllString(b.String(), "-")
-	s = strings.Trim(s, "-")
-	return s
+// collectHeadingText recursively collects plain text from heading AST nodes.
+func collectHeadingText(n ast.Node, source []byte) string {
+	var buf bytes.Buffer
+	collectText(n, source, &buf)
+	return strings.TrimSpace(buf.String())
 }

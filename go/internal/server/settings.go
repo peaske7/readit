@@ -74,6 +74,18 @@ func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Validate keybinding overrides
+	for _, kb := range body.Keybindings {
+		if kb.ID == "" {
+			writeError(w, http.StatusBadRequest, "keybinding id is required")
+			return
+		}
+		if kb.Binding != nil && kb.Binding.Key == "" {
+			writeError(w, http.StatusBadRequest, "keybinding key is required when binding is provided")
+			return
+		}
+	}
+
 	// Build new settings under write lock for atomicity
 	s.mu.Lock()
 	newSettings := s.settings

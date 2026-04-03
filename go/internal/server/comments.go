@@ -4,7 +4,19 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 )
+
+func (s *Server) commentLock(path string) *sync.Mutex {
+	s.commentFileMu.Lock()
+	defer s.commentFileMu.Unlock()
+	mu, ok := s.commentFileLocks[path]
+	if !ok {
+		mu = &sync.Mutex{}
+		s.commentFileLocks[path] = mu
+	}
+	return mu
+}
 
 func (s *Server) resolveCommentsFor(path string, state *FileState) []Comment {
 	commentPath := CommentPath(path)
@@ -114,6 +126,10 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 
 	c := CreateComment(body.SelectedText, body.Comment, body.StartOffset, body.EndOffset, string(state.Content))
 
+	mu := s.commentLock(path)
+	mu.Lock()
+	defer mu.Unlock()
+
 	commentPath := CommentPath(path)
 	cf := CommentFile{
 		Source:  path,
@@ -122,9 +138,15 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if data, err := os.ReadFile(commentPath); err == nil {
-		if parsed, err := ParseCommentFile(data); err == nil {
-			cf = parsed
+		parsed, parseErr := ParseCommentFile(data)
+		if parseErr != nil {
+			writeError(w, http.StatusInternalServerError, "failed to parse existing comment file")
+			return
 		}
+		cf = parsed
+	} else if !os.IsNotExist(err) {
+		writeError(w, http.StatusInternalServerError, "failed to read comment file")
+		return
 	}
 	cf.Hash = ComputeHash(state.Content)
 	cf.Comments = append(cf.Comments, c)
@@ -149,6 +171,10 @@ func (s *Server) updateComment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+
+	mu := s.commentLock(path)
+	mu.Lock()
+	defer mu.Unlock()
 
 	commentPath := CommentPath(path)
 	data, err := os.ReadFile(commentPath)
@@ -183,6 +209,10 @@ func (s *Server) updateComment(w http.ResponseWriter, r *http.Request) {
 func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
 	commentID := r.PathValue("id")
+
+	mu := s.commentLock(path)
+	mu.Lock()
+	defer mu.Unlock()
 
 	commentPath := CommentPath(path)
 	data, err := os.ReadFile(commentPath)
@@ -228,6 +258,11 @@ func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteAllComments(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
+
+	mu := s.commentLock(path)
+	mu.Lock()
+	defer mu.Unlock()
+
 	commentPath := CommentPath(path)
 	if err := os.Remove(commentPath); err != nil && !os.IsNotExist(err) {
 		writeError(w, http.StatusInternalServerError, "failed to delete comment file")
@@ -256,6 +291,10 @@ func (s *Server) reanchorComment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+
+	mu := s.commentLock(path)
+	mu.Lock()
+	defer mu.Unlock()
 
 	commentPath := CommentPath(path)
 	data, err := os.ReadFile(commentPath)

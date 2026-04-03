@@ -40,7 +40,7 @@ function handleKeyDown(e: KeyboardEvent) {
 
   const binding = eventToBinding(e);
 
-  if (isReservedBinding(binding)) {
+  if (isReservedBinding(binding, isMac)) {
     error = t("shortcutCapture.reserved", {
       binding: formatBinding(binding, isMac),
     });

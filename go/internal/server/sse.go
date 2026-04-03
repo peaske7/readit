@@ -112,8 +112,9 @@ func (b *SSEBroker) Heartbeat(w http.ResponseWriter, r *http.Request) {
 			epoch := b.shutdownEpoch
 			b.shutdownTimer = time.AfterFunc(1500*time.Millisecond, func() {
 				b.mu.Lock()
-				defer b.mu.Unlock()
-				if b.shutdownEpoch == epoch {
+				shouldShutdown := b.shutdownEpoch == epoch
+				b.mu.Unlock()
+				if shouldShutdown {
 					b.onShutdown()
 				}
 			})
