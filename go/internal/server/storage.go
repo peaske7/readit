@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	mrand "math/rand"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -21,9 +22,15 @@ var (
 	anchorPrefixRe     = regexp.MustCompile(`<!--\s*anchor:([A-Za-z0-9+/=]+)\s*-->`)
 )
 
-func CommentPath(filePath string) string {
-	home, _ := os.UserHomeDir()
-	abs, _ := filepath.Abs(filePath)
+func CommentPath(filePath string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("cannot determine home directory: %w", err)
+	}
+	abs, err := filepath.Abs(filePath)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve absolute path for %s: %w", filePath, err)
+	}
 
 	stripped := abs
 	if runtime.GOOS == "windows" {
@@ -38,7 +45,7 @@ func CommentPath(filePath string) string {
 		stripped = stripped[:len(stripped)-len(ext)]
 	}
 
-	return filepath.Join(home, ".readit", "comments", stripped+".comments.md")
+	return filepath.Join(home, ".readit", "comments", stripped+".comments.md"), nil
 }
 
 func ComputeHash(content []byte) string {
@@ -239,7 +246,13 @@ func GetLineHint(content string, startOffset, endOffset int) string {
 
 func NewCommentID() string {
 	b := make([]byte, 4)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to pseudo-random if crypto/rand fails
+		fallback := mrand.New(mrand.NewSource(time.Now().UnixNano()))
+		for i := range b {
+			b[i] = byte(fallback.Intn(256))
+		}
+	}
 	return fmt.Sprintf("%x", b)
 }
 

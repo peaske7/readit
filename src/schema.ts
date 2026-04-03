@@ -17,6 +17,7 @@ export interface Comment {
   id: string;
   selectedText: string;
   comment: string;
+  createdAt?: string;
   startOffset: number;
   endOffset: number;
   lineHint?: string;

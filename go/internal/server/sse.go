@@ -60,7 +60,7 @@ func (b *SSEBroker) DocumentStream(w http.ResponseWriter, r *http.Request) {
 		b.mu.Unlock()
 	}()
 
-	_, _ = fmt.Fprint(w, "data: connected\n\n")
+	_, _ = fmt.Fprint(w, ": connected\n\n")
 	flusher.Flush()
 
 	ticker := time.NewTicker(5 * time.Second)
@@ -74,7 +74,7 @@ func (b *SSEBroker) DocumentStream(w http.ResponseWriter, r *http.Request) {
 			_, _ = fmt.Fprintf(w, "data: %s\n\n", msg)
 			flusher.Flush()
 		case <-ticker.C:
-			_, _ = fmt.Fprint(w, "data: ping\n\n")
+			_, _ = fmt.Fprint(w, ": ping\n\n")
 			flusher.Flush()
 		}
 	}
@@ -91,7 +91,7 @@ func (b *SSEBroker) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	ch := make(chan string, 4)
+	ch := make(chan string, 16)
 	b.mu.Lock()
 	b.heartbeatClients[ch] = struct{}{}
 	if b.shutdownTimer != nil {
@@ -122,7 +122,7 @@ func (b *SSEBroker) Heartbeat(w http.ResponseWriter, r *http.Request) {
 		b.mu.Unlock()
 	}()
 
-	_, _ = fmt.Fprint(w, "data: connected\n\n")
+	_, _ = fmt.Fprint(w, ": connected\n\n")
 	flusher.Flush()
 
 	ticker := time.NewTicker(5 * time.Second)
@@ -133,7 +133,7 @@ func (b *SSEBroker) Heartbeat(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-ticker.C:
-			_, _ = fmt.Fprint(w, "data: ping\n\n")
+			_, _ = fmt.Fprint(w, ": ping\n\n")
 			flusher.Flush()
 		}
 	}

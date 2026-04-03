@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -19,7 +20,11 @@ func (s *Server) commentLock(path string) *sync.Mutex {
 }
 
 func (s *Server) resolveCommentsFor(path string, state *FileState) []Comment {
-	commentPath := CommentPath(path)
+	commentPath, err := CommentPath(path)
+	if err != nil {
+		log.Printf("Warning: failed to resolve comment path for %s: %v", path, err)
+		return []Comment{}
+	}
 
 	s.commentCacheMu.RLock()
 	cached := s.commentCache[path]
@@ -32,6 +37,7 @@ func (s *Server) resolveCommentsFor(path string, state *FileState) []Comment {
 		if os.IsNotExist(err) {
 			return []Comment{}
 		}
+		log.Printf("Warning: unexpected error checking comment file %s: %v", commentPath, err)
 		return []Comment{}
 	}
 
@@ -130,7 +136,11 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	commentPath := CommentPath(path)
+	commentPath, err := CommentPath(path)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve comment path")
+		return
+	}
 	cf := CommentFile{
 		Source:  path,
 		Hash:    ComputeHash(state.Content),
@@ -176,7 +186,11 @@ func (s *Server) updateComment(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	commentPath := CommentPath(path)
+	commentPath, err := CommentPath(path)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve comment path")
+		return
+	}
 	data, err := os.ReadFile(commentPath)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "comment file not found")
@@ -214,7 +228,11 @@ func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	commentPath := CommentPath(path)
+	commentPath, err := CommentPath(path)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve comment path")
+		return
+	}
 	data, err := os.ReadFile(commentPath)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "comment file not found")
@@ -263,7 +281,11 @@ func (s *Server) deleteAllComments(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	commentPath := CommentPath(path)
+	commentPath, err := CommentPath(path)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve comment path")
+		return
+	}
 	if err := os.Remove(commentPath); err != nil && !os.IsNotExist(err) {
 		writeError(w, http.StatusInternalServerError, "failed to delete comment file")
 		return
@@ -296,7 +318,11 @@ func (s *Server) reanchorComment(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	commentPath := CommentPath(path)
+	commentPath, err := CommentPath(path)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve comment path")
+		return
+	}
 	data, err := os.ReadFile(commentPath)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "comment file not found")
@@ -341,7 +367,11 @@ func (s *Server) reanchorComment(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) rawComments(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
-	commentPath := CommentPath(path)
+	commentPath, err := CommentPath(path)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve comment path")
+		return
+	}
 
 	data, err := os.ReadFile(commentPath)
 	if err != nil {

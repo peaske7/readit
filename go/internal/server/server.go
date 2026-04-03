@@ -63,7 +63,10 @@ type resolvedCacheEntry struct {
 }
 
 func NewServer(opts Options) (*Server, error) {
-	wd, _ := os.Getwd()
+	wd, err := os.Getwd()
+	if err != nil {
+		wd = "."
+	}
 
 	s := &Server{
 		mux:          http.NewServeMux(),
@@ -316,12 +319,19 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 
 	// Collect file data under the read lock, but resolve comments after releasing it
 	type fileSnapshot struct {
-		path     string
-		state    *FileState
+		path        string
+		content     []byte
+		renderedHTML string
+		headings    []Heading
 	}
 	snapshots := make([]fileSnapshot, 0, len(s.files))
 	for path, fs := range s.files {
-		snapshots = append(snapshots, fileSnapshot{path: path, state: fs})
+		snapshots = append(snapshots, fileSnapshot{
+			path:        path,
+			content:     fs.Content,
+			renderedHTML: fs.RenderedHTML,
+			headings:    fs.Headings,
+		})
 	}
 
 	files := make([]FileRef, 0, len(s.fileOrder))
@@ -331,6 +341,8 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	stateFileName := state.FileName
+	stateRenderedHTML := state.RenderedHTML
 	clean := s.clean
 	workingDir := s.workingDir
 	settings := s.settings
@@ -339,9 +351,12 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 	// Resolve comments outside the main lock to avoid nested locking
 	docs := make(map[string]InlineDocData)
 	for _, snap := range snapshots {
-		comments := s.resolveCommentsFor(snap.path, snap.state)
+		comments := s.resolveCommentsFor(snap.path, &FileState{
+			Content:      snap.content,
+			RenderedHTML: snap.renderedHTML,
+		})
 		docs[snap.path] = InlineDocData{
-			Headings: snap.state.Headings,
+			Headings: snap.headings,
 			Comments: comments,
 		}
 	}
@@ -374,10 +389,10 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := TemplateData{
-		Title:        state.FileName,
+		Title:        stateFileName,
 		CSSPath:      cssPath,
 		JSPath:       jsPath,
-		DocumentHTML: template.HTML(state.RenderedHTML),
+		DocumentHTML: template.HTML(stateRenderedHTML),
 		InlineJSON:   inlineJSON,
 		IsDev:        s.isDev,
 		FontFamily:   settings.FontFamily,

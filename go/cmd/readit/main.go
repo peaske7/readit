@@ -192,7 +192,11 @@ func cmdShow() {
 		os.Exit(1)
 	}
 
-	commentPath := server.CommentPath(filePath)
+	commentPath, err := server.CommentPath(filePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 	data, err := os.ReadFile(commentPath)
 	if err != nil {
 		fmt.Println("No comments found for", filePath)

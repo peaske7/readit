@@ -1,6 +1,9 @@
 import type { KeybindingOverride, ShortcutBinding } from "../schema";
 import type { TranslationKey } from "./i18n/types";
 
+const IS_MAC =
+  typeof navigator !== "undefined" && navigator.platform.includes("Mac");
+
 export const ShortcutActions = {
   COPY_ALL: "copyAll",
   COPY_ALL_RAW: "copyAllRaw",
@@ -60,16 +63,24 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     id: ShortcutActions.COPY_SELECTION_RAW,
     label: "shortcut.copySelectionRaw.label",
     description: "shortcut.copySelectionRaw.description",
-    defaultBinding: { key: "c", meta: true, shift: true },
-    binding: { key: "c", meta: true, shift: true },
+    defaultBinding: IS_MAC
+      ? { key: "c", meta: true, shift: true }
+      : { key: "c", ctrl: true, shift: true },
+    binding: IS_MAC
+      ? { key: "c", meta: true, shift: true }
+      : { key: "c", ctrl: true, shift: true },
     enabled: true,
   },
   {
     id: ShortcutActions.COPY_SELECTION_LLM,
     label: "shortcut.copySelectionLLM.label",
     description: "shortcut.copySelectionLLM.description",
-    defaultBinding: { key: "c", meta: true, alt: true },
-    binding: { key: "c", meta: true, alt: true },
+    defaultBinding: IS_MAC
+      ? { key: "c", meta: true, alt: true }
+      : { key: "c", ctrl: true, alt: true },
+    binding: IS_MAC
+      ? { key: "c", meta: true, alt: true }
+      : { key: "c", ctrl: true, alt: true },
     enabled: true,
   },
   {
@@ -171,18 +182,20 @@ export const RESERVED_BINDINGS_OTHER: ShortcutBinding[] = [
   { key: "p", ctrl: true },
 ];
 
-/** @deprecated Use isReservedBinding(binding, isMac) instead */
-export const RESERVED_BINDINGS: ShortcutBinding[] = RESERVED_BINDINGS_MAC;
-
 export function isReservedBinding(
   binding: ShortcutBinding,
-  isMac?: boolean,
+  isMac: boolean,
 ): boolean {
-  const reserved =
-    isMac === undefined || isMac
-      ? RESERVED_BINDINGS_MAC
-      : RESERVED_BINDINGS_OTHER;
-  return reserved.some((r) => bindingsEqual(r, binding));
+  const reserved = isMac ? RESERVED_BINDINGS_MAC : RESERVED_BINDINGS_OTHER;
+  // Ignore shift when checking reserved bindings because browsers also
+  // consume the shifted variants (e.g. Cmd+Shift+R, Ctrl+Shift+T).
+  return reserved.some(
+    (r) =>
+      r.key.toLowerCase() === binding.key.toLowerCase() &&
+      !!r.alt === !!binding.alt &&
+      !!r.ctrl === !!binding.ctrl &&
+      !!r.meta === !!binding.meta,
+  );
 }
 
 export function eventToBinding(event: KeyboardEvent): ShortcutBinding {
