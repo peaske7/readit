@@ -709,20 +709,55 @@ program
 
     switch (shell) {
       case "zsh": {
-        // Output the full zsh integration (completions + @ file picker widget)
+        // Output the full zsh integration:
+        //   1. _readit compdef (loaded into fpath via autoload) - handles @ prefix
+        //   2. readit.zsh widget (accept-line bracket stripping + syntax highlighting)
         const widgetPath = join(shellDir, "readit.zsh");
         const compPath = join(shellDir, "_readit");
 
         if (!existsSync(widgetPath) || !existsSync(compPath)) {
-          // Fallback: output inline minimal completion
           console.log(generateInlineZshCompletion());
           return;
         }
 
-        console.log("# readit shell integration for zsh");
-        console.log('# Add to your .zshrc: eval "$(readit completion zsh)"');
-        console.log();
-        console.log(readFileSync(widgetPath, "utf-8"));
+        // Wrap the compdef in an autoload function so eval works cleanly
+        const compdefContent = readFileSync(compPath, "utf-8");
+        const widgetContent = readFileSync(widgetPath, "utf-8");
+
+        const lines: string[] = [];
+        lines.push("# readit shell integration for zsh");
+        lines.push('# Add to your .zshrc: eval "$(readit completion zsh)"');
+        lines.push("");
+        lines.push("# ── _readit compdef (autoloaded) ──");
+        lines.push(
+          "# This handles: subcommand/option completion + @ file autocomplete",
+        );
+        lines.push(
+          "# Renders [file.md] in a native multi-column grid via compadd",
+        );
+        lines.push("");
+        // Replace #compdef with autoload -Uz _readit; _readit() { ... }
+        lines.push(
+          compdefContent
+            .replace(
+              /^#compdef readit\n/,
+              "autoload -Uz _readit\n_readit() {\n",
+            )
+            .replace(/\n_readit "\$@"\n?$/, "\n}\n"),
+        );
+        lines.push("");
+        lines.push("# ── readit.zsh (sourced) ──");
+        lines.push(
+          "# This handles: @[...] bracket stripping on Enter + syntax highlighting",
+        );
+        lines.push("");
+        // Strip the shebang and guard from the widget since it's being eval'd
+        lines.push(
+          widgetContent
+            .replace(/^#!/, "#")
+            .replace(/\n\(\( \$\+ functions\[_readit_plugin_loaded\] \)\)/, ""),
+        );
+        console.log(lines.join("\n"));
         break;
       }
       case "bash":
