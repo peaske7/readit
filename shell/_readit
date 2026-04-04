@@ -1,0 +1,85 @@
+#compdef readit
+
+# Zsh completion for readit - Markdown document review CLI
+# Install: add to $fpath or source via `readit completion zsh`
+
+_readit_markdown_files() {
+  local -a files
+  # Find markdown files recursively, excluding hidden dirs and node_modules
+  files=( ${(f)"$(find . -type f \( -name '*.md' -o -name '*.markdown' \) \
+    -not -path '*/\.*' \
+    -not -path '*/node_modules/*' 2>/dev/null | sed 's|^\./||')"} )
+  _describe -t files 'markdown files' files
+}
+
+_readit_commented_files() {
+  local readit_dir="${HOME}/.readit/comments"
+  if [[ ! -d "$readit_dir" ]]; then
+    return 1
+  fi
+  local -a sources
+  # Parse source paths from comment files
+  sources=( ${(f)"$(grep -rh '^source:' "$readit_dir" 2>/dev/null | sed 's/^source: *//')"} )
+  if (( ${#sources} )); then
+    _describe -t files 'files with comments' sources
+  fi
+}
+
+_readit() {
+  local context state state_descr line
+  typeset -A opt_args
+
+  _arguments -C \
+    '1:command:->cmd_or_files' \
+    '*::arg:->args'
+
+  case "$state" in
+    cmd_or_files)
+      local -a commands
+      commands=(
+        'open:Add files to a running server or start a new one'
+        'list:List all files with comments'
+        'show:Show comments for a file'
+        'completion:Output shell completion script'
+      )
+      _alternative \
+        'commands:command:compadd -a commands' \
+        'files:markdown file:_readit_markdown_files'
+      ;;
+    args)
+      case "${line[1]}" in
+        open)
+          _arguments \
+            '-p[Port for new server]:port:' \
+            '--port[Port for new server]:port:' \
+            '--host[Host for new server]:host:' \
+            '*:file:_readit_markdown_files'
+          ;;
+        show)
+          _arguments \
+            '1:file:_readit_commented_files'
+          ;;
+        list)
+          # No arguments
+          ;;
+        completion)
+          local -a shells
+          shells=(zsh bash fish)
+          _describe -t shells 'shell' shells
+          ;;
+        *)
+          # Default command: [files...] with options
+          _arguments \
+            '-p[Port to run server on]:port:' \
+            '--port[Port to run server on]:port:' \
+            '--host[Host address to bind to]:host:' \
+            '--no-open[Do not automatically open browser]' \
+            '--clean[Clear all existing comments on startup]' \
+            '*:file:_readit_markdown_files'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_readit "$@"

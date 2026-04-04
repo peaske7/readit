@@ -700,4 +700,147 @@ ${fileList.join("\n")}
     },
   );
 
+program
+  .command("completion")
+  .argument("[shell]", "Shell type (zsh, bash, fish)", "zsh")
+  .description("Output shell completion and integration script")
+  .action((shell: string) => {
+    const shellDir = join(import.meta.dir, "..", "shell");
+
+    switch (shell) {
+      case "zsh": {
+        // Output the full zsh integration (completions + @ file picker widget)
+        const widgetPath = join(shellDir, "readit.zsh");
+        const compPath = join(shellDir, "_readit");
+
+        if (!existsSync(widgetPath) || !existsSync(compPath)) {
+          // Fallback: output inline minimal completion
+          console.log(generateInlineZshCompletion());
+          return;
+        }
+
+        console.log("# readit shell integration for zsh");
+        console.log('# Add to your .zshrc: eval "$(readit completion zsh)"');
+        console.log();
+        console.log(readFileSync(widgetPath, "utf-8"));
+        break;
+      }
+      case "bash":
+        console.log(generateBashCompletion());
+        break;
+      case "fish":
+        console.log(generateFishCompletion());
+        break;
+      default:
+        console.error(`error: unsupported shell: ${shell}`);
+        console.error("Supported shells: zsh, bash, fish");
+        process.exit(1);
+    }
+  });
+
 program.parse();
+
+function generateInlineZshCompletion(): string {
+  return `
+#compdef readit
+
+_readit_markdown_files() {
+  local -a files
+  files=( \${(f)"\$(find . -type f \\( -name '*.md' -o -name '*.markdown' \\) -not -path '*/\\.*' -not -path '*/node_modules/*' 2>/dev/null | sed 's|^\\./||')"} )
+  _describe -t files 'markdown files' files
+}
+
+_readit() {
+  local context state state_descr line
+  typeset -A opt_args
+  _arguments -C '1:command:->cmd_or_files' '*::arg:->args'
+  case "$state" in
+    cmd_or_files)
+      local -a commands=(
+        'open:Add files to running server'
+        'list:List files with comments'
+        'show:Show comments for a file'
+        'completion:Output shell completion script'
+      )
+      _alternative 'commands:command:compadd -a commands' 'files:markdown file:_readit_markdown_files'
+      ;;
+    args)
+      case "\${line[1]}" in
+        open) _arguments '*:file:_readit_markdown_files' ;;
+        show) _arguments '1:file:_files -g "*.md *.markdown"' ;;
+        *) _arguments '*:file:_readit_markdown_files' ;;
+      esac
+      ;;
+  esac
+}
+_readit "$@"
+`.trim();
+}
+
+function generateBashCompletion(): string {
+  return `
+# readit bash completion
+# Add to .bashrc: eval "$(readit completion bash)"
+
+_readit_completions() {
+  local cur prev commands
+  COMPREPLY=()
+  cur="\${COMP_WORDS[COMP_CWORD]}"
+  prev="\${COMP_WORDS[COMP_CWORD-1]}"
+  commands="open list show completion"
+
+  if [[ \${COMP_CWORD} -eq 1 ]]; then
+    COMPREPLY=( \$(compgen -W "\${commands}" -- "\${cur}") )
+    # Also complete markdown files
+    local files=\$(find . -type f \\( -name '*.md' -o -name '*.markdown' \\) \\
+      -not -path '*/.*' -not -path '*/node_modules/*' 2>/dev/null | sed 's|^\\./||')
+    COMPREPLY+=( \$(compgen -W "\${files}" -- "\${cur}") )
+    return 0
+  fi
+
+  case "\${COMP_WORDS[1]}" in
+    open|show)
+      local files=\$(find . -type f \\( -name '*.md' -o -name '*.markdown' \\) \\
+        -not -path '*/.*' -not -path '*/node_modules/*' 2>/dev/null | sed 's|^\\./||')
+      COMPREPLY=( \$(compgen -W "\${files}" -- "\${cur}") )
+      ;;
+    completion)
+      COMPREPLY=( \$(compgen -W "zsh bash fish" -- "\${cur}") )
+      ;;
+  esac
+  return 0
+}
+
+complete -F _readit_completions readit
+`.trim();
+}
+
+function generateFishCompletion(): string {
+  return `
+# readit fish completion
+# Add to config.fish: readit completion fish | source
+
+# Disable file completions by default
+complete -c readit -f
+
+# Subcommands
+complete -c readit -n '__fish_use_subcommand' -a 'open' -d 'Add files to running server'
+complete -c readit -n '__fish_use_subcommand' -a 'list' -d 'List files with comments'
+complete -c readit -n '__fish_use_subcommand' -a 'show' -d 'Show comments for a file'
+complete -c readit -n '__fish_use_subcommand' -a 'completion' -d 'Output shell completion script'
+
+# Options
+complete -c readit -s p -l port -d 'Port to run server on'
+complete -c readit -l host -d 'Host address to bind to'
+complete -c readit -l no-open -d 'Don\\'t automatically open browser'
+complete -c readit -l clean -d 'Clear existing comments'
+
+# File arguments for default command and open
+complete -c readit -n '__fish_use_subcommand' -F -a '(find . -type f \\( -name "*.md" -o -name "*.markdown" \\) -not -path "*/.*" -not -path "*/node_modules/*" 2>/dev/null | sed "s|^\\./||")'
+complete -c readit -n '__fish_seen_subcommand_from open' -F -a '(find . -type f \\( -name "*.md" -o -name "*.markdown" \\) -not -path "*/.*" -not -path "*/node_modules/*" 2>/dev/null | sed "s|^\\./||")'
+complete -c readit -n '__fish_seen_subcommand_from show' -F -a '(find . -type f \\( -name "*.md" -o -name "*.markdown" \\) -not -path "*/.*" -not -path "*/node_modules/*" 2>/dev/null | sed "s|^\\./||")'
+
+# Shell completions for completion subcommand
+complete -c readit -n '__fish_seen_subcommand_from completion' -a 'zsh bash fish'
+`.trim();
+}

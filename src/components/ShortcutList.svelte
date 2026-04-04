@@ -7,7 +7,12 @@ import {
 import type { ShortcutBinding } from "../schema";
 import { cn } from "../lib/utils";
 import { t } from "../stores/locale.svelte";
-import { shortcutState, resetToDefaults, toggleEnabled, updateBinding } from "../stores/shortcuts.svelte";
+import {
+  shortcutState,
+  resetToDefaults,
+  toggleEnabled,
+  updateBinding,
+} from "../stores/shortcuts.svelte";
 import Button from "./ui/Button.svelte";
 import Text from "./ui/Text.svelte";
 import ShortcutCapture from "./ShortcutCapture.svelte";

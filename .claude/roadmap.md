@@ -92,6 +92,26 @@ Review documents, add comments, then resolve one-by-one with LLM assistance.
 - [x] Per-file comment storage
 - [ ] Bulk export across files
 
+## v0.7.0 - Shell Integration & Editor Plugins ✅
+
+- [x] Zsh integration with `@` file autocomplete (fzf-powered, Forge Code-style)
+  - [x] `@<TAB>` launches fzf picker for markdown files
+  - [x] `@partial<TAB>` pre-filters fzf query
+  - [x] Syntax highlighting for `@*.md` patterns in command line
+  - [x] Standard compdef completion for subcommands and options
+  - [x] Bash and Fish completion scripts via `readit completion`
+- [x] Neovim plugin (`nvim-readit/`)
+  - [x] Server lifecycle management (start/stop/discover)
+  - [x] `:ReaditOpen`, `:ReaditStop`, `:ReaditStatus`, `:ReaditReload`, `:ReaditList` commands
+  - [x] Configurable keymaps (`<leader>r` prefix by default)
+  - [x] `:checkhealth readit` support
+  - [x] Auto-cleanup on VimLeavePre
+- [x] Enhanced live reload on file changes
+  - [x] Handle `rename` events (Vim/Neovim write-to-temp-then-rename saves)
+  - [x] Auto re-establish watcher after rename with retry logic
+  - [x] SSE auto-reconnect with exponential backoff
+  - [x] Parallel document + comments fetch on reload
+
 ## Future Considerations
 
 - Sticky notes (ペタペタ) - add notes not tied to text selection

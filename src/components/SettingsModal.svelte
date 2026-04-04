@@ -4,7 +4,11 @@ import { type Locale, Locales } from "../lib/i18n";
 import { cn } from "../lib/utils";
 import { type FontFamily, FontFamilies, ThemeModes } from "../schema";
 import { localeState, setLocale, t } from "../stores/locale.svelte";
-import { settings, updateFontFamily, updateThemeMode } from "../stores/settings.svelte";
+import {
+  settings,
+  updateFontFamily,
+  updateThemeMode,
+} from "../stores/settings.svelte";
 import Dialog from "./ui/Dialog.svelte";
 import DropdownMenu from "./ui/DropdownMenu.svelte";
 import DropdownMenuItem from "./ui/DropdownMenuItem.svelte";
