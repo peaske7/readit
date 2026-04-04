@@ -26,10 +26,15 @@ import {
 import { initSettings } from "./stores/settings.svelte";
 import { initShortcuts, shortcutState } from "./stores/shortcuts.svelte";
 import { t } from "./stores/locale.svelte";
-import { setHoveredCommentId } from "./stores/ui.svelte";
+import {
+  setHoveredCommentId,
+  setActiveCommentId,
+  ui,
+} from "./stores/ui.svelte";
 import CommentInput from "./components/CommentInput.svelte";
 import CommentNav from "./components/CommentNav.svelte";
 import DocumentViewer from "./components/DocumentViewer.svelte";
+import FloatingComment from "./components/FloatingComment.svelte";
 import Header from "./components/Header.svelte";
 import MarginNotesContainer from "./components/MarginNotesContainer.svelte";
 import ReanchorConfirm from "./components/ReanchorConfirm.svelte";
@@ -291,6 +296,7 @@ function onTextSelect(
   endOffset: number,
   selectionTop: number,
 ) {
+  setActiveCommentId(undefined);
   setSelection({ text, startOffset, endOffset }, filePath);
   setPendingSelectionTop(selectionTop, filePath);
 }
@@ -364,11 +370,21 @@ function handleCancelReanchor(filePath: string) {
 }
 
 function handleHighlightClick(commentId: string) {
-  const marginNote = document.querySelector(
-    `article[data-comment-id="${commentId}"]`,
-  );
-  if (marginNote) {
-    marginNote.scrollIntoView({ behavior: "smooth", block: "center" });
+  // On narrow viewports where margin notes are hidden, show floating overlay
+  const marginColumn = document.querySelector("[data-margin-column]");
+  const isMarginVisible =
+    marginColumn && getComputedStyle(marginColumn).display !== "none";
+
+  if (isMarginVisible) {
+    const marginNote = document.querySelector(
+      `article[data-comment-id="${commentId}"]`,
+    );
+    if (marginNote) {
+      marginNote.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  } else {
+    // Show floating comment overlay
+    setActiveCommentId(commentId);
   }
 }
 
@@ -424,48 +440,69 @@ async function initialize() {
 }
 
 function setupDocumentStream() {
-  documentStreamSource = new EventSource("/api/document/stream");
-  documentStreamSource.onmessage = async (e) => {
-    try {
-      const data = JSON.parse(e.data);
-      if (data.type === "document-added" && data.path) {
-        openDocument(
-          {
-            html: "",
-            filePath: data.path,
-            fileName: data.fileName,
-            clean: false,
-          },
-          { active: false },
-        );
-        return;
-      }
-      if (data.type === "document-updated" && data.path) {
-        const path = data.path;
-        const state = app.documents.get(path);
-        if (!state?.document.html) return;
-        const res = await fetch(
-          `/api/document?path=${encodeURIComponent(path)}`,
-        );
-        if (res.ok) {
-          const doc = await res.json();
-          setHeadings(doc.headings ?? [], path);
-          updateDocumentHtml(doc.html, path);
+  let reconnectDelay = 1000;
+  const MAX_RECONNECT_DELAY = 30000;
+
+  function connect() {
+    documentStreamSource = new EventSource("/api/document/stream");
+
+    documentStreamSource.onopen = () => {
+      reconnectDelay = 1000; // Reset on successful connection
+    };
+
+    documentStreamSource.onmessage = async (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === "document-added" && data.path) {
+          openDocument(
+            {
+              html: "",
+              filePath: data.path,
+              fileName: data.fileName,
+              clean: false,
+            },
+            { active: false },
+          );
+          return;
         }
-        // Refresh comments (server may have reanchored)
-        const commentsRes = await fetch(
-          `/api/comments?path=${encodeURIComponent(path)}`,
-        );
-        if (commentsRes.ok) {
-          const commentsData = await commentsRes.json();
-          setComments(commentsData.comments ?? [], path);
+        if (data.type === "document-updated" && data.path) {
+          const path = data.path;
+          const state = app.documents.get(path);
+          if (!state?.document.html) return;
+
+          // Fetch updated document and comments in parallel
+          const [docRes, commentsRes] = await Promise.all([
+            fetch(`/api/document?path=${encodeURIComponent(path)}`),
+            fetch(`/api/comments?path=${encodeURIComponent(path)}`),
+          ]);
+
+          if (docRes.ok) {
+            const doc = await docRes.json();
+            setHeadings(doc.headings ?? [], path);
+            updateDocumentHtml(doc.html, path);
+          }
+          if (commentsRes.ok) {
+            const commentsData = await commentsRes.json();
+            setComments(commentsData.comments ?? [], path);
+          }
         }
+      } catch (err) {
+        // SSE message parse failure — non-critical, stream will continue
+        console.warn("Failed to parse document stream message:", err);
       }
-    } catch (err) {
-      // SSE message parse failure — non-critical, stream will continue
-      console.warn("Failed to parse document stream message:", err);
-    }
-  };
+    };
+
+    documentStreamSource.onerror = () => {
+      documentStreamSource?.close();
+      // Auto-reconnect with exponential backoff
+      setTimeout(() => {
+        reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+        connect();
+      }, reconnectDelay);
+    };
+  }
+
+  connect();
 }
 
 $effect(() => {
@@ -506,9 +543,7 @@ async function reload() {
   const path = app.activeDocumentPath;
   if (!path) return;
   try {
-    const res = await fetch(
-      `/api/document?path=${encodeURIComponent(path)}`,
-    );
+    const res = await fetch(`/api/document?path=${encodeURIComponent(path)}`);
     if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const data = await res.json();
     setHeadings(data.headings ?? [], path);
@@ -708,7 +743,7 @@ onDestroy(() => {
           {@const pendingSelectionTop = docState.pendingSelectionTop}
           {@const reanchorTarget = docState.reanchorTarget}
 
-          <div class="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col">
+          <div class="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col overflow-x-hidden">
             <Header
               fileName={docState.document.fileName}
               {comments}
@@ -723,7 +758,7 @@ onDestroy(() => {
               onstartreanchor={(id) => startReanchor(filePath, id)}
             />
 
-            <div class="flex-1 flex gap-4 w-full max-w-7xl mx-auto">
+            <div class="flex-1 flex gap-4 w-full max-w-7xl mx-auto overflow-x-hidden">
               {#if headings.length > 0}
                 <aside class="w-48 flex-shrink-0 py-6 pl-6 hidden xl:block">
                   <div class="sticky top-64 max-h-[calc(100vh-17rem)] overflow-y-auto">
@@ -753,7 +788,7 @@ onDestroy(() => {
                 />
               </div>
 
-              <div class="w-72 flex-shrink-0 py-6 pr-4 relative">
+              <div data-margin-column class="w-72 flex-shrink-0 py-6 pr-4 relative hidden lg:block">
                 {#if selection && pendingSelectionTop !== undefined}
                   <div
                     class="absolute left-0 right-0 z-10 bg-white dark:bg-zinc-900"
@@ -785,6 +820,39 @@ onDestroy(() => {
                 />
               </div>
             </div>
+
+            <!-- Floating comment input for narrow viewports (below lg) -->
+            {#if selection && pendingSelectionTop !== undefined}
+              <div class="fixed bottom-16 left-4 right-4 z-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg p-4 lg:hidden">
+                {#if reanchorTarget !== null}
+                  <ReanchorConfirm
+                    selectionText={selection.text}
+                    onconfirm={() => handleConfirmReanchor(filePath)}
+                    oncancel={() => handleCancelReanchor(filePath)}
+                  />
+                {:else}
+                  <CommentInput
+                    selectedText={selection.text}
+                    onsubmit={(text) => handleAddComment(filePath, text)}
+                    oncancel={() => clearSelection(filePath)}
+                  />
+                {/if}
+              </div>
+            {/if}
+
+            <!-- Floating comment viewer for narrow viewports (click highlight to show) -->
+            {#if ui.activeCommentId}
+              {@const activeComment = comments.find((c) => c.id === ui.activeCommentId)}
+              {#if activeComment}
+                <FloatingComment
+                  comment={activeComment}
+                  onedit={(id, text) => editComment(filePath, id, text)}
+                  ondelete={(id) => deleteComment(filePath, id)}
+                  oncopy={copyComment}
+                  onnavigate={navigateToComment}
+                />
+              {/if}
+            {/if}
 
             <CommentNav
               {sortedComments}

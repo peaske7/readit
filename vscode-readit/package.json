@@ -1,0 +1,108 @@
+{
+  "name": "vscode-readit",
+  "displayName": "readit",
+  "description": "Review Markdown documents with inline comments — powered by readit",
+  "version": "0.0.1",
+  "publisher": "peaske7",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/peaske7/readit"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "markdown",
+    "review",
+    "comments",
+    "preview"
+  ],
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
+  "icon": "icon.svg",
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "readit.openPreview",
+        "title": "readit: Open Preview",
+        "icon": {
+          "light": "icon.svg",
+          "dark": "icon.svg"
+        }
+      },
+      {
+        "command": "readit.openPreviewToSide",
+        "title": "readit: Open Preview to the Side",
+        "icon": {
+          "light": "icon.svg",
+          "dark": "icon.svg"
+        }
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "when": "resourceLangId == markdown",
+          "command": "readit.openPreviewToSide",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "when": "resourceLangId == markdown",
+          "command": "readit.openPreview",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "when": "resourceLangId == markdown",
+          "command": "readit.openPreview",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "readit.openPreviewToSide",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "resourceLangId == markdown"
+      }
+    ],
+    "configuration": {
+      "title": "readit",
+      "properties": {
+        "readit.bunPath": {
+          "type": "string",
+          "default": "bun",
+          "description": "Path to the Bun runtime executable."
+        },
+        "readit.serverPort": {
+          "type": "number",
+          "default": 0,
+          "description": "Port for the readit server. 0 = auto-select a free port."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
+    "typecheck": "tsc --noEmit",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "@types/vscode": "^1.110.0",
+    "esbuild": "^0.25.12",
+    "typescript": "^5.9.3"
+  }
+}

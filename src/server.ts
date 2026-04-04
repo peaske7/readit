@@ -880,8 +880,13 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 
   function watchFile(targetPath: string): FSWatcher | null {
     try {
-      const watcher = watch(targetPath, async (eventType) => {
-        if (eventType !== "change") return;
+      let watcher = watch(targetPath, async (eventType) => {
+        // Handle both "change" and "rename" events.
+        // Many editors (Vim, Neovim, Emacs) save files by writing to a temp
+        // file and then renaming it over the original. This triggers a
+        // "rename" event rather than "change". After a rename the original
+        // watcher may become invalid, so we re-establish it.
+        if (eventType !== "change" && eventType !== "rename") return;
 
         const state = fileMap.get(targetPath);
         if (!state) return;
@@ -901,10 +906,58 @@ function createServer(options: ServerOptions): ServerWithWatchers {
               sendEvent({ type: "document-updated", path: targetPath });
             }
           } catch (err) {
-            console.error(`Failed to read updated file ${targetPath}:`, err);
+            // File may have been temporarily removed during a rename-save.
+            // If it reappears, re-establish the watcher.
+            if (isErrnoException(err) && err.code === "ENOENT") {
+              await rewatch(targetPath);
+            } else {
+              console.error(`Failed to read updated file ${targetPath}:`, err);
+            }
           }
         }, 100);
       });
+
+      // Re-establish file watch after a rename-style save
+      async function rewatch(filePath: string) {
+        const maxRetries = 10;
+        const retryInterval = 200;
+        for (let i = 0; i < maxRetries; i++) {
+          await new Promise((r) => setTimeout(r, retryInterval));
+          try {
+            await fs.access(filePath);
+            // File exists again — close old watcher, create new one
+            try {
+              watcher.close();
+            } catch {}
+            const idx = watchers.indexOf(watcher);
+            const newWatcher = watchFile(filePath);
+            if (newWatcher) {
+              if (idx >= 0) watchers[idx] = newWatcher;
+              else watchers.push(newWatcher);
+            }
+            // Read the new content and emit update
+            const state = fileMap.get(filePath);
+            if (state) {
+              const newContent = await fs.readFile(filePath, "utf-8");
+              if (!state.isLoaded || newContent !== state.content) {
+                state.content = newContent;
+                state.renderedHtml = null;
+                state.headings = null;
+                state.isLoaded = true;
+                invalidateResolvedComments(filePath);
+                invalidatePageCache();
+                console.log(`File changed: ${basename(filePath)}`);
+                sendEvent({ type: "document-updated", path: filePath });
+              }
+            }
+            return;
+          } catch {
+            // File not yet recreated, keep retrying
+          }
+        }
+        console.warn(`File did not reappear after rename: ${filePath}`);
+      }
+
       return watcher;
     } catch (err) {
       console.warn(`File watching not available for ${targetPath}:`, err);

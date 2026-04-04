@@ -1,0 +1,158 @@
+#compdef readit
+
+# Zsh completion for readit - Markdown document review CLI
+#
+# Provides:
+#   1. Standard subcommand/option completion (readit <TAB>)
+#   2. @-prefix file completion with [bracket] display (readit @<TAB>)
+#
+# Install: add to $fpath or source via `readit completion zsh`
+
+# ── Helpers ────────────────────────────────────────────────────────────
+
+# Collect markdown files using fd (fast) or find (fallback)
+_readit_collect_md_files() {
+  local fd_cmd="$(command -v fdfind 2>/dev/null || command -v fd 2>/dev/null)"
+  if [[ -n "$fd_cmd" ]]; then
+    "$fd_cmd" --type f --hidden --exclude .git \
+      --extension md --extension markdown 2>/dev/null
+  else
+    find . -type f \( -name '*.md' -o -name '*.markdown' \) \
+      -not -path '*/\.*' \
+      -not -path '*/node_modules/*' \
+      -not -path '*/.next/*' \
+      -not -path '*/dist/*' \
+      2>/dev/null | sed 's|^\./||'
+  fi
+}
+
+# Standard markdown file completion (no @ prefix, no brackets)
+_readit_markdown_files() {
+  local -a files
+  files=( ${(f)"$(_readit_collect_md_files)"} )
+  (( ${#files} )) && _describe -t files 'markdown files' files
+}
+
+# @ prefix file completion with [bracket] display
+# Renders a native multi-column grid of [file.md] entries
+_readit_at_files() {
+  local current="${PREFIX}${SUFFIX}"
+
+  # Strip the leading @
+  local filter="${current#@}"
+
+  # Collect all markdown files
+  local -a all_files
+  all_files=( ${(f)"$(_readit_collect_md_files)"} )
+  (( ${#all_files} )) || return 1
+
+  # Filter by case-insensitive substring match
+  local -a matches
+  if [[ -n "$filter" ]]; then
+    local lc_filter="${(L)filter}"
+    local f
+    for f in "${all_files[@]}"; do
+      [[ "${(L)f}" == *"$lc_filter"* ]] && matches+=("$f")
+    done
+  else
+    matches=("${all_files[@]}")
+  fi
+  (( ${#matches} )) || return 1
+
+  # Build display array: [file.md] and insertion values: @[file.md]
+  local -a display_items
+  local item
+  for item in "${matches[@]}"; do
+    display_items+=("@[${item}]")
+  done
+
+  # Use compadd:
+  #   -U  = don't verify matches against current word
+  #   -d  = display strings (the [bracketed] versions shown in the menu)
+  #   -Q  = don't quote completions
+  #   -S  = suffix after insertion (space)
+  #   -f  = treat as file names
+  # The inserted text is @[file.md] which gets stripped to file.md on Enter
+  # by the readit-accept-line widget in readit.zsh
+  compadd -U -Q -S ' ' -d display_items -a display_items
+}
+
+_readit_commented_files() {
+  local readit_dir="${HOME}/.readit/comments"
+  if [[ ! -d "$readit_dir" ]]; then
+    return 1
+  fi
+  local -a sources
+  sources=( ${(f)"$(grep -rh '^source:' "$readit_dir" 2>/dev/null | sed 's/^source: *//')"} )
+  if (( ${#sources} )); then
+    _describe -t files 'files with comments' sources
+  fi
+}
+
+# ── Main Completion ────────────────────────────────────────────────────
+
+_readit() {
+  local context state state_descr line
+  typeset -A opt_args
+
+  # Check if the current word starts with @
+  local current="${PREFIX}${SUFFIX}"
+  if [[ "$current" == @* ]]; then
+    _readit_at_files
+    return
+  fi
+
+  _arguments -C \
+    '1:command:->cmd_or_files' \
+    '*::arg:->args'
+
+  case "$state" in
+    cmd_or_files)
+      local -a commands
+      commands=(
+        'open:Add files to a running server or start a new one'
+        'list:List all files with comments'
+        'show:Show comments for a file'
+        'completion:Output shell completion script'
+      )
+      _alternative \
+        'commands:command:compadd -a commands' \
+        'files:markdown file:_readit_markdown_files'
+      ;;
+    args)
+      case "${line[1]}" in
+        open)
+          _arguments \
+            '-p[Port for new server]:port:' \
+            '--port[Port for new server]:port:' \
+            '--host[Host for new server]:host:' \
+            '*:file:_readit_markdown_files'
+          ;;
+        show)
+          _arguments \
+            '1:file:_readit_commented_files'
+          ;;
+        list)
+          # No arguments
+          ;;
+        completion)
+          local -a shells
+          shells=(zsh bash fish)
+          _describe -t shells 'shell' shells
+          ;;
+        *)
+          # Default command: [files...] with options
+          _arguments \
+            '-p[Port to run server on]:port:' \
+            '--port[Port to run server on]:port:' \
+            '--host[Host address to bind to]:host:' \
+            '--no-open[Do not automatically open browser]' \
+            '--clean[Clear all existing comments on startup]' \
+            '*:file:_readit_markdown_files'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_readit "$@"
