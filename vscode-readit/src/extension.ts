@@ -9,8 +9,8 @@ let webviewProvider: ReaditWebviewProvider | undefined;
 let outputChannel: vscode.OutputChannel | undefined;
 
 /**
- * Resolves the readit CLI dist/ directory for the mono-repo layout and verifies
- * that the built CLI is available before the extension tries to start it.
+ * Resolves the readit CLI dist/ directory for the mono-repo layout and throws
+ * if the built CLI is not available before the extension tries to start it.
  */
 function resolveReaditDistDir(extensionPath: string): string {
   const monoRepoDist = path.resolve(extensionPath, "..", "dist");
