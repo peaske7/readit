@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { ServerManager } from "./server-manager";
@@ -8,16 +9,16 @@ let webviewProvider: ReaditWebviewProvider | undefined;
 let outputChannel: vscode.OutputChannel | undefined;
 
 /**
- * Resolves the readit dist/ directory.
- *
- * Strategy:
- * 1. Look for the dist/ directory in the parent readit repo (mono-repo layout).
- *    This is the expected structure when vscode-readit lives inside the readit repo.
- * 2. Fall back to a globally installed @peaske7/readit package.
+ * Resolves the readit CLI dist/ directory for the mono-repo layout and verifies
+ * that the built CLI is available before the extension tries to start it.
  */
 function resolveReaditDistDir(extensionPath: string): string {
-  // Mono-repo: extension is at <repo>/vscode-readit, dist is at <repo>/dist
   const monoRepoDist = path.resolve(extensionPath, "..", "dist");
+  if (!existsSync(path.join(monoRepoDist, "index.js"))) {
+    throw new Error(
+      "Could not find readit/dist/index.js. Build the readit CLI before using the VS Code extension.",
+    );
+  }
   return monoRepoDist;
 }
 
@@ -48,7 +49,15 @@ export function activate(context: vscode.ExtensionContext): void {
     outputChannel,
   );
 
-  const readitDistDir = resolveReaditDistDir(context.extensionPath);
+  let readitDistDir: string;
+  try {
+    readitDistDir = resolveReaditDistDir(context.extensionPath);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    outputChannel.appendLine(message);
+    void vscode.window.showErrorMessage(`readit: ${message}`);
+    return;
+  }
 
   // readit.openPreview — opens in the active column
   const openPreview = vscode.commands.registerCommand(

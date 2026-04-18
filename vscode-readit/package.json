@@ -23,7 +23,9 @@
     "preview"
   ],
   "activationEvents": [
-    "onLanguage:markdown"
+    "onLanguage:markdown",
+    "onCommand:readit.openPreview",
+    "onCommand:readit.openPreviewToSide"
   ],
   "icon": "icon.svg",
   "main": "./dist/extension.js",

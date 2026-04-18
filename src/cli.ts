@@ -867,7 +867,7 @@ complete -c readit -n '__fish_use_subcommand' -a 'completion' -d 'Output shell c
 # Options
 complete -c readit -s p -l port -d 'Port to run server on'
 complete -c readit -l host -d 'Host address to bind to'
-complete -c readit -l no-open -d 'Don\\'t automatically open browser'
+complete -c readit -l no-open -d "Don't automatically open browser"
 complete -c readit -l clean -d 'Clear existing comments'
 
 # File arguments for default command and open

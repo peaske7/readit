@@ -99,6 +99,18 @@ export class ServerManager implements vscode.Disposable {
       });
 
       this.process = child;
+      let settled = false;
+      let timer: ReturnType<typeof setInterval> | undefined;
+
+      const rejectStartup = (message: string) => {
+        if (settled) return;
+        settled = true;
+        if (timer) {
+          clearInterval(timer);
+        }
+        this.cleanup(child);
+        reject(new Error(message));
+      };
 
       child.stdout?.on("data", (data: Buffer) => {
         this.outputChannel.appendLine(data.toString().trimEnd());
@@ -110,19 +122,22 @@ export class ServerManager implements vscode.Disposable {
 
       child.on("error", (err) => {
         this.outputChannel.appendLine(`Server process error: ${err.message}`);
-        this.cleanup();
-        reject(
-          new Error(
-            `Failed to start readit server. Is Bun installed? (${err.message})`,
-          ),
+        rejectStartup(
+          `Failed to start readit server. Is Bun installed? (${err.message})`,
         );
       });
 
-      child.on("exit", (code) => {
+      child.on("exit", (code, signal) => {
         this.outputChannel.appendLine(
-          `Server process exited with code ${code}`,
+          `Server process exited with code ${code}${signal ? ` (signal: ${signal})` : ""}`,
         );
-        this.cleanup();
+        if (!settled) {
+          rejectStartup(
+            `readit server exited before it became ready (${code === null ? (signal ?? "unknown") : `code ${code}`})`,
+          );
+          return;
+        }
+        this.cleanup(child);
       });
 
       // Poll for server readiness
@@ -130,11 +145,11 @@ export class ServerManager implements vscode.Disposable {
       const intervalMs = 200;
       const startTime = Date.now();
 
-      const timer = setInterval(async () => {
+      timer = setInterval(async () => {
         if (Date.now() - startTime > maxWaitMs) {
           clearInterval(timer);
-          this.stop();
-          reject(new Error("readit server failed to start within 15 seconds"));
+          child.kill("SIGTERM");
+          rejectStartup("readit server failed to start within 15 seconds");
           return;
         }
 
@@ -142,6 +157,7 @@ export class ServerManager implements vscode.Disposable {
           const res = await fetch(`http://127.0.0.1:${port}/api/health`);
           if (res.ok) {
             clearInterval(timer);
+            settled = true;
             this.port = port;
             this.outputChannel.appendLine(`Server ready on port ${port}`);
             resolve(port);
@@ -167,9 +183,18 @@ export class ServerManager implements vscode.Disposable {
       });
 
       if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
+        const raw = await res.text();
+        let errorMessage = res.statusText;
+        if (raw) {
+          try {
+            const data = JSON.parse(raw) as { error?: string };
+            errorMessage = data.error ?? raw;
+          } catch {
+            errorMessage = raw;
+          }
+        }
         this.outputChannel.appendLine(
-          `Failed to attach file ${filePath}: ${data.error ?? res.statusText}`,
+          `Failed to attach file ${filePath}: ${errorMessage}`,
         );
       } else {
         const data = (await res.json()) as {
@@ -189,25 +214,29 @@ export class ServerManager implements vscode.Disposable {
 
   /** Stops the server process. */
   stop(): void {
-    if (this.process) {
+    const child = this.process;
+    if (child) {
       this.outputChannel.appendLine("Stopping readit server...");
-      this.process.kill("SIGTERM");
+      child.kill("SIGTERM");
 
       // Force kill after 3 seconds
       const forceKillTimer = setTimeout(() => {
-        if (this.process && this.process.exitCode === null) {
-          this.process.kill("SIGKILL");
+        if (child.exitCode === null) {
+          child.kill("SIGKILL");
         }
       }, 3_000);
 
-      this.process.on("exit", () => {
+      child.once("exit", () => {
         clearTimeout(forceKillTimer);
       });
     }
     this.cleanup();
   }
 
-  private cleanup(): void {
+  private cleanup(child?: ChildProcess): void {
+    if (child && this.process !== child) {
+      return;
+    }
     this.process = null;
     this.port = null;
     this.startPromise = null;

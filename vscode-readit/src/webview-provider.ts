@@ -1,3 +1,4 @@
+import * as path from "node:path";
 import * as vscode from "vscode";
 import type { ServerManager } from "./server-manager";
 
@@ -47,7 +48,7 @@ export class ReaditWebviewProvider implements vscode.Disposable {
       return;
     }
 
-    const fileName = filePath.split("/").pop() ?? filePath;
+    const fileName = path.basename(filePath);
 
     const panel = vscode.window.createWebviewPanel(
       "readitPreview",

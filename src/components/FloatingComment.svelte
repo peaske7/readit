@@ -27,14 +27,21 @@ let hasNote = $derived(comment.comment.trim().length > 0);
 function dismiss() {
   setActiveCommentId(undefined);
 }
+
+function handleWindowKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") {
+    dismiss();
+  }
+}
 </script>
+
+<svelte:window onkeydown={handleWindowKeydown} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- Backdrop -->
 <div
   class="fixed inset-0 z-40 lg:hidden"
   onclick={dismiss}
-  onkeydown={(e) => e.key === "Escape" && dismiss()}
 ></div>
 
 <!-- Floating panel -->
