@@ -29,7 +29,7 @@ function dismiss() {
 }
 
 function handleWindowKeydown(e: KeyboardEvent) {
-  if (ui.activeCommentId && e.key === "Escape") {
+  if (ui.activeCommentId === comment.id && e.key === "Escape") {
     dismiss();
   }
 }

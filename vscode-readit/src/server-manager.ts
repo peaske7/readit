@@ -100,7 +100,7 @@ export class ServerManager implements vscode.Disposable {
 
       this.process = child;
       let settled = false;
-      let timer: ReturnType<typeof setInterval> | undefined;
+      let timer: NodeJS.Timeout | undefined;
 
       const rejectStartup = (message: string) => {
         if (settled) return;
