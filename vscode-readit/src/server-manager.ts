@@ -218,15 +218,17 @@ export class ServerManager implements vscode.Disposable {
     if (child) {
       this.outputChannel.appendLine("Stopping readit server...");
       child.kill("SIGTERM");
+      let hasExited = false;
 
       // Force kill after 3 seconds
       const forceKillTimer = setTimeout(() => {
-        if (child.exitCode === null) {
+        if (!hasExited && child.exitCode === null) {
           child.kill("SIGKILL");
         }
       }, 3_000);
 
       child.once("exit", () => {
+        hasExited = true;
         clearTimeout(forceKillTimer);
       });
     }

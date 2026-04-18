@@ -3,7 +3,7 @@ import { cn } from "../lib/utils";
 import { type Comment, FontFamilies } from "../schema";
 import { t } from "../stores/locale.svelte";
 import { settings } from "../stores/settings.svelte";
-import { setActiveCommentId } from "../stores/ui.svelte";
+import { setActiveCommentId, ui } from "../stores/ui.svelte";
 import InlineEditor from "./InlineEditor.svelte";
 import ActionLink from "./ui/ActionLink.svelte";
 import Text from "./ui/Text.svelte";
@@ -29,7 +29,7 @@ function dismiss() {
 }
 
 function handleWindowKeydown(e: KeyboardEvent) {
-  if (e.key === "Escape") {
+  if (ui.activeCommentId && e.key === "Escape") {
     dismiss();
   }
 }
