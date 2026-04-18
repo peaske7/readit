@@ -127,7 +127,10 @@ export class ServerManager implements vscode.Disposable {
         );
       });
 
-      child.on("exit", (code, signal) => {
+      const handleProcessExit = (
+        code: number | null,
+        signal: NodeJS.Signals | null,
+      ) => {
         this.outputChannel.appendLine(
           `Server process exited with code ${code}${signal ? ` (signal: ${signal})` : ""}`,
         );
@@ -138,7 +141,9 @@ export class ServerManager implements vscode.Disposable {
           return;
         }
         this.cleanup(child);
-      });
+      };
+
+      child.on("exit", handleProcessExit);
 
       // Poll for server readiness
       const maxWaitMs = 15_000;
