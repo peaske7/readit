@@ -6,20 +6,14 @@ if vim.g.loaded_readit then
 end
 vim.g.loaded_readit = true
 
--- The plugin is configured via require("readit").setup({...})
--- Commands and keymaps are created during setup().
---
--- Minimal auto-setup: if the user hasn't called setup() and opens a
--- markdown file, register commands with defaults so :ReaditOpen works.
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = { "markdown" },
-  once = true,
-  callback = function()
-    -- Only auto-setup if user hasn't already called setup()
-    local readit = require("readit")
-    if not readit._setup_done then
-      readit.setup()
-      readit._setup_done = true
-    end
-  end,
-})
+-- The plugin is configured via require("readit").setup({...}).
+-- If the user hasn't called setup() (e.g. lazy.nvim with `ft`-trigger
+-- and no `config`), bootstrap with defaults on the next event-loop
+-- tick so any explicit setup({...}) in user config wins, but commands
+-- and keymaps still register out of the box.
+vim.schedule(function()
+  local ok, readit = pcall(require, "readit")
+  if ok and not readit._setup_done then
+    readit.setup()
+  end
+end)
