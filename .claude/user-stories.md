@@ -205,6 +205,61 @@
 
 ---
 
+### US-013: Shell Integration with File Autocomplete ✅
+
+**As a** CLI user
+**I want to** autocomplete markdown file paths with `@<TAB>` in my shell
+**So that** I can quickly find and open documents without typing full paths
+
+**Acceptance Criteria:**
+
+- `readit @<TAB>` launches fzf picker for markdown files in cwd
+- `readit @partial<TAB>` pre-filters the picker with "partial" as query
+- Standard Tab completion works for subcommands and options
+- `readit completion zsh|bash|fish` outputs shell-specific setup scripts
+- `eval "$(readit completion zsh)"` installs everything in one line
+
+**Status:** Implemented (v0.7.0)
+
+---
+
+### US-014: Neovim Plugin ✅
+
+**As a** Neovim user
+**I want to** render and review markdown documents directly from my editor
+**So that** I can stay in my editing workflow while reviewing
+
+**Acceptance Criteria:**
+
+- `:ReaditOpen` starts server and opens current buffer in browser
+- `:ReaditStop` stops the server
+- `:ReaditReload` saves buffer and triggers browser refresh
+- `:ReaditStatus` shows server info
+- Configurable keymaps (default `<leader>r` prefix)
+- Server auto-cleanup on VimLeavePre
+- `:checkhealth readit` verifies dependencies
+
+**Status:** Implemented (v0.7.0)
+
+---
+
+### US-015: Live Reload on File Changes ✅
+
+**As a** reviewer
+**I want to** see the browser update automatically when I edit the source document
+**So that** I can see my changes reflected in real time
+
+**Acceptance Criteria:**
+
+- Browser updates within ~200ms of file save
+- Works with Vim/Neovim saves (write-to-temp-then-rename pattern)
+- SSE connection auto-reconnects if server restarts (exponential backoff)
+- Document HTML and comments fetched in parallel for fast reload
+
+**Status:** Implemented (enhanced in v0.7.0, base SSE existed since v0.1.0)
+
+---
+
 ## Technical Stories
 
 ### TS-001: CLI Argument Parsing
@@ -250,3 +305,29 @@
 
 - API endpoints: `GET/POST/PUT/DELETE /api/comments` for CRUD operations
 - Watch file for external changes (optional)
+
+### TS-005: Shell Integration Architecture
+
+- `shell/_readit` - Standard zsh compdef for subcommands, options, file args
+- `shell/readit.zsh` - Rich widget: `@` prefix triggers fzf markdown file picker
+- Uses `fd` for fast file listing, falls back to `find`
+- fzf with bat/head preview, initial query from text after `@`
+- `readit completion zsh|bash|fish` CLI subcommand outputs setup scripts
+- Bash completion via `complete -F`, Fish via `complete -c`
+
+### TS-006: Neovim Plugin Architecture
+
+- `nvim-readit/lua/readit/init.lua` - Core: setup, server management, commands, keymaps
+- `nvim-readit/plugin/readit.lua` - Auto-loader on markdown FileType
+- `nvim-readit/lua/readit/health.lua` - `:checkhealth` module
+- Discovers existing servers via `~/.readit/server.json`
+- Starts server with `jobstart()`, attaches files via `POST /api/documents`
+- Communicates with server via curl (non-blocking `jobstart`)
+
+### TS-007: File Watcher Resilience
+
+- `fs.watch()` with both `"change"` and `"rename"` event handling
+- On rename: retry loop (10 attempts, 200ms apart) to re-establish watcher
+- Debounced re-render (200ms) to avoid thrashing on rapid saves
+- SSE auto-reconnect with exponential backoff (1s -> 30s max)
+- Parallel fetch of document HTML + comments on reload

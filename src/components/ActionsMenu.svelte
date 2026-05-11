@@ -1,5 +1,12 @@
 <script lang="ts">
-import { ClipboardCopy, FileDown, FileText, MoreHorizontal, RefreshCw, Settings } from "lucide-svelte";
+import {
+  ClipboardCopy,
+  FileDown,
+  FileText,
+  MoreHorizontal,
+  RefreshCw,
+  Settings,
+} from "lucide-svelte";
 import { t } from "../stores/locale.svelte";
 import RawModal from "./RawModal.svelte";
 import SettingsModal from "./SettingsModal.svelte";

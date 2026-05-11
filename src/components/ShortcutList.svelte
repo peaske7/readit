@@ -2,16 +2,21 @@
 import {
   bindingsEqual,
   formatBinding,
+  SHORTCUT_GROUPS,
   type ShortcutDefinition,
 } from "../lib/shortcut-registry";
-import type { ShortcutBinding } from "../schema";
 import { cn } from "../lib/utils";
+import type { ShortcutBinding } from "../schema";
 import { t } from "../stores/locale.svelte";
-import { shortcutState, resetToDefaults, toggleEnabled, updateBinding } from "../stores/shortcuts.svelte";
+import {
+  resetToDefaults,
+  shortcutState,
+  toggleEnabled,
+  updateBinding,
+} from "../stores/shortcuts.svelte";
+import ShortcutCapture from "./ShortcutCapture.svelte";
 import Button from "./ui/Button.svelte";
 import Text from "./ui/Text.svelte";
-import ShortcutCapture from "./ShortcutCapture.svelte";
-import { SHORTCUT_GROUPS } from "../lib/shortcut-registry";
 
 const isMac = navigator.platform.includes("Mac");
 let capturingId = $state<string | null>(null);

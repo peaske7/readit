@@ -2,9 +2,9 @@
 import { cn } from "../lib/utils";
 import type { Comment } from "../schema";
 import { t } from "../stores/locale.svelte";
+import InlineEditor from "./InlineEditor.svelte";
 import ActionLink from "./ui/ActionLink.svelte";
 import Text from "./ui/Text.svelte";
-import InlineEditor from "./InlineEditor.svelte";
 
 interface Props {
   comment: Comment;

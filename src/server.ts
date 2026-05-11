@@ -61,6 +61,21 @@ function invalidateResolvedComments(filePath: string): void {
   resolvedCommentsCache.delete(filePath);
 }
 
+const commentWriteLocks = new Map<string, Promise<unknown>>();
+
+function withCommentLock<T>(
+  filePath: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const prev = commentWriteLocks.get(filePath) ?? Promise.resolve();
+  const next = prev.catch(() => {}).then(fn);
+  commentWriteLocks.set(
+    filePath,
+    next.catch(() => {}),
+  );
+  return next;
+}
+
 async function canonicalPath(filePath: string): Promise<string> {
   return fs.realpath(path.resolve(filePath));
 }
@@ -296,18 +311,20 @@ async function addComment(ctx: RouteContext, req: Request): Promise<Response> {
       currentContent,
     );
 
-    const existingComments = await readCommentsFromFile(
-      ctx.filePath,
-      currentContent,
-    );
-    const allComments = [...existingComments, newComment];
-
-    await writeCommentsToFile(ctx.filePath, currentContent, allComments);
+    await withCommentLock(ctx.filePath, async () => {
+      const existingComments = await readCommentsFromFile(
+        ctx.filePath,
+        currentContent,
+      );
+      const allComments = [...existingComments, newComment];
+      await writeCommentsToFile(ctx.filePath, currentContent, allComments);
+    });
 
     return json({ comment: newComment }, 201);
   } catch (err) {
     console.error("Failed to add comment:", err);
-    return errorResponse("Failed to add comment", 500);
+    const detail = err instanceof Error ? err.message : String(err);
+    return errorResponse(`Failed to add comment: ${detail}`, 500);
   }
 }
 
@@ -324,23 +341,22 @@ async function updateComment(
     }
 
     const currentContent = await ctx.getCurrentContent();
-    const existingComments = await readCommentsFromFile(
-      ctx.filePath,
-      currentContent,
-    );
-    const commentIndex = existingComments.findIndex((c) => c.id === id);
+    const result = await withCommentLock(ctx.filePath, async () => {
+      const existingComments = await readCommentsFromFile(
+        ctx.filePath,
+        currentContent,
+      );
+      const commentIndex = existingComments.findIndex((c) => c.id === id);
+      if (commentIndex === -1) return null;
+      const updatedComments = existingComments.map((c, i) =>
+        i === commentIndex ? { ...c, comment: commentText.trim() } : c,
+      );
+      await writeCommentsToFile(ctx.filePath, currentContent, updatedComments);
+      return updatedComments[commentIndex];
+    });
 
-    if (commentIndex === -1) {
-      return errorResponse("Comment not found", 404);
-    }
-
-    const updatedComments = existingComments.map((c, i) =>
-      i === commentIndex ? { ...c, comment: commentText.trim() } : c,
-    );
-
-    await writeCommentsToFile(ctx.filePath, currentContent, updatedComments);
-
-    return json({ comment: updatedComments[commentIndex] });
+    if (!result) return errorResponse("Comment not found", 404);
+    return json({ comment: result });
   } catch (err) {
     console.error("Failed to update comment:", err);
     return errorResponse("Failed to update comment", 500);
@@ -350,22 +366,26 @@ async function updateComment(
 async function deleteComment(ctx: RouteContext, id: string): Promise<Response> {
   try {
     const currentContent = await ctx.getCurrentContent();
-    const existingComments = await readCommentsFromFile(
-      ctx.filePath,
-      currentContent,
-    );
-    const filteredComments = existingComments.filter((c) => c.id !== id);
+    const found = await withCommentLock(ctx.filePath, async () => {
+      const existingComments = await readCommentsFromFile(
+        ctx.filePath,
+        currentContent,
+      );
+      const filteredComments = existingComments.filter((c) => c.id !== id);
+      if (filteredComments.length === existingComments.length) return false;
+      if (filteredComments.length === 0) {
+        await deleteCommentFile(ctx.filePath);
+      } else {
+        await writeCommentsToFile(
+          ctx.filePath,
+          currentContent,
+          filteredComments,
+        );
+      }
+      return true;
+    });
 
-    if (filteredComments.length === existingComments.length) {
-      return errorResponse("Comment not found", 404);
-    }
-
-    if (filteredComments.length === 0) {
-      await deleteCommentFile(ctx.filePath);
-    } else {
-      await writeCommentsToFile(ctx.filePath, currentContent, filteredComments);
-    }
-
+    if (!found) return errorResponse("Comment not found", 404);
     return json({ success: true });
   } catch (err) {
     console.error("Failed to delete comment:", err);
@@ -375,7 +395,7 @@ async function deleteComment(ctx: RouteContext, id: string): Promise<Response> {
 
 async function clearComments(ctx: RouteContext): Promise<Response> {
   try {
-    await deleteCommentFile(ctx.filePath);
+    await withCommentLock(ctx.filePath, () => deleteCommentFile(ctx.filePath));
     return json({ success: true });
   } catch (err) {
     console.error("Failed to clear comments:", err);
@@ -410,37 +430,35 @@ async function reanchorComment(
     }
 
     const currentContent = await ctx.getCurrentContent();
-    const existingComments = await readCommentsFromFile(
-      ctx.filePath,
-      currentContent,
-    );
-    const commentIndex = existingComments.findIndex((c) => c.id === id);
+    const result = await withCommentLock(ctx.filePath, async () => {
+      const existingComments = await readCommentsFromFile(
+        ctx.filePath,
+        currentContent,
+      );
+      const commentIndex = existingComments.findIndex((c) => c.id === id);
+      if (commentIndex === -1) return null;
 
-    if (commentIndex === -1) {
-      return errorResponse("Comment not found", 404);
-    }
+      const lineHint = getLineHint(currentContent, startOffset, endOffset);
+      const truncatedText = truncateSelection(selectedText);
+      const updatedComment: Comment = {
+        ...existingComments[commentIndex],
+        selectedText: truncatedText,
+        startOffset,
+        endOffset,
+        lineHint,
+        anchorConfidence: AnchorConfidences.EXACT,
+        anchorPrefix:
+          selectedText.length > 1000 ? selectedText.slice(0, 200) : undefined,
+      };
+      const updatedComments = existingComments.map((c, i) =>
+        i === commentIndex ? updatedComment : c,
+      );
+      await writeCommentsToFile(ctx.filePath, currentContent, updatedComments);
+      return updatedComment;
+    });
 
-    const lineHint = getLineHint(currentContent, startOffset, endOffset);
-    const truncatedText = truncateSelection(selectedText);
-
-    const updatedComment: Comment = {
-      ...existingComments[commentIndex],
-      selectedText: truncatedText,
-      startOffset,
-      endOffset,
-      lineHint,
-      anchorConfidence: AnchorConfidences.EXACT,
-      anchorPrefix:
-        selectedText.length > 1000 ? selectedText.slice(0, 200) : undefined,
-    };
-
-    const updatedComments = existingComments.map((c, i) =>
-      i === commentIndex ? updatedComment : c,
-    );
-
-    await writeCommentsToFile(ctx.filePath, currentContent, updatedComments);
-
-    return json({ comment: updatedComment });
+    if (!result) return errorResponse("Comment not found", 404);
+    return json({ comment: result });
   } catch (err) {
     console.error("Failed to re-anchor comment:", err);
     return errorResponse("Failed to re-anchor comment", 500);
@@ -881,7 +899,12 @@ function createServer(options: ServerOptions): ServerWithWatchers {
   function watchFile(targetPath: string): FSWatcher | null {
     try {
       const watcher = watch(targetPath, async (eventType) => {
-        if (eventType !== "change") return;
+        // Handle both "change" and "rename" events.
+        // Many editors (Vim, Neovim, Emacs) save files by writing to a temp
+        // file and then renaming it over the original. This triggers a
+        // "rename" event rather than "change". After a rename the original
+        // watcher may become invalid, so we re-establish it.
+        if (eventType !== "change" && eventType !== "rename") return;
 
         const state = fileMap.get(targetPath);
         if (!state) return;
@@ -901,10 +924,58 @@ function createServer(options: ServerOptions): ServerWithWatchers {
               sendEvent({ type: "document-updated", path: targetPath });
             }
           } catch (err) {
-            console.error(`Failed to read updated file ${targetPath}:`, err);
+            // File may have been temporarily removed during a rename-save.
+            // If it reappears, re-establish the watcher.
+            if (isErrnoException(err) && err.code === "ENOENT") {
+              await rewatch(targetPath);
+            } else {
+              console.error(`Failed to read updated file ${targetPath}:`, err);
+            }
           }
         }, 100);
       });
+
+      // Re-establish file watch after a rename-style save
+      async function rewatch(filePath: string) {
+        const maxRetries = 10;
+        const retryInterval = 200;
+        for (let i = 0; i < maxRetries; i++) {
+          await new Promise((r) => setTimeout(r, retryInterval));
+          try {
+            await fs.access(filePath);
+            // File exists again — close old watcher, create new one
+            try {
+              watcher.close();
+            } catch {}
+            const idx = watchers.indexOf(watcher);
+            const newWatcher = watchFile(filePath);
+            if (newWatcher) {
+              if (idx >= 0) watchers[idx] = newWatcher;
+              else watchers.push(newWatcher);
+            }
+            // Read the new content and emit update
+            const state = fileMap.get(filePath);
+            if (state) {
+              const newContent = await fs.readFile(filePath, "utf-8");
+              if (!state.isLoaded || newContent !== state.content) {
+                state.content = newContent;
+                state.renderedHtml = null;
+                state.headings = null;
+                state.isLoaded = true;
+                invalidateResolvedComments(filePath);
+                invalidatePageCache();
+                console.log(`File changed: ${basename(filePath)}`);
+                sendEvent({ type: "document-updated", path: filePath });
+              }
+            }
+            return;
+          } catch {
+            // File not yet recreated, keep retrying
+          }
+        }
+        console.warn(`File did not reappear after rename: ${filePath}`);
+      }
+
       return watcher;
     } catch (err) {
       console.warn(`File watching not available for ${targetPath}:`, err);

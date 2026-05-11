@@ -40,6 +40,7 @@ bunx readit <file.md> --clean       # Clear existing comments
 bunx readit list                    # List all files with comments
 bunx readit show <file.md>          # Show comments for a file
 bunx readit open <files...>         # Add files to running server
+bunx readit completion zsh          # Output shell integration script
 ```
 
 ## Architecture
@@ -116,6 +117,15 @@ readit/
 ├── go/                        # Go server (production binary)
 │   ├── cmd/readit/main.go     # Go CLI entry point
 │   └── internal/server/       # HTTP server, markdown, comments, SSE
+├── shell/                     # Shell integration
+│   ├── readit.zsh             # Zsh plugin (@ file picker + completions)
+│   └── _readit                # Zsh compdef completion function
+├── nvim-readit/               # Neovim plugin
+│   ├── lua/readit/init.lua    # Core plugin (server mgmt, commands, keymaps)
+│   ├── lua/readit/health.lua  # :checkhealth support
+│   └── plugin/readit.lua      # Auto-loader
+├── vscode-readit/             # VS Code extension
+│   └── src/                   # Extension source (TypeScript)
 ├── e2e/                       # Playwright e2e tests
 ├── docs/                      # Design docs and specs
 ├── dist/                      # Built output
@@ -137,6 +147,8 @@ readit/
 5. **difit-style UX**: CLI → local server → browser, familiar pattern
 6. **Svelte 5 stores for state**: Reactive stores (`.svelte.ts`) for state management
 7. **i18n support**: English and Japanese translations
+8. **Live reload**: fs.watch() on documents + SSE push to browser; handles rename-style saves (Vim/Neovim/Emacs)
+9. **Editor integrations**: Neovim plugin (Lua), VS Code extension, shell completions with `@` fzf file picker
 
 ## Tech Stack
 
@@ -150,6 +162,8 @@ readit/
 - **Testing**: Vitest (unit) + Playwright (e2e)
 - **Production Binary**: Go (embeds frontend via go:embed)
 - **Quality**: Biome (lint + format), lefthook
+- **Shell Integration**: Zsh/Bash/Fish completions, fzf-powered `@` file picker
+- **Editor Plugins**: Neovim (Lua), VS Code (TypeScript)
 
 ## Current Limitations
 

@@ -155,8 +155,9 @@ onDestroy(() => {
   unregisterHighlighter?.();
 });
 
+// Intentionally capture initial value — skip first $effect when already active.
+// svelte-ignore state_referenced_locally
 let initialHighlightsDone = !isActive;
-
 $effect(() => {
   if (!isActive || !adapter) return;
 

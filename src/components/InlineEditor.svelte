@@ -25,6 +25,7 @@ let fontClass = $derived(
   settings.fontFamily === FontFamilies.SANS_SERIF ? "font-sans" : "font-serif",
 );
 
+// svelte-ignore state_referenced_locally — intentionally capture initial prop value
 let editText = $state(initialText);
 let textareaEl: HTMLTextAreaElement | undefined = $state();
 

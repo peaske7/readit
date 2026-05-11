@@ -36,6 +36,9 @@ bun run format        # Format code with Biome
 - `src/stores/` - Svelte 5 reactive stores (`.svelte.ts`)
 - `src/lib/` - Utility functions, rendering, i18n
 - `src/schema.ts` - TypeScript types
+- `shell/` - Zsh/Bash/Fish completions and `@` file picker widget
+- `nvim-readit/` - Neovim plugin (Lua)
+- `vscode-readit/` - VS Code extension
 
 ## Testing
 
