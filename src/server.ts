@@ -61,6 +61,21 @@ function invalidateResolvedComments(filePath: string): void {
   resolvedCommentsCache.delete(filePath);
 }
 
+const commentWriteLocks = new Map<string, Promise<unknown>>();
+
+function withCommentLock<T>(
+  filePath: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const prev = commentWriteLocks.get(filePath) ?? Promise.resolve();
+  const next = prev.catch(() => {}).then(fn);
+  commentWriteLocks.set(
+    filePath,
+    next.catch(() => {}),
+  );
+  return next;
+}
+
 async function canonicalPath(filePath: string): Promise<string> {
   return fs.realpath(path.resolve(filePath));
 }
@@ -296,13 +311,14 @@ async function addComment(ctx: RouteContext, req: Request): Promise<Response> {
       currentContent,
     );
 
-    const existingComments = await readCommentsFromFile(
-      ctx.filePath,
-      currentContent,
-    );
-    const allComments = [...existingComments, newComment];
-
-    await writeCommentsToFile(ctx.filePath, currentContent, allComments);
+    await withCommentLock(ctx.filePath, async () => {
+      const existingComments = await readCommentsFromFile(
+        ctx.filePath,
+        currentContent,
+      );
+      const allComments = [...existingComments, newComment];
+      await writeCommentsToFile(ctx.filePath, currentContent, allComments);
+    });
 
     return json({ comment: newComment }, 201);
   } catch (err) {
@@ -325,23 +341,22 @@ async function updateComment(
     }
 
     const currentContent = await ctx.getCurrentContent();
-    const existingComments = await readCommentsFromFile(
-      ctx.filePath,
-      currentContent,
-    );
-    const commentIndex = existingComments.findIndex((c) => c.id === id);
+    const result = await withCommentLock(ctx.filePath, async () => {
+      const existingComments = await readCommentsFromFile(
+        ctx.filePath,
+        currentContent,
+      );
+      const commentIndex = existingComments.findIndex((c) => c.id === id);
+      if (commentIndex === -1) return null;
+      const updatedComments = existingComments.map((c, i) =>
+        i === commentIndex ? { ...c, comment: commentText.trim() } : c,
+      );
+      await writeCommentsToFile(ctx.filePath, currentContent, updatedComments);
+      return updatedComments[commentIndex];
+    });
 
-    if (commentIndex === -1) {
-      return errorResponse("Comment not found", 404);
-    }
-
-    const updatedComments = existingComments.map((c, i) =>
-      i === commentIndex ? { ...c, comment: commentText.trim() } : c,
-    );
-
-    await writeCommentsToFile(ctx.filePath, currentContent, updatedComments);
-
-    return json({ comment: updatedComments[commentIndex] });
+    if (!result) return errorResponse("Comment not found", 404);
+    return json({ comment: result });
   } catch (err) {
     console.error("Failed to update comment:", err);
     return errorResponse("Failed to update comment", 500);
@@ -351,22 +366,26 @@ async function updateComment(
 async function deleteComment(ctx: RouteContext, id: string): Promise<Response> {
   try {
     const currentContent = await ctx.getCurrentContent();
-    const existingComments = await readCommentsFromFile(
-      ctx.filePath,
-      currentContent,
-    );
-    const filteredComments = existingComments.filter((c) => c.id !== id);
+    const found = await withCommentLock(ctx.filePath, async () => {
+      const existingComments = await readCommentsFromFile(
+        ctx.filePath,
+        currentContent,
+      );
+      const filteredComments = existingComments.filter((c) => c.id !== id);
+      if (filteredComments.length === existingComments.length) return false;
+      if (filteredComments.length === 0) {
+        await deleteCommentFile(ctx.filePath);
+      } else {
+        await writeCommentsToFile(
+          ctx.filePath,
+          currentContent,
+          filteredComments,
+        );
+      }
+      return true;
+    });
 
-    if (filteredComments.length === existingComments.length) {
-      return errorResponse("Comment not found", 404);
-    }
-
-    if (filteredComments.length === 0) {
-      await deleteCommentFile(ctx.filePath);
-    } else {
-      await writeCommentsToFile(ctx.filePath, currentContent, filteredComments);
-    }
-
+    if (!found) return errorResponse("Comment not found", 404);
     return json({ success: true });
   } catch (err) {
     console.error("Failed to delete comment:", err);
@@ -376,7 +395,7 @@ async function deleteComment(ctx: RouteContext, id: string): Promise<Response> {
 
 async function clearComments(ctx: RouteContext): Promise<Response> {
   try {
-    await deleteCommentFile(ctx.filePath);
+    await withCommentLock(ctx.filePath, () => deleteCommentFile(ctx.filePath));
     return json({ success: true });
   } catch (err) {
     console.error("Failed to clear comments:", err);
@@ -411,37 +430,35 @@ async function reanchorComment(
     }
 
     const currentContent = await ctx.getCurrentContent();
-    const existingComments = await readCommentsFromFile(
-      ctx.filePath,
-      currentContent,
-    );
-    const commentIndex = existingComments.findIndex((c) => c.id === id);
+    const result = await withCommentLock(ctx.filePath, async () => {
+      const existingComments = await readCommentsFromFile(
+        ctx.filePath,
+        currentContent,
+      );
+      const commentIndex = existingComments.findIndex((c) => c.id === id);
+      if (commentIndex === -1) return null;
 
-    if (commentIndex === -1) {
-      return errorResponse("Comment not found", 404);
-    }
+      const lineHint = getLineHint(currentContent, startOffset, endOffset);
+      const truncatedText = truncateSelection(selectedText);
+      const updatedComment: Comment = {
+        ...existingComments[commentIndex],
+        selectedText: truncatedText,
+        startOffset,
+        endOffset,
+        lineHint,
+        anchorConfidence: AnchorConfidences.EXACT,
+        anchorPrefix:
+          selectedText.length > 1000 ? selectedText.slice(0, 200) : undefined,
+      };
+      const updatedComments = existingComments.map((c, i) =>
+        i === commentIndex ? updatedComment : c,
+      );
+      await writeCommentsToFile(ctx.filePath, currentContent, updatedComments);
+      return updatedComment;
+    });
 
-    const lineHint = getLineHint(currentContent, startOffset, endOffset);
-    const truncatedText = truncateSelection(selectedText);
-
-    const updatedComment: Comment = {
-      ...existingComments[commentIndex],
-      selectedText: truncatedText,
-      startOffset,
-      endOffset,
-      lineHint,
-      anchorConfidence: AnchorConfidences.EXACT,
-      anchorPrefix:
-        selectedText.length > 1000 ? selectedText.slice(0, 200) : undefined,
-    };
-
-    const updatedComments = existingComments.map((c, i) =>
-      i === commentIndex ? updatedComment : c,
-    );
-
-    await writeCommentsToFile(ctx.filePath, currentContent, updatedComments);
-
-    return json({ comment: updatedComment });
+    if (!result) return errorResponse("Comment not found", 404);
+    return json({ comment: result });
   } catch (err) {
     console.error("Failed to re-anchor comment:", err);
     return errorResponse("Failed to re-anchor comment", 500);

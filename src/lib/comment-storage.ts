@@ -89,9 +89,22 @@ export function parseCommentFile(content: string): CommentFile {
   }
 
   const bodyContent = content.replace(/^---\n[\s\S]*?\n---\n*/, "");
-  const blocks = bodyContent.split(/\n---\n/).filter((block) => block.trim());
 
-  for (const block of blocks) {
+  const markerRe = /<!--\s*c:[^|]+\|[^|>\s]+(?:\|[^>]*)?\s*-->/g;
+  const markerStarts: number[] = [];
+  for (const m of bodyContent.matchAll(markerRe)) {
+    if (m.index !== undefined) markerStarts.push(m.index);
+  }
+
+  for (let i = 0; i < markerStarts.length; i++) {
+    const start = markerStarts[i];
+    const end =
+      i + 1 < markerStarts.length ? markerStarts[i + 1] : bodyContent.length;
+    const block = bodyContent
+      .slice(start, end)
+      .replace(/\n+---\s*$/, "")
+      .trim();
+    if (!block) continue;
     const comment = parseCommentBlock(block);
     if (comment) {
       result.comments.push(comment);

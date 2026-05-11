@@ -445,6 +445,39 @@ describe("serializeComments", () => {
     }
   });
 
+  it("roundtrip: survives a markdown horizontal rule inside a comment body", () => {
+    const original: CommentFile = {
+      source: "/test.md",
+      hash: "abc123",
+      version: 1,
+      comments: [
+        {
+          id: "aaaaaaaa",
+          selectedText: "first selected",
+          comment: "before\n\n---\n\nafter",
+          lineHint: "L1",
+          startOffset: 0,
+          endOffset: 14,
+        },
+        {
+          id: "bbbbbbbb",
+          selectedText: "second selected",
+          comment: "second body",
+          lineHint: "L5",
+          startOffset: 50,
+          endOffset: 65,
+        },
+      ],
+    };
+
+    const serialized = serializeComments(original);
+    const parsed = parseCommentFile(serialized);
+
+    expect(parsed.comments).toHaveLength(2);
+    expect(parsed.comments[0].id).toBe("aaaaaaaa");
+    expect(parsed.comments[1].id).toBe("bbbbbbbb");
+  });
+
   it("roundtrip: preserves anchorPrefix through serialize/parse", () => {
     const original: CommentFile = {
       source: "/test.md",
