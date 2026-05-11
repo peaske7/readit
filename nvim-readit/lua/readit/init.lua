@@ -48,6 +48,8 @@ M._server_port = nil
 M._server_job_id = nil
 --- @type table<string, boolean>
 M._attached_files = {}
+--- @type boolean
+M._browser_opened = false
 
 -- ── Setup ────────────────────────────────────────────────────────────
 
@@ -105,6 +107,8 @@ function M.start_server(file_path, callback)
   local existing = M._discover_server()
   if existing then
     M._server_port = existing.port
+    -- Assume the user already has a browser tab open on the running server.
+    M._browser_opened = true
     M._attach_file(file_path, callback)
     return
   end
@@ -174,6 +178,7 @@ function M.start_server(file_path, callback)
       M._server_job_id = nil
       M._server_port = nil
       M._attached_files = {}
+      M._browser_opened = false
       if code ~= 0 then
         vim.notify("readit: server exited with code " .. code, vim.log.levels.ERROR)
       end
@@ -234,6 +239,7 @@ function M.stop_server()
     M._server_job_id = nil
     M._server_port = nil
     M._attached_files = {}
+    M._browser_opened = false
     vim.notify("readit: server stopped", vim.log.levels.INFO)
   else
     vim.notify("readit: no server running", vim.log.levels.INFO)
@@ -257,32 +263,44 @@ end
 
 -- ── Actions ──────────────────────────────────────────────────────────
 
---- Open the current markdown buffer in readit
---- @param opts? {browser?: boolean}
+--- Open a markdown file in readit. With no `file`, opens the current buffer.
+--- @param opts? {browser?: boolean, file?: string}
 function M.open(opts)
-  opts = opts or { browser = true }
-  local bufname = vim.api.nvim_buf_get_name(0)
-
-  if bufname == "" then
-    vim.notify("readit: buffer has no file", vim.log.levels.WARN)
-    return
+  opts = opts or {}
+  if opts.browser == nil then
+    opts.browser = true
   end
 
-  if not bufname:match("%.md$") and not bufname:match("%.markdown$") then
-    vim.notify("readit: not a markdown file", vim.log.levels.WARN)
-    return
-  end
+  local file_path
+  if opts.file and opts.file ~= "" then
+    file_path = vim.fn.fnamemodify(opts.file, ":p")
+  else
+    local bufname = vim.api.nvim_buf_get_name(0)
 
-  -- Save the buffer first to ensure file watcher picks up latest
-  if vim.bo.modified then
-    vim.cmd("write")
-  end
+    if bufname == "" then
+      vim.notify("readit: buffer has no file", vim.log.levels.WARN)
+      return
+    end
 
-  local file_path = vim.fn.fnamemodify(bufname, ":p")
+    if not bufname:match("%.md$") and not bufname:match("%.markdown$") then
+      vim.notify("readit: not a markdown file", vim.log.levels.WARN)
+      return
+    end
+
+    -- Save the buffer first to ensure file watcher picks up latest
+    if vim.bo.modified then
+      vim.cmd("write")
+    end
+
+    file_path = vim.fn.fnamemodify(bufname, ":p")
+  end
 
   M.start_server(file_path, function(port)
-    if opts.browser and M.config.auto_open then
+    -- Only open a browser tab the first time; readit attaches all
+    -- subsequent files to the same server, which the existing tab renders.
+    if opts.browser and M.config.auto_open and not M._browser_opened then
       M._open_browser(port)
+      M._browser_opened = true
     end
   end)
 end
@@ -363,9 +381,22 @@ end
 -- ── Commands ─────────────────────────────────────────────────────────
 
 function M._setup_commands()
-  vim.api.nvim_create_user_command("ReaditOpen", function()
-    M.open()
-  end, { desc = "Open current markdown file in readit" })
+  vim.api.nvim_create_user_command("Readit", function(cmd_opts)
+    if cmd_opts.args == "" then
+      M.open()
+    else
+      M.open({ file = cmd_opts.args })
+    end
+  end, {
+    nargs = "?",
+    complete = function(_, _, _)
+      local files = vim.fn.glob("**/*.md", false, true)
+      local markdown_files = vim.fn.glob("**/*.markdown", false, true)
+      vim.list_extend(files, markdown_files)
+      return files
+    end,
+    desc = "Open markdown file in readit (current buffer if no arg)",
+  })
 
   vim.api.nvim_create_user_command("ReaditStop", function()
     M.stop_server()
@@ -382,30 +413,6 @@ function M._setup_commands()
   vim.api.nvim_create_user_command("ReaditList", function()
     M.list_comments()
   end, { desc = "List files with readit comments" })
-
-  vim.api.nvim_create_user_command("ReaditOpenFile", function(cmd_opts)
-    local file = cmd_opts.args
-    if file == "" then
-      vim.notify("readit: specify a file path", vim.log.levels.WARN)
-      return
-    end
-    local abs = vim.fn.fnamemodify(file, ":p")
-    M.start_server(abs, function(port)
-      if M.config.auto_open then
-        M._open_browser(port)
-      end
-    end)
-  end, {
-    nargs = 1,
-    complete = function(_, cmd_line, _)
-      -- Complete markdown files
-      local files = vim.fn.glob("**/*.md", false, true)
-      local markdown_files = vim.fn.glob("**/*.markdown", false, true)
-      vim.list_extend(files, markdown_files)
-      return files
-    end,
-    desc = "Open a specific file in readit",
-  })
 end
 
 -- ── Keymaps ──────────────────────────────────────────────────────────

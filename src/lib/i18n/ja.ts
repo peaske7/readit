@@ -123,4 +123,8 @@ export const ja: Translations = {
   "mermaid.showSource": "ソースを表示",
   "mermaid.showDiagram": "図を表示",
   "mermaid.expand": "拡大表示",
+  "mermaid.zoomIn": "拡大",
+  "mermaid.zoomOut": "縮小",
+  "mermaid.zoomFit": "画面に合わせる",
+  "mermaid.zoomReset": "ズームをリセット",
 };

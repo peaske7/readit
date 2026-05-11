@@ -18,6 +18,7 @@ let {
   onTextSelect,
   onHighlightHover,
   onHighlightClick,
+  onTaskToggle,
   registerHighlighter,
   unregisterHighlighter,
   positions,
@@ -33,6 +34,7 @@ let {
   ) => void;
   onHighlightHover?: (commentId: string | undefined) => void;
   onHighlightClick?: (commentId: string) => void;
+  onTaskToggle?: (index: number, checked: boolean) => Promise<boolean>;
   registerHighlighter: (
     setFocused: (id: string | undefined) => void,
     scrollToComment: (id: string) => void,
@@ -146,6 +148,46 @@ onMount(() => {
     onTextSelect(text, startOffset, endOffset, 0);
   };
   window.addEventListener("test:select-text", handleTestSelect);
+
+  const handleTaskClick = async (e: MouseEvent) => {
+    const target = e.target as HTMLElement | null;
+    const box = target?.closest?.(".task-checkbox") as HTMLElement | null;
+    if (!box || !onTaskToggle) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const idxAttr = box.getAttribute("data-task-index");
+    if (idxAttr === null) return;
+    const idx = Number(idxAttr);
+    if (!Number.isFinite(idx)) return;
+
+    const wasChecked = box.getAttribute("data-checked") === "true";
+    const nextChecked = !wasChecked;
+    const nextStr = nextChecked ? "true" : "false";
+
+    // Optimistic update — the file-watch + SSE round trip will re-render
+    // with authoritative state shortly after.
+    box.setAttribute("data-checked", nextStr);
+    box.setAttribute("aria-checked", nextStr);
+
+    const ok = await onTaskToggle(idx, nextChecked);
+    if (!ok) {
+      const revert = wasChecked ? "true" : "false";
+      box.setAttribute("data-checked", revert);
+      box.setAttribute("aria-checked", revert);
+    }
+  };
+
+  const handleTaskKey = (e: KeyboardEvent) => {
+    if (e.key !== " " && e.key !== "Enter") return;
+    const target = e.target as HTMLElement | null;
+    if (!target?.classList.contains("task-checkbox")) return;
+    e.preventDefault();
+    target.click();
+  };
+
+  contentEl!.addEventListener("click", handleTaskClick);
+  contentEl!.addEventListener("keydown", handleTaskKey);
 
   document.documentElement.dataset.readitReady = "true";
 

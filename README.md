@@ -86,12 +86,12 @@ The `nvim-readit` plugin lets you open markdown files in readit directly from Ne
 
 | Command | Keymap | Description |
 |---|---|---|
-| `:ReaditOpen` | `<leader>ro` | Open current buffer in readit |
+| `:Readit` | `<leader>ro` | Open current buffer in readit |
+| `:Readit <path>` | -- | Open a specific file in readit |
 | `:ReaditReload` | `<leader>rr` | Save and reload in browser |
 | `:ReaditStop` | `<leader>rq` | Stop the readit server |
 | `:ReaditStatus` | `<leader>ri` | Show server status |
 | `:ReaditList` | `<leader>rl` | Pick from files with comments |
-| `:ReaditOpenFile <path>` | -- | Open a specific file |
 
 ### Configuration
 
@@ -100,7 +100,7 @@ require("readit").setup({
   bun_path = "bun",           -- Path to bun executable
   port = 0,                   -- 0 = auto-select free port
   host = "127.0.0.1",
-  auto_open = true,           -- Open browser on :ReaditOpen
+  auto_open = true,           -- Open browser on :Readit (once per server)
   keymap_prefix = "<leader>r", -- Change keymap prefix
 })
 ```

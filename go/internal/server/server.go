@@ -53,6 +53,9 @@ type Server struct {
 	commentFileMu    sync.Mutex
 	commentFileLocks map[string]*sync.Mutex
 
+	sourceFileMu    sync.Mutex
+	sourceFileLocks map[string]*sync.Mutex
+
 	httpServer *http.Server
 }
 
@@ -79,6 +82,7 @@ func NewServer(opts Options) (*Server, error) {
 		isDev:            opts.Dev,
 		commentCache:     make(map[string]*resolvedCacheEntry),
 		commentFileLocks: make(map[string]*sync.Mutex),
+		sourceFileLocks:  make(map[string]*sync.Mutex),
 	}
 
 	if loaded, err := ReadSettings(); err == nil {
@@ -121,6 +125,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/documents", s.listDocuments)
 	s.mux.HandleFunc("POST /api/documents", s.addDocument)
 	s.mux.HandleFunc("GET /api/document", s.getDocument)
+	s.mux.HandleFunc("PATCH /api/document/task", s.toggleTask)
 
 	s.mux.HandleFunc("GET /api/comments/raw", s.rawComments)
 	s.mux.HandleFunc("GET /api/comments", s.listComments)

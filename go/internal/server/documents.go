@@ -3,8 +3,10 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 func (s *Server) listDocuments(w http.ResponseWriter, r *http.Request) {
@@ -111,3 +113,107 @@ func isMarkdownFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	return ext == ".md" || ext == ".markdown"
 }
+
+func (s *Server) sourceLock(path string) *sync.Mutex {
+	s.sourceFileMu.Lock()
+	defer s.sourceFileMu.Unlock()
+	mu, ok := s.sourceFileLocks[path]
+	if !ok {
+		mu = &sync.Mutex{}
+		s.sourceFileLocks[path] = mu
+	}
+	return mu
+}
+
+func (s *Server) toggleTask(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Path    string `json:"path"`
+		Index   int    `json:"index"`
+		Checked bool   `json:"checked"`
+	}
+	if err := readJSON(r, &body); err != nil || body.Path == "" {
+		writeError(w, http.StatusBadRequest, "path and index are required")
+		return
+	}
+
+	absPath, err := filepath.Abs(body.Path)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid path")
+		return
+	}
+	if resolved, err := filepath.EvalSymlinks(absPath); err == nil {
+		absPath = resolved
+	}
+
+	// Only allow toggling tasks in files we've explicitly loaded — prevents
+	// arbitrary writes to the filesystem via this endpoint.
+	s.mu.RLock()
+	state := s.files[absPath]
+	s.mu.RUnlock()
+	if state == nil {
+		writeError(w, http.StatusNotFound, "file not loaded")
+		return
+	}
+
+	// Serialize concurrent task toggles for the same file. Without this, two
+	// rapid clicks each do read → modify → write from the same on-disk state,
+	// and the second write clobbers the first.
+	lock := s.sourceLock(absPath)
+	lock.Lock()
+	defer lock.Unlock()
+
+	current, err := os.ReadFile(absPath)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "read failed")
+		return
+	}
+
+	updated, ok := ToggleTaskInSource(string(current), body.Index, body.Checked)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "task index out of range")
+		return
+	}
+	if updated == string(current) {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "unchanged"})
+		return
+	}
+
+	if err := atomicWriteFile(absPath, []byte(updated)); err != nil {
+		writeError(w, http.StatusInternalServerError, "write failed")
+		return
+	}
+
+	// The file watcher will pick up the change, re-render, and broadcast SSE.
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// atomicWriteFile writes to a temp file in the same directory, then renames
+// over the target. This avoids partial writes if the process is interrupted.
+func atomicWriteFile(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	base := filepath.Base(path)
+	tmp, err := os.CreateTemp(dir, "."+base+".*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	// preserve original mode if possible
+	if info, err := os.Stat(path); err == nil {
+		_ = os.Chmod(path, info.Mode())
+	}
+	return nil
+}
+

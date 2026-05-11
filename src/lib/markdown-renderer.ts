@@ -116,6 +116,74 @@ interface RenderResult {
   headings: Heading[];
 }
 
+const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
+
+function extractFrontmatter(src: string): {
+  rest: string;
+  frontmatter: string;
+} {
+  const match = src.match(FRONTMATTER_RE);
+  if (!match) return { rest: src, frontmatter: "" };
+  return { rest: src.slice(match[0].length), frontmatter: match[1].trim() };
+}
+
+function renderFrontmatterBlock(
+  yaml: string,
+  md: MarkdownIt,
+  shiki: HighlighterGeneric<BundledLanguage, BundledTheme>,
+): string {
+  const highlighted = shiki.getLoadedLanguages().includes("yaml")
+    ? shiki.codeToHtml(yaml, { lang: "yaml", theme: SHIKI_THEME })
+    : `<pre><code class="language-yaml">${md.utils.escapeHtml(yaml)}</code></pre>`;
+  return `<details class="frontmatter"><summary>Properties</summary>${highlighted}</details>`;
+}
+
+const TASK_ITEM_RE = /<li>(\s*(?:<p>)?)\[([ xX])\]\s/g;
+
+function transformTaskLists(html: string): string {
+  let idx = 0;
+  return html.replace(TASK_ITEM_RE, (_match, prefix: string, mark: string) => {
+    const checked = mark === " " ? "false" : "true";
+    const span = `<span class="task-checkbox" data-checked="${checked}" data-task-index="${idx}" role="checkbox" aria-checked="${checked}" tabindex="0"></span>`;
+    idx++;
+    return `<li>${prefix}${span}`;
+  });
+}
+
+const TS_TASK_ITEM_RE = /^(\s*[-*+]\s+)\[([ xX])\](\s)/gm;
+const TS_FENCED_CODE_RE = /^(?:```|~~~)[^\n]*\n[\s\S]*?\n(?:```|~~~)[ \t]*$/gm;
+
+function maskCodeBlocks(src: string): string {
+  return src.replace(TS_FENCED_CODE_RE, (m) => m.replace(/[^\n]/g, "X"));
+}
+
+export function toggleTaskInSource(
+  src: string,
+  index: number,
+  checked: boolean,
+): string | null {
+  const { rest } = extractFrontmatter(src);
+  const prefixLen = src.length - rest.length;
+
+  const masked = maskCodeBlocks(rest);
+  const matches: { markIndex: number }[] = [];
+  TS_TASK_ITEM_RE.lastIndex = 0;
+  let m: RegExpExecArray | null = TS_TASK_ITEM_RE.exec(masked);
+  while (m !== null) {
+    // Group layout: [full, prefix, mark, trailing]; the mark sits at the
+    // position of group 2 inside the overall match.
+    const markIndex = m.index + m[1].length + 1; // skip the `[`
+    matches.push({ markIndex });
+    m = TS_TASK_ITEM_RE.exec(masked);
+  }
+
+  if (index < 0 || index >= matches.length) return null;
+
+  const markPos = prefixLen + matches[index].markIndex;
+  const newMark = checked ? "x" : " ";
+  return src.slice(0, markPos) + newMark + src.slice(markPos + 1);
+}
+
 const MERMAID_BLOCK_RE =
   /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g;
 
@@ -167,12 +235,19 @@ export async function renderMarkdown(content: string): Promise<RenderResult> {
   const shiki = await getShiki();
   const md = createMarkdownRenderer(shiki);
 
-  const headings = parseMarkdownHeadings(content);
+  const { rest, frontmatter } = extractFrontmatter(content);
 
-  let html = md.render(content);
+  const headings = parseMarkdownHeadings(rest);
+
+  let html = md.render(rest);
 
   html = injectHeadingIds(html, headings);
   html = await replaceMermaidBlocks(html);
+  html = transformTaskLists(html);
+
+  if (frontmatter) {
+    html = renderFrontmatterBlock(frontmatter, md, shiki) + html;
+  }
 
   return { html, headings };
 }

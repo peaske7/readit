@@ -72,6 +72,33 @@ function getPositions(filePath: string): Positions {
   return pos;
 }
 
+// Tracks the last successful task PATCH per file so we can ignore the
+// matching SSE round-trip — the optimistic DOM update is already correct,
+// and a full innerHTML swap would clobber it (visible as a "revert" flicker).
+const recentTaskPatches = new Map<string, number>();
+const TASK_PATCH_SSE_DEBOUNCE_MS = 800;
+
+async function toggleTask(
+  filePath: string,
+  index: number,
+  checked: boolean,
+): Promise<boolean> {
+  try {
+    const res = await fetch("/api/document/task", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: filePath, index, checked }),
+    });
+    if (res.ok) {
+      recentTaskPatches.set(filePath, Date.now());
+    }
+    return res.ok;
+  } catch (err) {
+    console.error("Failed to toggle task:", err);
+    return false;
+  }
+}
+
 async function addComment(
   filePath: string,
   selectedText: string,
@@ -483,6 +510,17 @@ function setupDocumentStream() {
           const state = app.documents.get(path);
           if (!state?.document.html) return;
 
+          // Skip if we just initiated a task PATCH — the optimistic update is
+          // authoritative for our own click; refetching would flicker.
+          const lastPatch = recentTaskPatches.get(path);
+          if (
+            lastPatch !== undefined &&
+            Date.now() - lastPatch < TASK_PATCH_SSE_DEBOUNCE_MS
+          ) {
+            recentTaskPatches.delete(path);
+            return;
+          }
+
           // Fetch updated document and comments in parallel
           const [docRes, commentsRes] = await Promise.all([
             fetch(`/api/document?path=${encodeURIComponent(path)}`),
@@ -800,6 +838,7 @@ onDestroy(() => {
                     entry?.setFocused(id);
                   }}
                   onHighlightClick={handleHighlightClick}
+                  onTaskToggle={(index, checked) => toggleTask(filePath, index, checked)}
                   registerHighlighter={(focused, scrollTo) => registerHighlighter(filePath, focused, scrollTo)}
                   unregisterHighlighter={() => unregisterHighlighter(filePath)}
                   positions={getPositions(filePath)}

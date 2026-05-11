@@ -48,7 +48,7 @@ function M.check()
   if readit._server_port then
     vim.health.ok("Server running on port " .. readit._server_port)
   else
-    vim.health.info("Server not running (will start on :ReaditOpen)")
+    vim.health.info("Server not running (will start on :Readit)")
   end
 
   -- Check for comments directory

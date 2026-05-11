@@ -231,7 +231,7 @@
 
 **Acceptance Criteria:**
 
-- `:ReaditOpen` starts server and opens current buffer in browser
+- `:Readit` starts server and opens current buffer in browser (only opens a new tab on first call per server)
 - `:ReaditStop` stops the server
 - `:ReaditReload` saves buffer and triggers browser refresh
 - `:ReaditStatus` shows server info

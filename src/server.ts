@@ -16,7 +16,11 @@ import {
 import { findTextPosition } from "./lib/highlight/resolver.js";
 import { extractTextFromHtml } from "./lib/html-text.js";
 import { createKeyLock } from "./lib/key-lock.js";
-import { getShiki, renderMarkdown } from "./lib/markdown-renderer.js";
+import {
+  getShiki,
+  renderMarkdown,
+  toggleTaskInSource,
+} from "./lib/markdown-renderer.js";
 import { disposeMermaidWorker } from "./lib/mermaid-renderer.js";
 import { isMarkdownFile } from "./lib/utils.js";
 import {
@@ -63,6 +67,7 @@ function invalidateResolvedComments(filePath: string): void {
 }
 
 const withCommentLock = createKeyLock("comments");
+const withSourceLock = createKeyLock("source");
 
 async function canonicalPath(filePath: string): Promise<string> {
   return fs.realpath(path.resolve(filePath));
@@ -1063,6 +1068,59 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         } catch (err) {
           console.error("Failed to add document:", err);
           return errorResponse("Failed to add document", 500);
+        }
+      }
+
+      if (pathname === "/api/document/task" && method === "PATCH") {
+        try {
+          const body = (await req.json()) as {
+            path?: string;
+            index?: number;
+            checked?: boolean;
+          };
+          if (
+            !body?.path ||
+            typeof body.index !== "number" ||
+            typeof body.checked !== "boolean"
+          ) {
+            return errorResponse("path, index, checked required", 400);
+          }
+
+          let filePath: string;
+          try {
+            filePath = await canonicalPath(body.path);
+          } catch {
+            return errorResponse("file not loaded", 404);
+          }
+          if (!fileMap.has(filePath)) {
+            return errorResponse("file not loaded", 404);
+          }
+
+          // Serialize per-file: rapid clicks otherwise race on read-modify-write.
+          const result = await withSourceLock(filePath, async () => {
+            const current = await fs.readFile(filePath, "utf-8");
+            const updated = toggleTaskInSource(
+              current,
+              body.index!,
+              body.checked!,
+            );
+            if (updated === null) return { status: 400 as const };
+            if (updated === current)
+              return { status: 200 as const, body: { status: "unchanged" } };
+
+            const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+            await fs.writeFile(tmpPath, updated, "utf-8");
+            await fs.rename(tmpPath, filePath);
+            return { status: 200 as const, body: { status: "ok" } };
+          });
+
+          if (result.status === 400) {
+            return errorResponse("task index out of range", 400);
+          }
+          return json(result.body);
+        } catch (err) {
+          console.error("Failed to toggle task:", err);
+          return errorResponse("toggle failed", 500);
         }
       }
 

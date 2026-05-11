@@ -533,9 +533,75 @@ html {
   margin: 3em 0;
 }
 
-/* Task lists (checkboxes) */
-.prose input[type="checkbox"] {
-  margin-right: 0.5em;
+/* Task lists (checkboxes) — styled span, no real <input>.
+   The visual square is 1em; a ::before pseudo extends the click target so
+   imprecise clicks still register. */
+.prose .task-checkbox {
+  position: relative;
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.6em;
+  vertical-align: -0.15em;
+  border: 1.5px solid var(--prose-blockquote-border);
+  border-radius: 0.25em;
+  background: transparent;
+  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+/* Invisible hit-area expansion — extends ~0.4em past the visible border
+   so users don't have to pixel-hunt the 16x16 box. */
+.prose .task-checkbox::before {
+  content: "";
+  position: absolute;
+  inset: -0.4em;
+}
+
+.prose .task-checkbox:hover {
+  border-color: var(--prose-links);
+}
+
+.prose .task-checkbox:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--prose-links);
+}
+
+.prose .task-checkbox[data-checked="true"] {
+  background: var(--prose-links);
+  border-color: var(--prose-links);
+}
+
+.prose .task-checkbox[data-checked="true"]::after {
+  content: "";
+  position: absolute;
+  left: 0.22em;
+  top: 0.04em;
+  width: 0.32em;
+  height: 0.58em;
+  border: solid #fff;
+  border-width: 0 0.14em 0.14em 0;
+  transform: rotate(45deg);
+}
+
+/* Row dimming for completed items — uses :has(), supported in all modern
+   browsers we target (Chromium 105+, Safari 15.4+, Firefox 121+). */
+.prose li:has(> .task-checkbox[data-checked="true"]) {
+  color: var(--prose-blockquote);
+  text-decoration: line-through;
+  text-decoration-color: var(--prose-blockquote-border);
+}
+
+/* Hide list bullets on task items */
+.prose ul > li:has(> .task-checkbox) {
+  list-style: none;
+  margin-left: -1.25em;
 }
 
 /* Images */
@@ -633,6 +699,36 @@ html {
 
 .prose details > *:not(summary) {
   margin-left: 0;
+}
+
+/* Frontmatter "Properties" block — quieter than regular collapsibles */
+.prose details.frontmatter {
+  margin: 0 0 2em 0;
+  border: 1px solid var(--prose-border);
+  border-radius: 0.375em;
+  padding: 0 0.875em;
+  font-size: 0.9em;
+}
+
+.prose details.frontmatter summary {
+  color: var(--prose-blockquote);
+  font-weight: 500;
+  font-size: 0.9em;
+  letter-spacing: 0.01em;
+  padding: 0.5em 0;
+}
+
+.prose details.frontmatter[open] summary {
+  margin-bottom: 0.25em;
+}
+
+.prose details.frontmatter pre {
+  margin: 0 0 0.75em 0;
+  font-size: 0.85em;
+  /* Chroma's onedark style applies an inline background; override so the
+     YAML blends into the surrounding details block. */
+  background: transparent !important;
+  padding: 0 !important;
 }
 
 /* ========================================
@@ -826,17 +922,51 @@ html {
 .mermaid-modal-graph {
   margin: 0;
   padding: 0;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-block;
 }
 
 .mermaid-modal-graph > svg {
-  max-width: 100%;
-  max-height: 80vh;
+  /* Render at natural size; the zoom stage handles scaling. */
+  max-width: none;
+  max-height: none;
   width: auto;
   height: auto;
+  display: block;
+}
+
+/* Zoom + pan container for the expanded mermaid diagram */
+.mermaid-zoom-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  background-image: radial-gradient(
+    circle,
+    var(--mermaid-grid) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+  background-position: 0 0;
+  border-radius: 0.5rem;
+}
+
+.mermaid-zoom-viewport.is-panning {
+  cursor: grabbing;
+}
+
+.mermaid-zoom-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.mermaid-zoom-stage svg {
+  pointer-events: none;
 }
 
 /* ========================================

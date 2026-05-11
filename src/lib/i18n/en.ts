@@ -121,4 +121,8 @@ export const en: Translations = {
   "mermaid.showSource": "Show source",
   "mermaid.showDiagram": "Show diagram",
   "mermaid.expand": "Expand diagram",
+  "mermaid.zoomIn": "Zoom in",
+  "mermaid.zoomOut": "Zoom out",
+  "mermaid.zoomFit": "Fit to screen",
+  "mermaid.zoomReset": "Reset zoom",
 };

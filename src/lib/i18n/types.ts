@@ -125,6 +125,10 @@ export interface Translations {
   "mermaid.showSource": string;
   "mermaid.showDiagram": string;
   "mermaid.expand": string;
+  "mermaid.zoomIn": string;
+  "mermaid.zoomOut": string;
+  "mermaid.zoomFit": string;
+  "mermaid.zoomReset": string;
 }
 
 export type TranslationKey = keyof Translations;
