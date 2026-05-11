@@ -13,6 +13,16 @@
   ],
   "type": "module",
   "main": "./dist/index.js",
+  "bin": {
+    "readit": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "shell"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "NODE_ENV=development bun --watch src/cli.ts --",
     "dev:client": "bunx vite",
