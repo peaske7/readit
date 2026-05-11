@@ -1,11 +1,11 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import { cn } from "../lib/utils";
 import {
   eventToBinding,
   formatBinding,
   isReservedBinding,
 } from "../lib/shortcut-registry";
+import { cn } from "../lib/utils";
 import type { ShortcutBinding } from "../schema";
 import { t } from "../stores/locale.svelte";
 

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -150,19 +151,19 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 	if data, err := os.ReadFile(commentPath); err == nil {
 		parsed, parseErr := ParseCommentFile(data)
 		if parseErr != nil {
-			writeError(w, http.StatusInternalServerError, "failed to parse existing comment file")
+			writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to parse existing comment file: %v", parseErr))
 			return
 		}
 		cf = parsed
 	} else if !os.IsNotExist(err) {
-		writeError(w, http.StatusInternalServerError, "failed to read comment file")
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to read comment file: %v", err))
 		return
 	}
 	cf.Hash = ComputeHash(state.Content)
 	cf.Comments = append(cf.Comments, c)
 
 	if err := WriteCommentFile(commentPath, cf); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to save comment")
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to save comment: %v", err))
 		return
 	}
 	s.invalidateCommentCache(path)

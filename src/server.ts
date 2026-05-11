@@ -307,7 +307,8 @@ async function addComment(ctx: RouteContext, req: Request): Promise<Response> {
     return json({ comment: newComment }, 201);
   } catch (err) {
     console.error("Failed to add comment:", err);
-    return errorResponse("Failed to add comment", 500);
+    const detail = err instanceof Error ? err.message : String(err);
+    return errorResponse(`Failed to add comment: ${detail}`, 500);
   }
 }
 
@@ -880,7 +881,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 
   function watchFile(targetPath: string): FSWatcher | null {
     try {
-      let watcher = watch(targetPath, async (eventType) => {
+      const watcher = watch(targetPath, async (eventType) => {
         // Handle both "change" and "rename" events.
         // Many editors (Vim, Neovim, Emacs) save files by writing to a temp
         // file and then renaming it over the original. This triggers a

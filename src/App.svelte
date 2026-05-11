@@ -1,5 +1,15 @@
 <script lang="ts">
 import { onDestroy, onMount, untrack } from "svelte";
+import CommentErrorBanner from "./components/CommentErrorBanner.svelte";
+import CommentInput from "./components/CommentInput.svelte";
+import CommentNav from "./components/CommentNav.svelte";
+import DocumentViewer from "./components/DocumentViewer.svelte";
+import FloatingComment from "./components/FloatingComment.svelte";
+import Header from "./components/Header.svelte";
+import MarginNotesContainer from "./components/MarginNotesContainer.svelte";
+import ReanchorConfirm from "./components/ReanchorConfirm.svelte";
+import TabBar from "./components/TabBar.svelte";
+import TableOfContents from "./components/TableOfContents.svelte";
 import {
   exportCommentsAsJson,
   formatComment,
@@ -23,23 +33,14 @@ import {
   setWorkingDirectory,
   updateDocumentHtml,
 } from "./stores/app.svelte";
+import { t } from "./stores/locale.svelte";
 import { initSettings } from "./stores/settings.svelte";
 import { initShortcuts, shortcutState } from "./stores/shortcuts.svelte";
-import { t } from "./stores/locale.svelte";
 import {
-  setHoveredCommentId,
   setActiveCommentId,
+  setHoveredCommentId,
   ui,
 } from "./stores/ui.svelte";
-import CommentInput from "./components/CommentInput.svelte";
-import CommentNav from "./components/CommentNav.svelte";
-import DocumentViewer from "./components/DocumentViewer.svelte";
-import FloatingComment from "./components/FloatingComment.svelte";
-import Header from "./components/Header.svelte";
-import MarginNotesContainer from "./components/MarginNotesContainer.svelte";
-import ReanchorConfirm from "./components/ReanchorConfirm.svelte";
-import TabBar from "./components/TabBar.svelte";
-import TableOfContents from "./components/TableOfContents.svelte";
 
 let isInitialized = $state(false);
 let error = $state<string | null>(null);
@@ -106,8 +107,11 @@ async function addComment(
         }),
       },
     );
-    if (!response.ok)
-      throw new Error(`Failed to add comment: ${response.statusText}`);
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      const detail = body?.error ?? response.statusText;
+      throw new Error(detail);
+    }
     const data = await response.json();
     const current = app.documents.get(filePath)?.comments ?? [];
     setComments(
@@ -756,6 +760,11 @@ onDestroy(() => {
               ondeleteall={() => deleteAllComments(filePath)}
               onnavigate={navigateToComment}
               onstartreanchor={(id) => startReanchor(filePath, id)}
+            />
+
+            <CommentErrorBanner
+              error={docState.commentsError}
+              ondismiss={() => setCommentsError(null, filePath)}
             />
 
             <div class="flex-1 flex gap-4 w-full max-w-7xl mx-auto overflow-x-hidden">

@@ -2,18 +2,18 @@
 import { Check, ChevronDown } from "lucide-svelte";
 import { type Locale, Locales } from "../lib/i18n";
 import { cn } from "../lib/utils";
-import { type FontFamily, FontFamilies, ThemeModes } from "../schema";
+import { FontFamilies, type FontFamily, ThemeModes } from "../schema";
 import { localeState, setLocale, t } from "../stores/locale.svelte";
 import {
   settings,
   updateFontFamily,
   updateThemeMode,
 } from "../stores/settings.svelte";
+import ShortcutList from "./ShortcutList.svelte";
 import Dialog from "./ui/Dialog.svelte";
 import DropdownMenu from "./ui/DropdownMenu.svelte";
 import DropdownMenuItem from "./ui/DropdownMenuItem.svelte";
 import Text from "./ui/Text.svelte";
-import ShortcutList from "./ShortcutList.svelte";
 
 interface Props {
   open: boolean;

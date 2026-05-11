@@ -781,7 +781,7 @@ function generateInlineZshCompletion(): string {
 
 _readit_markdown_files() {
   local -a files
-  files=( \${(f)"\$(find . -type f \\( -name '*.md' -o -name '*.markdown' \\) -not -path '*/\\.*' -not -path '*/node_modules/*' 2>/dev/null | sed 's|^\\./||')"} )
+  files=( \${(f)"$(find . -type f \\( -name '*.md' -o -name '*.markdown' \\) -not -path '*/\\.*' -not -path '*/node_modules/*' 2>/dev/null | sed 's|^\\./||')"} )
   _describe -t files 'markdown files' files
 }
 
@@ -825,22 +825,22 @@ _readit_completions() {
   commands="open list show completion"
 
   if [[ \${COMP_CWORD} -eq 1 ]]; then
-    COMPREPLY=( \$(compgen -W "\${commands}" -- "\${cur}") )
+    COMPREPLY=( $(compgen -W "\${commands}" -- "\${cur}") )
     # Also complete markdown files
-    local files=\$(find . -type f \\( -name '*.md' -o -name '*.markdown' \\) \\
+    local files=$(find . -type f \\( -name '*.md' -o -name '*.markdown' \\) \\
       -not -path '*/.*' -not -path '*/node_modules/*' 2>/dev/null | sed 's|^\\./||')
-    COMPREPLY+=( \$(compgen -W "\${files}" -- "\${cur}") )
+    COMPREPLY+=( $(compgen -W "\${files}" -- "\${cur}") )
     return 0
   fi
 
   case "\${COMP_WORDS[1]}" in
     open|show)
-      local files=\$(find . -type f \\( -name '*.md' -o -name '*.markdown' \\) \\
+      local files=$(find . -type f \\( -name '*.md' -o -name '*.markdown' \\) \\
         -not -path '*/.*' -not -path '*/node_modules/*' 2>/dev/null | sed 's|^\\./||')
-      COMPREPLY=( \$(compgen -W "\${files}" -- "\${cur}") )
+      COMPREPLY=( $(compgen -W "\${files}" -- "\${cur}") )
       ;;
     completion)
-      COMPREPLY=( \$(compgen -W "zsh bash fish" -- "\${cur}") )
+      COMPREPLY=( $(compgen -W "zsh bash fish" -- "\${cur}") )
       ;;
   esac
   return 0
