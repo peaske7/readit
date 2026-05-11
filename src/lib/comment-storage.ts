@@ -116,13 +116,14 @@ export function parseCommentFile(content: string): CommentFile {
 
 function parseCommentBlock(block: string): Comment | undefined {
   const metadataMatch = block.match(
-    /<!--\s*c:([^|]+)\|([^|>\s]+)(?:\|[^>]*)?\s*-->/,
+    /<!--\s*c:([^|]+)\|([^|>\s]+)(?:\|([^>]*))?\s*-->/,
   );
   if (!metadataMatch) {
     return undefined;
   }
 
-  const [, id, lineHint] = metadataMatch;
+  const [, id, lineHint, createdAtRaw] = metadataMatch;
+  const createdAt = createdAtRaw?.trim() || undefined;
 
   const anchorMatch = block.match(/<!--\s*anchor:(.+?)\s*-->/);
   const anchorPrefix = anchorMatch ? anchorMatch[1] : undefined;
@@ -147,6 +148,7 @@ function parseCommentBlock(block: string): Comment | undefined {
     selectedText,
     comment: commentBody,
     lineHint,
+    createdAt,
     anchorPrefix,
     startOffset: 0,
     endOffset: 0,
@@ -177,7 +179,8 @@ function serializeComment(comment: Comment): string {
   const lines: string[] = [];
 
   const lineHint = comment.lineHint || "L0";
-  lines.push(`<!-- c:${comment.id}|${lineHint} -->`);
+  const createdAt = comment.createdAt || new Date().toISOString();
+  lines.push(`<!-- c:${comment.id}|${lineHint}|${createdAt} -->`);
 
   if (comment.anchorPrefix) {
     lines.push(`<!-- anchor:${comment.anchorPrefix} -->`);
@@ -215,6 +218,7 @@ export function createComment(
     startOffset,
     endOffset,
     lineHint,
+    createdAt: new Date().toISOString(),
     anchorPrefix: needsTruncation
       ? selectedText.slice(0, ANCHOR_PREFIX_LENGTH)
       : undefined,

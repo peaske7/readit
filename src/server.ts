@@ -15,6 +15,7 @@ import {
 } from "./lib/comment-storage.js";
 import { findTextPosition } from "./lib/highlight/resolver.js";
 import { extractTextFromHtml } from "./lib/html-text.js";
+import { createKeyLock } from "./lib/key-lock.js";
 import { getShiki, renderMarkdown } from "./lib/markdown-renderer.js";
 import { disposeMermaidWorker } from "./lib/mermaid-renderer.js";
 import { isMarkdownFile } from "./lib/utils.js";
@@ -61,20 +62,7 @@ function invalidateResolvedComments(filePath: string): void {
   resolvedCommentsCache.delete(filePath);
 }
 
-const commentWriteLocks = new Map<string, Promise<unknown>>();
-
-function withCommentLock<T>(
-  filePath: string,
-  fn: () => Promise<T>,
-): Promise<T> {
-  const prev = commentWriteLocks.get(filePath) ?? Promise.resolve();
-  const next = prev.catch(() => {}).then(fn);
-  commentWriteLocks.set(
-    filePath,
-    next.catch(() => {}),
-  );
-  return next;
-}
+const withCommentLock = createKeyLock("comments");
 
 async function canonicalPath(filePath: string): Promise<string> {
   return fs.realpath(path.resolve(filePath));
@@ -261,6 +249,15 @@ function errorResponse(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
 }
 
+function errorWithDetail(
+  message: string,
+  err: unknown,
+  status = 500,
+): Response {
+  const detail = err instanceof Error ? err.message : String(err);
+  return errorResponse(`${message}: ${detail}`, status);
+}
+
 interface RouteContext {
   filePath: string;
   getCurrentContent: () => Promise<string>;
@@ -323,8 +320,7 @@ async function addComment(ctx: RouteContext, req: Request): Promise<Response> {
     return json({ comment: newComment }, 201);
   } catch (err) {
     console.error("Failed to add comment:", err);
-    const detail = err instanceof Error ? err.message : String(err);
-    return errorResponse(`Failed to add comment: ${detail}`, 500);
+    return errorWithDetail("Failed to add comment", err);
   }
 }
 
@@ -359,7 +355,7 @@ async function updateComment(
     return json({ comment: result });
   } catch (err) {
     console.error("Failed to update comment:", err);
-    return errorResponse("Failed to update comment", 500);
+    return errorWithDetail("Failed to update comment", err);
   }
 }
 
@@ -389,7 +385,7 @@ async function deleteComment(ctx: RouteContext, id: string): Promise<Response> {
     return json({ success: true });
   } catch (err) {
     console.error("Failed to delete comment:", err);
-    return errorResponse("Failed to delete comment", 500);
+    return errorWithDetail("Failed to delete comment", err);
   }
 }
 
@@ -399,7 +395,7 @@ async function clearComments(ctx: RouteContext): Promise<Response> {
     return json({ success: true });
   } catch (err) {
     console.error("Failed to clear comments:", err);
-    return errorResponse("Failed to clear comments", 500);
+    return errorWithDetail("Failed to clear comments", err);
   }
 }
 
@@ -461,7 +457,7 @@ async function reanchorComment(
     return json({ comment: result });
   } catch (err) {
     console.error("Failed to re-anchor comment:", err);
-    return errorResponse("Failed to re-anchor comment", 500);
+    return errorWithDetail("Failed to re-anchor comment", err);
   }
 }
 

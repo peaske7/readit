@@ -15,6 +15,7 @@ import {
   formatComment,
   generatePrompt,
 } from "./lib/export";
+import { fetchOrThrow } from "./lib/fetch-or-throw";
 import { Positions } from "./lib/positions";
 import { matchesBinding, ShortcutActions } from "./lib/shortcut-registry";
 import { AnchorConfidences, type Comment } from "./schema";
@@ -94,7 +95,7 @@ async function addComment(
   setCommentsError(null, filePath);
 
   try {
-    const response = await fetch(
+    const response = await fetchOrThrow(
       `/api/comments?path=${encodeURIComponent(filePath)}`,
       {
         method: "POST",
@@ -106,12 +107,8 @@ async function addComment(
           endOffset,
         }),
       },
+      "Failed to add comment",
     );
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      const detail = body?.error ?? response.statusText;
-      throw new Error(detail);
-    }
     const data = await response.json();
     const current = app.documents.get(filePath)?.comments ?? [];
     setComments(
@@ -140,19 +137,23 @@ async function editComment(filePath: string, id: string, newText: string) {
     filePath,
   );
 
+  setCommentsError(null, filePath);
   try {
-    const response = await fetch(
+    await fetchOrThrow(
       `/api/comments/${id}?path=${encodeURIComponent(filePath)}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ comment: trimmed }),
       },
+      "Failed to update comment",
     );
-    if (!response.ok)
-      throw new Error(`Failed to update comment: ${response.statusText}`);
   } catch (err) {
     console.error("Failed to edit comment:", err);
+    setCommentsError(
+      err instanceof Error ? err.message : "Failed to update comment",
+      filePath,
+    );
     setComments(previousComments, filePath);
   }
 }
@@ -166,17 +167,19 @@ async function deleteComment(filePath: string, id: string) {
     filePath,
   );
 
+  setCommentsError(null, filePath);
   try {
-    const response = await fetch(
+    await fetchOrThrow(
       `/api/comments/${id}?path=${encodeURIComponent(filePath)}`,
-      {
-        method: "DELETE",
-      },
+      { method: "DELETE" },
+      "Failed to delete comment",
     );
-    if (!response.ok)
-      throw new Error(`Failed to delete comment: ${response.statusText}`);
   } catch (err) {
     console.error("Failed to delete comment:", err);
+    setCommentsError(
+      err instanceof Error ? err.message : "Failed to delete comment",
+      filePath,
+    );
     setComments(previousComments, filePath);
   }
 }
@@ -187,17 +190,19 @@ async function deleteAllComments(filePath: string) {
 
   setComments([], filePath);
 
+  setCommentsError(null, filePath);
   try {
-    const response = await fetch(
+    await fetchOrThrow(
       `/api/comments?path=${encodeURIComponent(filePath)}`,
-      {
-        method: "DELETE",
-      },
+      { method: "DELETE" },
+      "Failed to delete all comments",
     );
-    if (!response.ok)
-      throw new Error(`Failed to delete all comments: ${response.statusText}`);
   } catch (err) {
     console.error("Failed to delete all comments:", err);
+    setCommentsError(
+      err instanceof Error ? err.message : "Failed to delete all comments",
+      filePath,
+    );
     setComments(previousComments, filePath);
   }
 }
@@ -227,17 +232,17 @@ async function reanchorComment(
     filePath,
   );
 
+  setCommentsError(null, filePath);
   try {
-    const response = await fetch(
+    const response = await fetchOrThrow(
       `/api/comments/${id}/reanchor?path=${encodeURIComponent(filePath)}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ selectedText, startOffset, endOffset }),
       },
+      "Failed to re-anchor comment",
     );
-    if (!response.ok)
-      throw new Error(`Failed to re-anchor comment: ${response.statusText}`);
     const data = await response.json();
     const current = app.documents.get(filePath)?.comments ?? [];
     setComments(
@@ -246,6 +251,10 @@ async function reanchorComment(
     );
   } catch (err) {
     console.error("Failed to re-anchor comment:", err);
+    setCommentsError(
+      err instanceof Error ? err.message : "Failed to re-anchor comment",
+      filePath,
+    );
     setComments(previousComments, filePath);
   }
 }

@@ -18,7 +18,7 @@ import (
 var (
 	frontMatterRe      = regexp.MustCompile(`(?s)^---\n(.*?)\n---`)
 	frontMatterStripRe = regexp.MustCompile(`(?s)^---\n.*?\n---\n*`)
-	commentMetaRe      = regexp.MustCompile(`<!--\s*c:([^|]+)\|([^|]+)\|([^>]+)\s*-->`)
+	commentMetaRe      = regexp.MustCompile(`<!--\s*c:([^|]+)\|([^|>]+?)(?:\|([^>]*?))?\s*-->`)
 	anchorPrefixRe     = regexp.MustCompile(`<!--\s*anchor:([A-Za-z0-9+/=]+)\s*-->`)
 )
 

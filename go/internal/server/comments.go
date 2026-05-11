@@ -139,7 +139,7 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 
 	commentPath, err := CommentPath(path)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to resolve comment path")
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to resolve comment path: %v", err))
 		return
 	}
 	cf := CommentFile{
@@ -189,18 +189,18 @@ func (s *Server) updateComment(w http.ResponseWriter, r *http.Request) {
 
 	commentPath, err := CommentPath(path)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to resolve comment path")
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to resolve comment path: %v", err))
 		return
 	}
 	data, err := os.ReadFile(commentPath)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "comment file not found")
+		writeError(w, http.StatusNotFound, fmt.Sprintf("comment file not found: %v", err))
 		return
 	}
 
 	cf, err := ParseCommentFile(data)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to parse comments")
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to parse comments: %v", err))
 		return
 	}
 
@@ -209,7 +209,7 @@ func (s *Server) updateComment(w http.ResponseWriter, r *http.Request) {
 			cf.Comments[i].Comment = strings.TrimSpace(body.Comment)
 
 			if err := WriteCommentFile(commentPath, cf); err != nil {
-				writeError(w, http.StatusInternalServerError, "failed to save")
+				writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to save: %v", err))
 				return
 			}
 			s.invalidateCommentCache(path)
@@ -231,18 +231,18 @@ func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 
 	commentPath, err := CommentPath(path)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to resolve comment path")
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to resolve comment path: %v", err))
 		return
 	}
 	data, err := os.ReadFile(commentPath)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "comment file not found")
+		writeError(w, http.StatusNotFound, fmt.Sprintf("comment file not found: %v", err))
 		return
 	}
 
 	cf, err := ParseCommentFile(data)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to parse comments")
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to parse comments: %v", err))
 		return
 	}
 
@@ -260,13 +260,13 @@ func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 
 	if len(filtered) == 0 {
 		if err := os.Remove(commentPath); err != nil && !os.IsNotExist(err) {
-			writeError(w, http.StatusInternalServerError, "failed to delete comment file")
+			writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete comment file: %v", err))
 			return
 		}
 	} else {
 		cf.Comments = filtered
 		if err := WriteCommentFile(commentPath, cf); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to save comments")
+			writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to save comments: %v", err))
 			return
 		}
 	}
@@ -284,7 +284,7 @@ func (s *Server) deleteAllComments(w http.ResponseWriter, r *http.Request) {
 
 	commentPath, err := CommentPath(path)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to resolve comment path")
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to resolve comment path: %v", err))
 		return
 	}
 	if err := os.Remove(commentPath); err != nil && !os.IsNotExist(err) {
@@ -321,18 +321,18 @@ func (s *Server) reanchorComment(w http.ResponseWriter, r *http.Request) {
 
 	commentPath, err := CommentPath(path)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to resolve comment path")
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to resolve comment path: %v", err))
 		return
 	}
 	data, err := os.ReadFile(commentPath)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "comment file not found")
+		writeError(w, http.StatusNotFound, fmt.Sprintf("comment file not found: %v", err))
 		return
 	}
 
 	cf, err := ParseCommentFile(data)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to parse comments")
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to parse comments: %v", err))
 		return
 	}
 
@@ -354,7 +354,7 @@ func (s *Server) reanchorComment(w http.ResponseWriter, r *http.Request) {
 
 			cf.Hash = ComputeHash(state.Content)
 			if err := WriteCommentFile(commentPath, cf); err != nil {
-				writeError(w, http.StatusInternalServerError, "failed to save")
+				writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to save: %v", err))
 				return
 			}
 			s.invalidateCommentCache(path)
@@ -370,7 +370,7 @@ func (s *Server) rawComments(w http.ResponseWriter, r *http.Request) {
 	path := s.resolveFilePath(r)
 	commentPath, err := CommentPath(path)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to resolve comment path")
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to resolve comment path: %v", err))
 		return
 	}
 

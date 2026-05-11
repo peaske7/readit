@@ -328,13 +328,14 @@ describe("serializeComments", () => {
           selectedText: "selected text",
           comment: "My comment",
           lineHint: "L42",
+          createdAt: "2026-05-09T00:00:00Z",
           startOffset: 100,
           endOffset: 113,
         },
       ],
     };
     const result = serializeComments(file);
-    expect(result).toContain("<!-- c:12345678|L42 -->");
+    expect(result).toContain("<!-- c:12345678|L42|2026-05-09T00:00:00Z -->");
     expect(result).toContain("> selected text");
     expect(result).toContain("My comment");
   });
@@ -588,6 +589,67 @@ describe("truncateSelection", () => {
     const result = truncateSelection(longText);
     expect(result.startsWith("START")).toBe(true);
     expect(result.endsWith("END")).toBe(true);
+  });
+});
+
+describe("parseCommentFile cross-runtime format", () => {
+  it("parses 2-field marker (legacy TS-written files)", () => {
+    const content = `---
+source: /test.md
+hash: abc
+version: 1
+---
+
+<!-- c:abcd1234|L5 -->
+> selected text
+some comment
+
+---
+`;
+    const parsed = parseCommentFile(content);
+    expect(parsed.comments).toHaveLength(1);
+    expect(parsed.comments[0].id).toBe("abcd1234");
+    expect(parsed.comments[0].lineHint).toBe("L5");
+    expect(parsed.comments[0].createdAt).toBeUndefined();
+  });
+
+  it("parses 3-field marker (Go-written files)", () => {
+    const content = `---
+source: /test.md
+hash: abc
+version: 1
+---
+
+<!-- c:abcd1234|L5|2026-05-09T12:34:56.789Z -->
+> selected text
+some comment
+
+---
+`;
+    const parsed = parseCommentFile(content);
+    expect(parsed.comments).toHaveLength(1);
+    expect(parsed.comments[0].createdAt).toBe("2026-05-09T12:34:56.789Z");
+  });
+
+  it("serializeComments writes 3-field marker", () => {
+    const file: CommentFile = {
+      source: "/test.md",
+      hash: "abc",
+      version: 1,
+      comments: [
+        {
+          id: "abcd1234",
+          selectedText: "selected",
+          comment: "body",
+          lineHint: "L1",
+          createdAt: "2026-05-09T00:00:00Z",
+          startOffset: 0,
+          endOffset: 8,
+        },
+      ],
+    };
+    const serialized = serializeComments(file);
+    expect(serialized).toContain("<!-- c:abcd1234|L1|2026-05-09T00:00:00Z -->");
   });
 });
 

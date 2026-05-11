@@ -116,3 +116,37 @@ func TestParseAndSerializeRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestParseLegacyTwoFieldMarker(t *testing.T) {
+	legacy := []byte(`---
+source: /test.md
+hash: abc
+version: 1
+---
+
+<!-- c:abcd1234|L5 -->
+> selected text
+
+a comment body
+
+---
+`)
+
+	cf, err := ParseCommentFile(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cf.Comments) != 1 {
+		t.Fatalf("expected 1 comment from legacy 2-field marker, got %d", len(cf.Comments))
+	}
+	c := cf.Comments[0]
+	if c.ID != "abcd1234" {
+		t.Errorf("ID: got %q, want %q", c.ID, "abcd1234")
+	}
+	if c.LineHint != "L5" {
+		t.Errorf("LineHint: got %q, want %q", c.LineHint, "L5")
+	}
+	if c.CreatedAt != "" {
+		t.Errorf("CreatedAt: got %q, want empty string", c.CreatedAt)
+	}
+}
