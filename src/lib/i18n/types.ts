@@ -117,6 +117,14 @@ export interface Translations {
   "shortcut.copySelectionLLM.description": string;
   "shortcut.clearSelection.label": string;
   "shortcut.clearSelection.description": string;
+
+  // Mermaid diagram
+  "mermaid.modalTitle": string;
+  "mermaid.viewGraph": string;
+  "mermaid.viewCode": string;
+  "mermaid.showSource": string;
+  "mermaid.showDiagram": string;
+  "mermaid.expand": string;
 }
 
 export type TranslationKey = keyof Translations;

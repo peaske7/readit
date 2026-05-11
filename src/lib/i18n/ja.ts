@@ -115,4 +115,12 @@ export const ja: Translations = {
     "選択テキストをLLMコンテキスト付きでコピー",
   "shortcut.clearSelection.label": "選択を解除",
   "shortcut.clearSelection.description": "テキスト選択を解除",
+
+  // Mermaid diagram
+  "mermaid.modalTitle": "Mermaid ダイアグラム",
+  "mermaid.viewGraph": "図",
+  "mermaid.viewCode": "コード",
+  "mermaid.showSource": "ソースを表示",
+  "mermaid.showDiagram": "図を表示",
+  "mermaid.expand": "拡大表示",
 };

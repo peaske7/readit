@@ -9,6 +9,7 @@ import type { Positions } from "../lib/positions";
 import { cn } from "../lib/utils";
 import { AnchorConfidences, type Comment, FontFamilies } from "../schema";
 import { settings } from "../stores/settings.svelte";
+import MermaidEnhancer from "./MermaidEnhancer.svelte";
 
 let {
   content,
@@ -40,10 +41,11 @@ let {
   positions: Positions;
 } = $props();
 
-let contentEl: HTMLElement | undefined;
+let contentEl: HTMLElement | undefined = $state();
 let containerEl: HTMLDivElement | undefined = $state();
 let adapter: Highlighter | null = null;
 let renderedContent = "";
+let contentVersion = $state(0);
 
 let proseClass = $derived(
   settings.fontFamily === FontFamilies.SANS_SERIF
@@ -74,10 +76,13 @@ async function hydrateMermaid(root: HTMLElement) {
           );
           const wrapper = document.createElement("div");
           wrapper.className = "mermaid-container";
+          wrapper.dataset.mermaidSource = encodeURIComponent(code);
+          // eslint-disable-next-line -- trusted mermaid render output
           wrapper.innerHTML = svg;
           preEl.replaceWith(wrapper);
         } catch {}
       }
+      contentVersion++;
       if (isActive) requestAnimationFrame(() => positions.cache());
     } catch {}
   });
@@ -132,6 +137,7 @@ onMount(() => {
   }
 
   renderedContent = content;
+  contentVersion++;
 
   void hydrateMermaid(contentEl!);
 
@@ -209,6 +215,7 @@ $effect(() => {
   if (renderedContent !== content) {
     contentEl.innerHTML = content; // eslint-disable-line -- trusted server content
     renderedContent = content;
+    contentVersion++;
     void hydrateMermaid(contentEl);
   }
 });
@@ -216,3 +223,11 @@ $effect(() => {
 
 <div bind:this={containerEl} class="flex-1 min-w-0">
 </div>
+
+<MermaidEnhancer
+  root={contentEl}
+  {contentVersion}
+  notifyContentChanged={() => {
+    if (isActive) requestAnimationFrame(() => positions.cache());
+  }}
+/>

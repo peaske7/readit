@@ -150,8 +150,9 @@ async function replaceMermaidBlocks(html: string): Promise<string> {
   for (let i = matches.length - 1; i >= 0; i--) {
     const svg = svgs[i];
     if (svg !== null) {
-      const { fullMatch, index } = matches[i];
-      const replacement = `<div class="mermaid-container">${svg}</div>`;
+      const { fullMatch, index, code } = matches[i];
+      const encodedSource = encodeURIComponent(code);
+      const replacement = `<div class="mermaid-container" data-mermaid-source="${encodedSource}">${svg}</div>`;
       html =
         html.slice(0, index) +
         replacement +

@@ -113,4 +113,12 @@ export const en: Translations = {
     "Copy selected text with context for LLM",
   "shortcut.clearSelection.label": "Clear Selection",
   "shortcut.clearSelection.description": "Clear text selection",
+
+  // Mermaid diagram
+  "mermaid.modalTitle": "Mermaid diagram",
+  "mermaid.viewGraph": "Graph",
+  "mermaid.viewCode": "Code",
+  "mermaid.showSource": "Show source",
+  "mermaid.showDiagram": "Show diagram",
+  "mermaid.expand": "Expand diagram",
 };
