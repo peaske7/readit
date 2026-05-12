@@ -22,7 +22,9 @@ const isMac = navigator.platform.includes("Mac");
 
 function handleKeyDown(e: KeyboardEvent) {
   e.preventDefault();
-  e.stopPropagation();
+  // Use stopImmediatePropagation so the app-wide window keydown handler
+  // (which fires shortcuts) does not also see the rebind keystroke.
+  e.stopImmediatePropagation();
 
   if (
     e.key === "Alt" ||
