@@ -526,21 +526,12 @@ async function updateSettingsRoute(req: Request): Promise<Response> {
       return errorResponse("Invalid keybindings format", 400);
     }
 
-    const current = await readSettings();
-    const settings: DocumentSettings = {
-      ...current,
-      ...(fontFamily !== undefined && { fontFamily }),
-      ...(keybindings !== undefined && { keybindings }),
-    };
-
-    await writeSettings(settings);
-    // Serialize concurrent partial PUTs so two requests can't read the same
-    // base state and have the later writer clobber the other field.
     const settings = await withSettingsLock(SETTINGS_PATH, async () => {
       const current = await readSettings();
       const merged: DocumentSettings = {
         ...current,
         ...(fontFamily !== undefined && { fontFamily }),
+        ...(keybindings !== undefined && { keybindings }),
       };
       await writeSettings(merged);
       return merged;

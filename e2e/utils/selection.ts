@@ -65,15 +65,17 @@ export async function addComment(
   page: Page,
   commentText: string,
 ): Promise<void> {
-  const textarea = page.locator('textarea[placeholder="Add your comment..."]');
+  const textarea = page
+    .locator('textarea[placeholder="Add your comment..."]')
+    .locator("visible=true");
   await textarea.waitFor({ state: "visible", timeout: 10000 });
 
-  // Fill in the comment
   await textarea.fill(commentText);
 
-  // Click the Add button
-  await page.getByRole("button", { name: "Add" }).click();
+  await page
+    .getByRole("button", { name: "Add" })
+    .locator("visible=true")
+    .click();
 
-  // Wait for the textarea to disappear (comment submitted)
   await textarea.waitFor({ state: "hidden", timeout: 5000 });
 }

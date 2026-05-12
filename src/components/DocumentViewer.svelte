@@ -98,12 +98,12 @@ onMount(() => {
   ) as HTMLElement | null;
   if (existingArticle && !existingArticle.dataset.readitAdopted) {
     existingArticle.dataset.readitAdopted = "true";
-    existingArticle.removeAttribute("id");
     containerEl.appendChild(existingArticle);
     contentEl = existingArticle;
     existingArticle.className = cn("prose", proseClass);
   } else if (!contentEl) {
     const article = document.createElement("article");
+    article.id = "document-content";
     article.className = cn("prose", proseClass);
     article.innerHTML = content; // eslint-disable-line -- trusted server content
     containerEl.appendChild(article);
