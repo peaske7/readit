@@ -11,7 +11,7 @@ export interface ClusterShape {
   entryCount: number;
 }
 
-interface MarkerAnchor {
+export interface MarkerAnchor {
   top: number;
   left: number;
 }
@@ -99,7 +99,7 @@ export class Positions {
     this.elements.delete(id);
   }
 
-  getMarkerAnchors(): Map<string, MarkerAnchor> {
+  getMarkerAnchors(): ReadonlyMap<string, MarkerAnchor> {
     return this.markerAnchors;
   }
 

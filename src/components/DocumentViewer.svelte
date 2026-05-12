@@ -285,7 +285,6 @@ $effect(() => {
 
   if (isActive) {
     positions.attach(contentEl, containerEl, adapter);
-    positions.cache();
     rebuildClusters();
     return () => positions.detach();
   }
@@ -315,10 +314,7 @@ $effect(() => {
   {contentVersion}
   notifyContentChanged={() => {
     if (isActive) {
-      requestAnimationFrame(() => {
-        positions.cache();
-        rebuildClusters();
-      });
+      requestAnimationFrame(() => rebuildClusters());
     }
   }}
 />

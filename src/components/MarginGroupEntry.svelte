@@ -41,6 +41,7 @@ function onKey(e: KeyboardEvent) {
   class="relative w-full px-3 py-2 cursor-pointer overflow-hidden border-t border-zinc-100 dark:border-zinc-800 first:border-t-0"
   style="height: 50px"
   data-cluster-group
+  data-comment-id={firstId}
   data-active={isActive}
   onclick={activate}
   onkeydown={onKey}

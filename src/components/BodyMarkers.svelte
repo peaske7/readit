@@ -1,6 +1,6 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import type { Positions } from "../lib/positions";
+import type { MarkerAnchor, Positions } from "../lib/positions";
 import { setActiveCommentId, ui } from "../stores/ui.svelte";
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
 
 let { commentIds, indexById, positions }: Props = $props();
 
-let anchors = $state(new Map<string, { top: number; left: number }>());
+let anchors = $state<ReadonlyMap<string, MarkerAnchor>>(new Map());
 let unsub: (() => void) | undefined;
 
 function refresh() {
@@ -43,7 +43,7 @@ function activate(e: MouseEvent, id: string) {
     {#if anchor && idx >= 0}
       <button
         type="button"
-        class="absolute pointer-events-auto cursor-pointer text-[10px] font-bold tabular-nums leading-none px-1 -translate-y-1 transition-colors"
+        class="absolute pointer-events-auto cursor-pointer text-[10px] font-bold tabular-nums leading-none px-1 -translate-y-1"
         class:active={ui.activeCommentId === id}
         style="top: {anchor.top}px; left: {anchor.left}px;"
         data-marker-for={id}
@@ -58,9 +58,6 @@ function activate(e: MouseEvent, id: string) {
 <style>
   button {
     color: var(--prose-blockquote, #6b7280);
-  }
-  button:hover {
-    color: var(--prose-headings, #111827);
   }
   button.active {
     color: var(--prose-headings, #111827);
