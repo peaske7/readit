@@ -68,6 +68,7 @@ function invalidateResolvedComments(filePath: string): void {
 
 const withCommentLock = createKeyLock("comments");
 const withSourceLock = createKeyLock("source");
+const withSettingsLock = createKeyLock("settings");
 
 async function canonicalPath(filePath: string): Promise<string> {
   return fs.realpath(path.resolve(filePath));
@@ -485,13 +486,17 @@ async function updateSettingsRoute(req: Request): Promise<Response> {
       return errorResponse("Invalid font family", 400);
     }
 
-    const current = await readSettings();
-    const settings: DocumentSettings = {
-      ...current,
-      ...(fontFamily !== undefined && { fontFamily }),
-    };
-
-    await writeSettings(settings);
+    // Serialize concurrent partial PUTs so two requests can't read the same
+    // base state and have the later writer clobber the other field.
+    const settings = await withSettingsLock(SETTINGS_PATH, async () => {
+      const current = await readSettings();
+      const merged: DocumentSettings = {
+        ...current,
+        ...(fontFamily !== undefined && { fontFamily }),
+      };
+      await writeSettings(merged);
+      return merged;
+    });
     return json(settings);
   } catch (err) {
     console.error("Failed to save settings:", err);
