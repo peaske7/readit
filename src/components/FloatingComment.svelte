@@ -37,12 +37,13 @@ function handleWindowKeydown(e: KeyboardEvent) {
 
 <svelte:window onkeydown={handleWindowKeydown} />
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- Backdrop -->
-<div
-  class="fixed inset-0 z-40 lg:hidden"
+<button
+  type="button"
+  aria-label={t("comment.cancel")}
+  class="fixed inset-0 z-40 lg:hidden bg-transparent border-0 cursor-default"
   onclick={dismiss}
-></div>
+></button>
 
 <!-- Floating panel -->
 <div
