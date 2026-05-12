@@ -10,6 +10,7 @@ import MarginNotesContainer from "./components/MarginNotesContainer.svelte";
 import ReanchorConfirm from "./components/ReanchorConfirm.svelte";
 import TabBar from "./components/TabBar.svelte";
 import TableOfContents from "./components/TableOfContents.svelte";
+import { extractContext, formatForLLM } from "./lib/context";
 import {
   exportCommentsAsJson,
   formatComment,
@@ -672,10 +673,19 @@ function handleKeyDown(event: KeyboardEvent) {
         break;
       }
       case ShortcutActions.COPY_SELECTION_LLM: {
-        const selText = window.getSelection()?.toString();
-        if (selText) {
-          const context = `# Selected Text from ${docState.document.fileName}\n\n${selText}`;
-          navigator.clipboard.writeText(context);
+        const sel = docState.selection;
+        if (sel) {
+          const context = extractContext({
+            content: docState.document.html,
+            startOffset: sel.startOffset,
+            endOffset: sel.endOffset,
+          });
+          navigator.clipboard.writeText(
+            formatForLLM({
+              context,
+              fileName: docState.document.fileName,
+            }),
+          );
         }
         break;
       }
