@@ -77,7 +77,7 @@ export function extractContext({
   const shouldTruncateMiddle = selectionSpan > MAX_SELECTION_LINES;
 
   for (let i = contextStart; i <= contextEnd; i++) {
-    let line = lines[i];
+    const line = lines[i];
 
     if (shouldTruncateMiddle) {
       const showStart = startLineIndex + 2;
@@ -92,21 +92,21 @@ export function extractContext({
     }
 
     if (i === startLineIndex && i === endLineIndex) {
-      const before = line.slice(0, startCharInLine);
-      const selected = line.slice(startCharInLine, endCharInLine);
-      const after = line.slice(endCharInLine);
-      line = `${before}>>> ${selected} <<<${after}`;
+      const before = truncateLine(line.slice(0, startCharInLine));
+      const selected = truncateLine(line.slice(startCharInLine, endCharInLine));
+      const after = truncateLine(line.slice(endCharInLine));
+      outputLines.push(`${before}>>> ${selected} <<<${after}`);
     } else if (i === startLineIndex) {
-      const before = line.slice(0, startCharInLine);
-      const selected = line.slice(startCharInLine);
-      line = `${before}>>> ${selected}`;
+      const before = truncateLine(line.slice(0, startCharInLine));
+      const selected = truncateLine(line.slice(startCharInLine));
+      outputLines.push(`${before}>>> ${selected}`);
     } else if (i === endLineIndex) {
-      const selected = line.slice(0, endCharInLine);
-      const after = line.slice(endCharInLine);
-      line = `${selected} <<<${after}`;
+      const selected = truncateLine(line.slice(0, endCharInLine));
+      const after = truncateLine(line.slice(endCharInLine));
+      outputLines.push(`${selected} <<<${after}`);
+    } else {
+      outputLines.push(truncateLine(line));
     }
-
-    outputLines.push(truncateLine(line));
   }
 
   return {
