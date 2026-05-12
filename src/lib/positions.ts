@@ -1,25 +1,36 @@
+import { findBlockAncestor } from "./clustering";
 import type { Highlighter } from "./highlight/highlighter";
-import { resolveMarginNotePositions } from "./margin-layout";
+import { resolveClusterPositions } from "./margin-layout";
 
 type Listener = () => void;
 
+export interface ClusterShape {
+  id: string;
+  commentIds: string[];
+  entryHeight: number;
+  entryCount: number;
+}
+
+interface MarkerAnchor {
+  top: number;
+  left: number;
+}
+
 export class Positions {
-  private relative = new Map<string, number>();
-  private absolute = new Map<string, number>();
-  private snapshot: Record<string, number> = {};
-  private notes = new Map<string, HTMLElement>();
-  private ids: string[] = [];
+  private clusters: ClusterShape[] = [];
+  private elements = new Map<string, HTMLElement>();
+  private anchorTops = new Map<string, number>();
+  private markerAnchors = new Map<string, MarkerAnchor>();
+  private resolved = new Map<string, { top: number; height: number }>();
   private pendingTop: number | undefined;
   private listeners = new Set<Listener>();
-  private root: HTMLElement | null = null;
   private container: HTMLElement | null = null;
   private highlighter: Highlighter | null = null;
   private resizeRaf: number | null = null;
   private cacheRaf: number | null = null;
   private unsubCache: (() => void) | null = null;
 
-  attach(root: HTMLElement, container: HTMLElement, highlighter: Highlighter) {
-    this.root = root;
+  attach(_root: HTMLElement, container: HTMLElement, highlighter: Highlighter) {
     this.container = container;
     this.highlighter = highlighter;
     window.addEventListener("resize", this.onResize);
@@ -41,40 +52,30 @@ export class Positions {
     this.cacheRaf = null;
     this.unsubCache?.();
     this.unsubCache = null;
-    this.root = null;
     this.container = null;
     this.highlighter = null;
   }
 
   cache() {
-    if (!this.root || !this.container || !this.highlighter) return;
-
-    const highlightedIds = this.highlighter.getHighlightedIds();
-    if (highlightedIds.length === 0) return;
+    if (!this.container || !this.highlighter) return;
 
     const ref = this.container.getBoundingClientRect();
-    const scrollY = window.scrollY;
+    const anchors = this.highlighter.getMarkerAnchors(ref);
+    this.markerAnchors = anchors;
 
-    this.relative.clear();
-    this.absolute.clear();
-
-    const positions = this.highlighter.getPositions(ref);
-    for (const [id, relTop] of positions) {
-      this.relative.set(id, relTop);
-      this.absolute.set(id, relTop + ref.top + scrollY);
+    this.anchorTops.clear();
+    for (const cluster of this.clusters) {
+      const top = this.computeAnchorTop(cluster, ref);
+      if (top !== undefined) this.anchorTops.set(cluster.id, top);
     }
-
-    const snap: Record<string, number> = {};
-    for (const [id, top] of this.absolute) snap[id] = top;
-    this.snapshot = snap;
 
     this.apply();
     this.notify();
     this.exposeReady();
   }
 
-  setIds(ids: string[]) {
-    this.ids = ids;
+  setClusters(clusters: ClusterShape[]) {
+    this.clusters = clusters;
   }
 
   setPending(top: number | undefined) {
@@ -83,23 +84,23 @@ export class Positions {
     this.apply();
   }
 
-  register(id: string, el: HTMLElement) {
-    this.notes.set(id, el);
-    const top = this.resolve().get(id);
-    if (top !== undefined) {
-      el.style.top = `${top}px`;
+  registerCluster(id: string, el: HTMLElement) {
+    this.elements.set(id, el);
+    const pos = this.resolved.get(id);
+    if (pos) {
+      el.style.top = `${pos.top}px`;
       el.style.visibility = "visible";
     } else {
       el.style.visibility = "hidden";
     }
   }
 
-  unregister(id: string) {
-    this.notes.delete(id);
+  unregisterCluster(id: string) {
+    this.elements.delete(id);
   }
 
-  getAbsolute(): Record<string, number> {
-    return this.snapshot;
+  getMarkerAnchors(): Map<string, MarkerAnchor> {
+    return this.markerAnchors;
   }
 
   subscribe(fn: Listener): () => void {
@@ -109,26 +110,49 @@ export class Positions {
 
   dispose() {
     this.detach();
-    this.relative.clear();
-    this.absolute.clear();
-    this.snapshot = {};
-    this.notes.clear();
+    this.clusters = [];
+    this.elements.clear();
+    this.anchorTops.clear();
+    this.markerAnchors.clear();
+    this.resolved.clear();
     this.listeners.clear();
-    this.ids = [];
   }
 
-  private resolve(): Map<string, number> {
-    const pos: Record<string, number> = {};
-    for (const [id, top] of this.relative) pos[id] = top;
-    return resolveMarginNotePositions(this.ids, pos, this.pendingTop);
+  private computeAnchorTop(
+    cluster: ClusterShape,
+    containerRect: DOMRect,
+  ): number | undefined {
+    if (!this.highlighter) return undefined;
+
+    let paragraph: Element | null = null;
+    for (const id of cluster.commentIds) {
+      const ranges = this.highlighter.getRanges(id);
+      if (ranges.length === 0) continue;
+      paragraph = findBlockAncestor(ranges[0].startContainer);
+      if (paragraph) break;
+    }
+    if (!paragraph) return undefined;
+
+    const rect = paragraph.getBoundingClientRect();
+    return rect.top - containerRect.top;
   }
 
   private apply() {
-    const resolved = this.resolve();
-    for (const [id, el] of this.notes) {
-      const top = resolved.get(id);
-      if (top !== undefined) {
-        el.style.top = `${top}px`;
+    const inputs = this.clusters
+      .filter((c) => this.anchorTops.has(c.id))
+      .map((c) => ({
+        id: c.id,
+        anchorTop: this.anchorTops.get(c.id) ?? 0,
+        entryHeight: c.entryHeight,
+        entryCount: c.entryCount,
+      }));
+
+    this.resolved = resolveClusterPositions(inputs, this.pendingTop);
+
+    for (const [id, el] of this.elements) {
+      const pos = this.resolved.get(id);
+      if (pos) {
+        el.style.top = `${pos.top}px`;
         el.style.visibility = "visible";
       } else {
         el.style.visibility = "hidden";

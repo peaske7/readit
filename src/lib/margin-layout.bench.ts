@@ -1,61 +1,42 @@
 import { bench, describe } from "vitest";
-import {
-  COMMENTS_1,
-  COMMENTS_10,
-  COMMENTS_50,
-} from "./__fixtures__/bench-data";
-import { resolveMarginNotePositions } from "./margin-layout";
+import { type ClusterInput, resolveClusterPositions } from "./margin-layout";
 
-function makeHighlightPositions(
-  commentIds: string[],
-  spacing: number,
-): Record<string, number> {
-  const positions: Record<string, number> = {};
-  for (let i = 0; i < commentIds.length; i++) {
-    positions[commentIds[i]] = i * spacing;
-  }
-  return positions;
+function makeClusters(count: number, spacing: number): ClusterInput[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `c-${i}`,
+    anchorTop: i * spacing,
+    entryHeight: 50,
+    entryCount: 1,
+  }));
 }
 
-describe("resolveMarginNotePositions — well-spaced", () => {
-  bench("1 comment", () => {
-    const ids = COMMENTS_1.map((c) => c.id);
-    const positions = makeHighlightPositions(ids, 300);
-    resolveMarginNotePositions(ids, positions, undefined);
+describe("resolveClusterPositions — well-spaced", () => {
+  bench("1 cluster", () => {
+    resolveClusterPositions(makeClusters(1, 300), undefined);
   });
 
-  bench("10 comments", () => {
-    const ids = COMMENTS_10.map((c) => c.id);
-    const positions = makeHighlightPositions(ids, 300);
-    resolveMarginNotePositions(ids, positions, undefined);
+  bench("10 clusters", () => {
+    resolveClusterPositions(makeClusters(10, 300), undefined);
   });
 
-  bench("50 comments", () => {
-    const ids = COMMENTS_50.map((c) => c.id);
-    const positions = makeHighlightPositions(ids, 300);
-    resolveMarginNotePositions(ids, positions, undefined);
+  bench("50 clusters", () => {
+    resolveClusterPositions(makeClusters(50, 300), undefined);
   });
 });
 
-describe("resolveMarginNotePositions — clustered", () => {
-  bench("10 comments, 10px apart", () => {
-    const ids = COMMENTS_10.map((c) => c.id);
-    const positions = makeHighlightPositions(ids, 10);
-    resolveMarginNotePositions(ids, positions, undefined);
+describe("resolveClusterPositions — packed", () => {
+  bench("10 clusters, 10px apart", () => {
+    resolveClusterPositions(makeClusters(10, 10), undefined);
   });
 
-  bench("50 comments, 10px apart", () => {
-    const ids = COMMENTS_50.map((c) => c.id);
-    const positions = makeHighlightPositions(ids, 10);
-    resolveMarginNotePositions(ids, positions, undefined);
+  bench("50 clusters, 10px apart", () => {
+    resolveClusterPositions(makeClusters(50, 10), undefined);
   });
 });
 
-describe("resolveMarginNotePositions — with input zone", () => {
-  bench("50 comments, input at middle", () => {
-    const ids = COMMENTS_50.map((c) => c.id);
-    const positions = makeHighlightPositions(ids, 100);
-    const midpoint = 25 * 100;
-    resolveMarginNotePositions(ids, positions, midpoint);
+describe("resolveClusterPositions — with input zone", () => {
+  bench("50 clusters, input at middle", () => {
+    const clusters = makeClusters(50, 100);
+    resolveClusterPositions(clusters, 25 * 100);
   });
 });

@@ -13,19 +13,21 @@ export type SelectionHandler = (
   endOffset: number,
   selectionTop: number,
 ) => void;
-export type HoverHandler = (commentId: string | undefined) => void;
 export type ClickHandler = (commentId: string) => void;
 export type CacheHandler = () => void;
 
 export interface Highlighter {
   applyHighlights(comments: HighlightComment[]): void;
   clearHighlights(): void;
-  onHighlightHover(callback: HoverHandler): () => void;
   onHighlightClick(callback: ClickHandler): () => void;
 
   setFocused(commentId: string | undefined): void;
   scrollToComment(commentId: string): void;
   getPositions(containerRect: DOMRect): Map<string, number>;
+  getRanges(commentId: string): Range[];
+  getMarkerAnchors(
+    containerRect: DOMRect,
+  ): Map<string, { top: number; left: number }>;
   getHighlightedIds(): string[];
   isPointInHighlight(x: number, y: number): boolean;
 
@@ -43,7 +45,6 @@ export interface HighlighterOptions {
 export function createHighlighter(options: HighlighterOptions): Highlighter {
   const { root, container, onSelect } = options;
 
-  let hoverCallback: HoverHandler | undefined;
   let clickCallback: ClickHandler | undefined;
   let cacheCallback: CacheHandler | undefined;
 
@@ -51,8 +52,6 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
   let lastTextContent = "";
 
   const registry = new HighlightRegistry();
-
-  let lastHoveredId: string | undefined;
 
   const handleMouseUp = () => {
     const selection = window.getSelection();
@@ -99,17 +98,6 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
     });
   };
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!hoverCallback) return;
-
-    const id = registry.hitTest(e.clientX, e.clientY);
-
-    if (id !== lastHoveredId) {
-      lastHoveredId = id;
-      hoverCallback(id);
-    }
-  };
-
   const handleClick = (e: MouseEvent) => {
     if (!clickCallback) return;
 
@@ -151,7 +139,6 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
   };
 
   root.addEventListener("mouseup", handleMouseUp);
-  root.addEventListener("mousemove", handleMouseMove);
   root.addEventListener("click", handleClick);
 
   return {
@@ -192,13 +179,6 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
       cacheCallback?.();
     },
 
-    onHighlightHover(callback: HoverHandler) {
-      hoverCallback = callback;
-      return () => {
-        hoverCallback = undefined;
-      };
-    },
-
     onHighlightClick(callback: ClickHandler) {
       clickCallback = callback;
       return () => {
@@ -216,6 +196,16 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
 
     getPositions(containerRect: DOMRect): Map<string, number> {
       return registry.getPositions(containerRect);
+    },
+
+    getRanges(commentId: string): Range[] {
+      return registry.getRanges(commentId);
+    },
+
+    getMarkerAnchors(
+      containerRect: DOMRect,
+    ): Map<string, { top: number; left: number }> {
+      return registry.getMarkerAnchors(containerRect);
     },
 
     getHighlightedIds(): string[] {
@@ -236,12 +226,9 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
     dispose() {
       registry.dispose();
       root.removeEventListener("mouseup", handleMouseUp);
-      root.removeEventListener("mousemove", handleMouseMove);
       root.removeEventListener("click", handleClick);
-      hoverCallback = undefined;
       clickCallback = undefined;
       cacheCallback = undefined;
-      lastHoveredId = undefined;
     },
   };
 }

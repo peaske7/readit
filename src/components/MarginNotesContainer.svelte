@@ -1,32 +1,29 @@
 <script lang="ts">
+import type { Cluster } from "../lib/clustering";
 import type { Positions } from "../lib/positions";
-import type { Comment } from "../schema";
-import MarginNote from "./MarginNote.svelte";
+import MarginCluster from "./MarginCluster.svelte";
 
 interface Props {
-  sortedComments: Comment[];
+  clusters: Cluster[];
   positions: Positions;
-  onedit: (id: string, text: string) => void;
-  ondelete: (id: string) => void;
-  oncopy: (comment: Comment) => void;
-  onnavigate: (commentId: string) => void;
 }
 
-let { sortedComments, positions, onedit, ondelete, oncopy, onnavigate }: Props =
-  $props();
+let { clusters, positions }: Props = $props();
+
+function startIndexFor(idx: number): number {
+  let n = 0;
+  for (let i = 0; i < idx; i++) n += clusters[i].comments.length;
+  return n;
+}
 </script>
 
-{#if sortedComments.length > 0}
-  <div class="relative w-64">
-    {#each sortedComments as comment, index (comment.id)}
-      <MarginNote
-        {comment}
-        commentIndex={index}
+{#if clusters.length > 0}
+  <div class="relative w-full">
+    {#each clusters as cluster, i (cluster.id)}
+      <MarginCluster
+        {cluster}
+        startIndex={startIndexFor(i)}
         {positions}
-        {onedit}
-        {ondelete}
-        {oncopy}
-        {onnavigate}
       />
     {/each}
   </div>
