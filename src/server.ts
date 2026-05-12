@@ -22,6 +22,7 @@ import {
   toggleTaskInSource,
 } from "./lib/markdown-renderer.js";
 import { disposeMermaidWorker } from "./lib/mermaid-renderer.js";
+import { ShortcutActions } from "./lib/shortcut-registry.js";
 import { isMarkdownFile } from "./lib/utils.js";
 import {
   AnchorConfidences,
@@ -29,6 +30,8 @@ import {
   type DocumentSettings,
   FontFamilies,
   type FontFamily,
+  type KeybindingOverride,
+  type ShortcutBinding,
 } from "./schema.js";
 import { renderTemplate } from "./template.js";
 
@@ -220,6 +223,40 @@ async function writeSettings(settings: DocumentSettings): Promise<void> {
 
 function isValidFontFamily(value: unknown): value is FontFamily {
   return value === FontFamilies.SERIF || value === FontFamilies.SANS_SERIF;
+}
+
+const KNOWN_SHORTCUT_IDS: ReadonlySet<string> = new Set(
+  Object.values(ShortcutActions),
+);
+
+function isOptionalBool(value: unknown): boolean {
+  return value === undefined || typeof value === "boolean";
+}
+
+function isValidShortcutBinding(value: unknown): value is ShortcutBinding {
+  if (!value || typeof value !== "object") return false;
+  const b = value as Record<string, unknown>;
+  if (typeof b.key !== "string" || b.key.length === 0) return false;
+  return (
+    isOptionalBool(b.alt) &&
+    isOptionalBool(b.ctrl) &&
+    isOptionalBool(b.meta) &&
+    isOptionalBool(b.shift)
+  );
+}
+
+function isValidKeybindings(value: unknown): value is KeybindingOverride[] {
+  if (!Array.isArray(value)) return false;
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") return false;
+    const o = entry as Record<string, unknown>;
+    if (typeof o.id !== "string" || !KNOWN_SHORTCUT_IDS.has(o.id)) return false;
+    if (typeof o.enabled !== "boolean") return false;
+    if (o.binding !== undefined && !isValidShortcutBinding(o.binding)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export const SERVER_INFO_PATH = path.join(
@@ -480,12 +517,23 @@ async function getSettingsRoute(): Promise<Response> {
 async function updateSettingsRoute(req: Request): Promise<Response> {
   try {
     const body = await req.json();
-    const { fontFamily } = body;
+    const { fontFamily, keybindings } = body;
 
     if (fontFamily !== undefined && !isValidFontFamily(fontFamily)) {
       return errorResponse("Invalid font family", 400);
     }
+    if (keybindings !== undefined && !isValidKeybindings(keybindings)) {
+      return errorResponse("Invalid keybindings format", 400);
+    }
 
+    const current = await readSettings();
+    const settings: DocumentSettings = {
+      ...current,
+      ...(fontFamily !== undefined && { fontFamily }),
+      ...(keybindings !== undefined && { keybindings }),
+    };
+
+    await writeSettings(settings);
     // Serialize concurrent partial PUTs so two requests can't read the same
     // base state and have the later writer clobber the other field.
     const settings = await withSettingsLock(SETTINGS_PATH, async () => {
