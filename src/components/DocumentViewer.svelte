@@ -1,14 +1,21 @@
 <script lang="ts">
 import { onDestroy, onMount } from "svelte";
 import {
+  buildClusters,
+  type Cluster,
+  findBlockAncestor,
+  TierTypes,
+} from "../lib/clustering";
+import {
   createHighlighter,
   type Highlighter,
 } from "../lib/highlight/highlighter";
 import type { HighlightComment } from "../lib/highlight/types";
-import type { Positions } from "../lib/positions";
+import type { ClusterShape, Positions } from "../lib/positions";
 import { cn } from "../lib/utils";
 import { AnchorConfidences, type Comment, FontFamilies } from "../schema";
 import { settings } from "../stores/settings.svelte";
+import BodyMarkers from "./BodyMarkers.svelte";
 import MermaidEnhancer from "./MermaidEnhancer.svelte";
 
 let {
@@ -16,9 +23,9 @@ let {
   comments,
   isActive,
   onTextSelect,
-  onHighlightHover,
   onHighlightClick,
   onTaskToggle,
+  onClustersChanged,
   registerHighlighter,
   unregisterHighlighter,
   positions,
@@ -32,9 +39,12 @@ let {
     endOffset: number,
     selectionTop: number,
   ) => void;
-  onHighlightHover?: (commentId: string | undefined) => void;
   onHighlightClick?: (commentId: string) => void;
   onTaskToggle?: (index: number, checked: boolean) => Promise<boolean>;
+  onClustersChanged?: (
+    clusters: Cluster[],
+    indexById: Map<string, number>,
+  ) => void;
   registerHighlighter: (
     setFocused: (id: string | undefined) => void,
     scrollToComment: (id: string) => void,
@@ -48,6 +58,44 @@ let containerEl: HTMLDivElement | undefined = $state();
 let adapter: Highlighter | null = null;
 let renderedContent = "";
 let contentVersion = $state(0);
+let sortedIds = $state<string[]>([]);
+let indexById = $state(new Map<string, number>());
+
+function rebuildClusters() {
+  if (!adapter) return;
+
+  const sorted = comments
+    .filter((c) => c.anchorConfidence !== AnchorConfidences.UNRESOLVED)
+    .sort((a, b) => a.startOffset - b.startOffset);
+
+  const ids = sorted.map((c) => c.id);
+  const index = new Map<string, number>();
+  for (let i = 0; i < sorted.length; i++) {
+    index.set(sorted[i].id, i);
+  }
+  sortedIds = ids;
+  indexById = index;
+
+  const paragraphOf = (id: string): Element | null => {
+    if (!adapter) return null;
+    const ranges = adapter.getRanges(id);
+    if (ranges.length === 0) return null;
+    return findBlockAncestor(ranges[0].startContainer);
+  };
+
+  const built = buildClusters(sorted, paragraphOf);
+
+  const shapes: ClusterShape[] = built.map((c) => ({
+    id: c.id,
+    commentIds: c.comments.map((cm) => cm.id),
+    entryHeight: c.tier.height,
+    entryCount: c.tier.type === TierTypes.GROUP ? 1 : c.comments.length,
+  }));
+  positions.setClusters(shapes);
+  positions.cache();
+
+  onClustersChanged?.(built, index);
+}
 
 let proseClass = $derived(
   settings.fontFamily === FontFamilies.SANS_SERIF
@@ -118,10 +166,6 @@ onMount(() => {
 
   registerHighlighter(adapter.setFocused, adapter.scrollToComment);
 
-  if (onHighlightHover) {
-    adapter.onHighlightHover(onHighlightHover);
-  }
-
   if (onHighlightClick) {
     adapter.onHighlightClick(onHighlightClick);
   }
@@ -136,6 +180,7 @@ onMount(() => {
         endOffset: c.endOffset,
       }));
     adapter.applyHighlights(hc);
+    requestAnimationFrame(() => rebuildClusters());
   }
 
   renderedContent = content;
@@ -219,6 +264,7 @@ $effect(() => {
 
   if (_comments.length === 0) {
     adapter.clearHighlights();
+    rebuildClusters();
     return;
   }
 
@@ -231,6 +277,7 @@ $effect(() => {
       endOffset: c.endOffset,
     }));
   adapter.applyHighlights(hc);
+  requestAnimationFrame(() => rebuildClusters());
 });
 
 $effect(() => {
@@ -238,16 +285,9 @@ $effect(() => {
 
   if (isActive) {
     positions.attach(contentEl, containerEl, adapter);
-    positions.cache();
+    rebuildClusters();
     return () => positions.detach();
   }
-});
-
-$effect(() => {
-  const sorted = comments
-    .filter((c) => c.anchorConfidence !== AnchorConfidences.UNRESOLVED)
-    .sort((a, b) => a.startOffset - b.startOffset);
-  positions.setIds(sorted.map((c) => c.id));
 });
 
 $effect(() => {
@@ -263,13 +303,18 @@ $effect(() => {
 });
 </script>
 
-<div bind:this={containerEl} class="flex-1 min-w-0">
+<div bind:this={containerEl} class="flex-1 min-w-0 relative">
+  {#if isActive}
+    <BodyMarkers commentIds={sortedIds} {indexById} {positions} />
+  {/if}
 </div>
 
 <MermaidEnhancer
   root={contentEl}
   {contentVersion}
   notifyContentChanged={() => {
-    if (isActive) requestAnimationFrame(() => positions.cache());
+    if (isActive) {
+      requestAnimationFrame(() => rebuildClusters());
+    }
   }}
 />

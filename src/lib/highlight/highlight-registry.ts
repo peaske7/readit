@@ -70,6 +70,10 @@ export class HighlightRegistry {
     return entry.ranges[0].getBoundingClientRect();
   }
 
+  getRanges(commentId: string): Range[] {
+    return this.comments.get(commentId)?.ranges ?? [];
+  }
+
   getPositions(containerRect: DOMRect): Map<string, number> {
     const positions = new Map<string, number>();
     for (const [id, entry] of this.comments) {
@@ -78,6 +82,23 @@ export class HighlightRegistry {
       positions.set(id, rect.top - containerRect.top);
     }
     return positions;
+  }
+
+  getMarkerAnchors(
+    containerRect: DOMRect,
+  ): Map<string, { top: number; left: number }> {
+    const anchors = new Map<string, { top: number; left: number }>();
+    for (const [id, entry] of this.comments) {
+      if (entry.ranges.length === 0) continue;
+      const rects = entry.ranges[0].getClientRects();
+      const last = rects[rects.length - 1];
+      if (!last) continue;
+      anchors.set(id, {
+        top: last.top - containerRect.top,
+        left: last.right - containerRect.left,
+      });
+    }
+    return anchors;
   }
 
   scrollToComment(commentId: string): void {

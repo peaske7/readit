@@ -3,6 +3,7 @@ import { onDestroy, onMount, untrack } from "svelte";
 import CommentErrorBanner from "./components/CommentErrorBanner.svelte";
 import CommentInput from "./components/CommentInput.svelte";
 import CommentNav from "./components/CommentNav.svelte";
+import CommentPopover from "./components/CommentPopover.svelte";
 import DocumentViewer from "./components/DocumentViewer.svelte";
 import FloatingComment from "./components/FloatingComment.svelte";
 import Header from "./components/Header.svelte";
@@ -10,6 +11,7 @@ import MarginNotesContainer from "./components/MarginNotesContainer.svelte";
 import ReanchorConfirm from "./components/ReanchorConfirm.svelte";
 import TabBar from "./components/TabBar.svelte";
 import TableOfContents from "./components/TableOfContents.svelte";
+import type { Cluster } from "./lib/clustering";
 import { extractContext, formatForLLM } from "./lib/context";
 import {
   exportCommentsAsJson,
@@ -38,15 +40,13 @@ import {
 import { t } from "./stores/locale.svelte";
 import { initSettings } from "./stores/settings.svelte";
 import { initShortcuts, shortcutState } from "./stores/shortcuts.svelte";
-import {
-  setActiveCommentId,
-  setHoveredCommentId,
-  ui,
-} from "./stores/ui.svelte";
+import { setActiveCommentId, ui } from "./stores/ui.svelte";
 
 let isInitialized = $state(false);
 let error = $state<string | null>(null);
 const positionsMap = new Map<string, Positions>();
+let activeClusters = $state<Cluster[]>([]);
+let activeIndexById = $state<Map<string, number>>(new Map());
 let currentIndex = $state(0);
 const highlighterMap = new Map<
   string,
@@ -55,7 +55,6 @@ const highlighterMap = new Map<
     scrollTo: (id: string) => void;
   }
 >();
-let hoverTimeout: ReturnType<typeof setTimeout> | undefined;
 const prevActiveMap = new Map<string, boolean>();
 
 function clearPendingHighlight() {
@@ -303,13 +302,18 @@ function navigateToComment(commentId: string) {
   const active = app.activeDocumentPath;
   const entry = active ? highlighterMap.get(active) : undefined;
   entry?.scrollTo(commentId);
-  setHoveredCommentId(commentId);
   entry?.setFocused(commentId);
-  clearTimeout(hoverTimeout);
-  hoverTimeout = setTimeout(() => {
-    setHoveredCommentId(undefined);
-    entry?.setFocused(undefined);
-  }, 1500);
+  setActiveCommentId(commentId);
+}
+
+function handleClustersChanged(
+  filePath: string,
+  clusters: Cluster[],
+  indexById: Map<string, number>,
+) {
+  if (filePath !== app.activeDocumentPath) return;
+  activeClusters = clusters;
+  activeIndexById = indexById;
 }
 
 function navigatePrevious(sortedComments: Comment[]) {
@@ -340,11 +344,14 @@ function onTextSelect(
   setActiveCommentId(undefined);
   setSelection({ text, startOffset, endOffset }, filePath);
   setPendingSelectionTop(selectionTop, filePath);
+  const pos = positionsMap.get(filePath);
+  pos?.setPending(selectionTop);
 }
 
 function clearSelection(filePath: string) {
   setSelection(null, filePath);
   setPendingSelectionTop(undefined, filePath);
+  positionsMap.get(filePath)?.setPending(undefined);
   clearPendingHighlight();
   window.getSelection()?.removeAllRanges();
 }
@@ -359,6 +366,7 @@ function handleClickOutside(e: MouseEvent) {
 
   setSelection(null, app.activeDocumentPath);
   setPendingSelectionTop(undefined, app.activeDocumentPath);
+  positionsMap.get(app.activeDocumentPath)?.setPending(undefined);
   clearPendingHighlight();
   requestAnimationFrame(() => {
     const sel = window.getSelection();
@@ -411,22 +419,7 @@ function handleCancelReanchor(filePath: string) {
 }
 
 function handleHighlightClick(commentId: string) {
-  // On narrow viewports where margin notes are hidden, show floating overlay
-  const marginColumn = document.querySelector("[data-margin-column]");
-  const isMarginVisible =
-    marginColumn && getComputedStyle(marginColumn).display !== "none";
-
-  if (isMarginVisible) {
-    const marginNote = document.querySelector(
-      `article[data-comment-id="${commentId}"]`,
-    );
-    if (marginNote) {
-      marginNote.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  } else {
-    // Show floating comment overlay
-    setActiveCommentId(commentId);
-  }
+  setActiveCommentId(commentId);
 }
 
 function scrollToHeading(id: string) {
@@ -742,7 +735,6 @@ onMount(() => {
 onDestroy(() => {
   heartbeatSource?.close();
   documentStreamSource?.close();
-  clearTimeout(hoverTimeout);
   window.removeEventListener("keydown", handleKeyDown);
   document.removeEventListener("mousedown", handleClickOutside);
 
@@ -842,13 +834,9 @@ onDestroy(() => {
                   {comments}
                   {isActive}
                   onTextSelect={(text, start, end, top) => onTextSelect(filePath, text, start, end, top)}
-                  onHighlightHover={(id) => {
-                    setHoveredCommentId(id);
-                    const entry = highlighterMap.get(filePath);
-                    entry?.setFocused(id);
-                  }}
                   onHighlightClick={handleHighlightClick}
                   onTaskToggle={(index, checked) => toggleTask(filePath, index, checked)}
+                  onClustersChanged={(clusters, indexById) => handleClustersChanged(filePath, clusters, indexById)}
                   registerHighlighter={(focused, scrollTo) => registerHighlighter(filePath, focused, scrollTo)}
                   unregisterHighlighter={() => unregisterHighlighter(filePath)}
                   positions={getPositions(filePath)}
@@ -878,15 +866,25 @@ onDestroy(() => {
                 {/if}
 
                 <MarginNotesContainer
-                  {sortedComments}
+                  clusters={isActive ? activeClusters : []}
                   positions={getPositions(filePath)}
-                  onedit={(id, text) => editComment(filePath, id, text)}
-                  ondelete={(id) => deleteComment(filePath, id)}
-                  oncopy={copyComment}
-                  onnavigate={navigateToComment}
                 />
               </div>
             </div>
+
+            {#if ui.activeCommentId && isActive}
+              {@const activeComment = comments.find((c) => c.id === ui.activeCommentId)}
+              {@const idx = activeIndexById.get(ui.activeCommentId) ?? 0}
+              {#if activeComment}
+                <CommentPopover
+                  comment={activeComment}
+                  index={idx}
+                  onedit={(id, text) => editComment(filePath, id, text)}
+                  ondelete={(id) => deleteComment(filePath, id)}
+                  oncopy={copyComment}
+                />
+              {/if}
+            {/if}
 
             <!-- Floating comment input for narrow viewports (below lg) -->
             {#if selection && pendingSelectionTop !== undefined}
