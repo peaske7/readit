@@ -13,6 +13,7 @@ import * as os from "node:os";
 import { join, resolve } from "node:path";
 import { Command } from "commander";
 import open from "open";
+import pkg from "../package.json" with { type: "json" };
 import { getCommentPath, parseCommentFile } from "./lib/comment-storage.js";
 import { isMarkdownFile } from "./lib/utils.js";
 import type { FileEntry } from "./server.js";
@@ -421,7 +422,7 @@ const WELCOME_PATH = join(os.homedir(), ".readit", "welcome.md");
 program
   .name("readit")
   .description("Review Markdown documents with inline comments")
-  .version("0.2.0");
+  .version(pkg.version);
 
 program
   .command("list")
