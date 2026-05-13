@@ -75,7 +75,8 @@ function onKey(e: KeyboardEvent) {
     <p
       class={cn(
         fontClass,
-        "text-[11px] leading-[14px] text-zinc-600 dark:text-zinc-300 line-clamp-2",
+        "text-[11px] leading-[14px] text-zinc-600 dark:text-zinc-300 overflow-hidden",
+        "max-h-[26px] [mask-image:linear-gradient(to_bottom,black_50%,transparent_95%)]",
         !hasNote && "italic text-zinc-400 dark:text-zinc-500",
       )}
     >
