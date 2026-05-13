@@ -123,34 +123,80 @@ Reasoning:
 - Tier-differentiated treatment reads as intentional rather than a global
   style swap.
 
-### Implementation (TIER_1 `<p>`, `MarginEntry.svelte:75–83`)
+### Implementation
 
-`line-clamp-2` is replaced with a `max-h-[26px]` plus a bottom-fading mask
-scoped to the `<p>`:
+Two-part fix:
+
+**Part 1 — slack-aware growth (`margin-layout.ts`, `positions.ts`).** The
+layout resolver now computes `availableHeight` per cluster: distance from
+the cluster's resolved top to the next cluster's top (or to the comment
+input boundary, or infinity for the last cluster). `Positions` writes this
+value to each cluster element as a CSS custom property
+`--margin-avail-height`. Because the cap equals the slack to the next
+cluster's *resolved* position, a growing cluster never pushes its
+neighbours — it only consumes empty space that was already there.
+
+**Part 2 — adaptive entry sizing + overflow-driven mask
+(`MarginEntry.svelte`).** TIER_1 single-entry clusters (`canGrow`) drop the
+fixed height. They use `min-height: 50px; max-height:
+var(--margin-avail-height, 50px)` and `height: auto`, so the box sizes to
+its content within the slack-bounded range. The wrapper has
+`overflow-hidden` as a safety, and a `ResizeObserver` toggles a
+`mask-image: linear-gradient(to bottom, black calc(100% - 14px),
+transparent)` class only when `scrollHeight > clientHeight`. When the
+content fits there's no fade at all; when slack is too tight the bottom
+line softly fades into the cluster background.
+
+Other tiers are unchanged. TIER_1 multi-entry clusters (2–3 comments per
+paragraph) keep the fixed 50px per entry; the same overflow-triggered mask
+applies to them.
 
 ```svelte
-<p
-  class={cn(
-    fontClass,
-    "text-[11px] leading-[14px] text-zinc-600 dark:text-zinc-300 overflow-hidden",
-    "max-h-[26px] [mask-image:linear-gradient(to_bottom,black_50%,transparent_95%)]",
-    !hasNote && "italic text-zinc-400 dark:text-zinc-500",
-  )}
->
-  {displayText}
-</p>
+let canGrow = $derived(
+  tier.type === TierTypes.TIER_1 && clusterSize === 1,
+);
+
+let wrapperEl: HTMLDivElement | undefined = $state();
+let isOverflowing = $state(false);
+
+$effect(() => {
+  const el = wrapperEl;
+  if (!el || tier.type !== TierTypes.TIER_1) return;
+  const update = () => {
+    isOverflowing = el.scrollHeight > el.clientHeight + 1;
+  };
+  update();
+  const observer = new ResizeObserver(update);
+  observer.observe(el);
+  return () => observer.disconnect();
+});
 ```
 
-- `max-h-[26px]` lets the second line render most of the way through; the
-  mask handles the bottom edge so a few pixels of clip is invisible.
-- Gradient runs from fully opaque at 50% (~13px, mid-line-1) to nearly
-  transparent at 95% (~24.7px, near the bottom of line 2). Starting the
-  fade at 50% gives a deeper, more obvious gradient than ending at 100%.
-- Mask is scoped to the `<p>`; the card background stays solid.
-- The card's `overflow-hidden` (line 43) becomes a safety net rather than
-  the active cropper.
-- Gradient uses `black` for the mask alpha channel — identical in dark
-  and light themes.
+```svelte
+<div
+  bind:this={wrapperEl}
+  class={cn(
+    "relative w-full px-3 cursor-pointer overflow-hidden",
+    /* ... */,
+    isOverflowing &&
+      "[mask-image:linear-gradient(to_bottom,black_calc(100%-14px),transparent)]",
+  )}
+  style={canGrow
+    ? `min-height: ${tier.height}px; max-height: var(--margin-avail-height, ${tier.height}px)`
+    : `height: ${tier.height}px`}
+>
+```
+
+### Why this matches the user's intuition
+
+> "if there aren't other comments around that would force the clamping
+> behavior, the entire comment should appear properly."
+
+Exactly so. Slack is computed against the next cluster's resolved top, so
+"no neighbours forcing density" → `availableHeight` is the full distance
+to the next cluster's anchor (or infinity → CSS `none` → unbounded). The
+comment grows. When neighbours *do* press in, slack tightens and the mask
+softens the clip.
 
 ### Accessibility
 

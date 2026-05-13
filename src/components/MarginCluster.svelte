@@ -31,7 +31,12 @@ $effect(() => {
     <MarginGroupEntry comments={cluster.comments} {startIndex} />
   {:else}
     {#each cluster.comments as comment, i (comment.id)}
-      <MarginEntry {comment} index={startIndex + i} tier={cluster.tier} />
+      <MarginEntry
+        {comment}
+        index={startIndex + i}
+        tier={cluster.tier}
+        clusterSize={cluster.comments.length}
+      />
     {/each}
   {/if}
 </div>
