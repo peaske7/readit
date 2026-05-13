@@ -33,6 +33,14 @@ $effect(() => {
   textareaEl?.focus();
 });
 
+$effect(() => {
+  const el = textareaEl;
+  if (!el) return;
+  void editText;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+});
+
 function handleSave() {
   if (editText.trim()) {
     onsave(editText);
@@ -55,7 +63,7 @@ function handleKeydown(e: KeyboardEvent) {
     bind:value={editText}
     class={cn(
       fontClass,
-      "w-full px-2 py-1.5 text-sm border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 resize-none focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500",
+      "w-full px-2 py-1.5 text-sm border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 resize-none overflow-y-auto max-h-[60vh] focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500",
       className,
     )}
     {rows}

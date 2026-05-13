@@ -68,6 +68,7 @@ func NewRenderer() *Renderer {
 		),
 		goldmark.WithRendererOptions(
 			html.WithUnsafe(),
+			html.WithHardWraps(),
 			renderer.WithNodeRenderers(
 				util.Prioritized(taskR, 100),
 			),
