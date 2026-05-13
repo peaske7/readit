@@ -10,9 +10,30 @@ interface Props {
   comment: Comment;
   index: number;
   tier: TierSpec;
+  clusterSize?: number;
 }
 
-let { comment, index, tier }: Props = $props();
+let { comment, index, tier, clusterSize = 1 }: Props = $props();
+
+let canGrow = $derived(tier.type === TierTypes.TIER_1 && clusterSize === 1);
+
+let wrapperEl: HTMLDivElement | undefined = $state();
+let isOverflowing = $state(false);
+
+$effect(() => {
+  const el = wrapperEl;
+  if (!el || tier.type !== TierTypes.TIER_1) {
+    isOverflowing = false;
+    return;
+  }
+  const update = () => {
+    isOverflowing = el.scrollHeight > el.clientHeight + 1;
+  };
+  update();
+  const observer = new ResizeObserver(update);
+  observer.observe(el);
+  return () => observer.disconnect();
+});
 
 let isActive = $derived(ui.activeCommentId === comment.id);
 let fontClass = $derived(
@@ -37,6 +58,7 @@ function onKey(e: KeyboardEvent) {
 </script>
 
 <div
+  bind:this={wrapperEl}
   role="button"
   tabindex="0"
   class={cn(
@@ -47,8 +69,12 @@ function onKey(e: KeyboardEvent) {
     tier.type === TierTypes.TIER_3 && "py-1",
     tier.type === TierTypes.GROUP && "py-2",
     unresolved && "opacity-60",
+    isOverflowing &&
+      "[mask-image:linear-gradient(to_bottom,black_calc(100%_-_14px),transparent)]",
   )}
-  style="height: {tier.height}px"
+  style={canGrow
+    ? `min-height: ${tier.height}px; max-height: var(--margin-avail-height, ${tier.height}px)`
+    : `height: ${tier.height}px`}
   data-comment-id={comment.id}
   data-active={isActive}
   onclick={activate}
@@ -75,7 +101,7 @@ function onKey(e: KeyboardEvent) {
     <p
       class={cn(
         fontClass,
-        "text-[11px] leading-[14px] text-zinc-600 dark:text-zinc-300 line-clamp-2",
+        "text-[11px] leading-[14px] text-zinc-600 dark:text-zinc-300",
         !hasNote && "italic text-zinc-400 dark:text-zinc-500",
       )}
     >

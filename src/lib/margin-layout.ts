@@ -12,6 +12,7 @@ export interface ClusterInput {
 export interface ClusterPosition {
   top: number;
   height: number;
+  availableHeight: number;
 }
 
 function clusterBlockHeight(input: ClusterInput): number {
@@ -42,8 +43,24 @@ export function resolveClusterPositions(
       top = inputEnd;
     }
 
-    positions.set(cluster.id, { top, height });
+    positions.set(cluster.id, { top, height, availableHeight: height });
     cursor = top + height + CLUSTER_GAP_PX;
+  }
+
+  for (let i = 0; i < sorted.length; i++) {
+    const pos = positions.get(sorted[i].id);
+    if (!pos) continue;
+    const nextPos =
+      i + 1 < sorted.length ? positions.get(sorted[i + 1].id) : undefined;
+    const nextCeiling = nextPos
+      ? nextPos.top - CLUSTER_GAP_PX
+      : Number.POSITIVE_INFINITY;
+    const inputCeiling =
+      pendingSelectionTop !== undefined && pos.top < pendingSelectionTop
+        ? pendingSelectionTop - CLUSTER_GAP_PX
+        : Number.POSITIVE_INFINITY;
+    const ceiling = Math.min(nextCeiling, inputCeiling);
+    pos.availableHeight = Math.max(pos.height, ceiling - pos.top);
   }
 
   return positions;

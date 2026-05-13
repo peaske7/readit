@@ -1,6 +1,6 @@
 import { findBlockAncestor } from "./clustering";
 import type { Highlighter } from "./highlight/highlighter";
-import { resolveClusterPositions } from "./margin-layout";
+import { type ClusterPosition, resolveClusterPositions } from "./margin-layout";
 
 type Listener = () => void;
 
@@ -21,7 +21,7 @@ export class Positions {
   private elements = new Map<string, HTMLElement>();
   private anchorTops = new Map<string, number>();
   private markerAnchors = new Map<string, MarkerAnchor>();
-  private resolved = new Map<string, { top: number; height: number }>();
+  private resolved = new Map<string, ClusterPosition>();
   private pendingTop: number | undefined;
   private listeners = new Set<Listener>();
   private container: HTMLElement | null = null;
@@ -89,6 +89,12 @@ export class Positions {
     const pos = this.resolved.get(id);
     if (pos) {
       el.style.top = `${pos.top}px`;
+      el.style.setProperty(
+        "--margin-avail-height",
+        Number.isFinite(pos.availableHeight)
+          ? `${pos.availableHeight}px`
+          : "none",
+      );
       el.style.visibility = "visible";
     } else {
       el.style.visibility = "hidden";
@@ -153,6 +159,12 @@ export class Positions {
       const pos = this.resolved.get(id);
       if (pos) {
         el.style.top = `${pos.top}px`;
+        el.style.setProperty(
+          "--margin-avail-height",
+          Number.isFinite(pos.availableHeight)
+            ? `${pos.availableHeight}px`
+            : "none",
+        );
         el.style.visibility = "visible";
       } else {
         el.style.visibility = "hidden";
