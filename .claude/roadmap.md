@@ -12,7 +12,7 @@
 - [x] Highlight commented text with yellow background
 - [x] Copy All / Export JSON
 - [x] File-based comment persistence (`.comments.md` files)
-- [x] Copy for LLM feature (⌘⇧C) - copy selection/comment with surrounding context
+- [x] Copy for LLM (⌘⇧C) - copy selection/comment with surrounding context
 - [x] CLI subcommands: `list`, `show`, `open`
 
 ## v0.2.0 - File-Based Comment Storage ✅
@@ -32,39 +32,22 @@ Plain markdown storage enables git versioning, LLM accessibility, and cross-tool
 - [x] Selection truncation for very long texts (>1000 chars)
 - [x] Document single-tab-per-file limitation
 - [x] Document cross-machine path limitation
-- [ ] Integration tests for storage edge cases:
-  - [ ] Large documents (10K+ lines)
-  - [ ] Many comments (100+)
-  - [ ] Unicode/emoji in selections
-  - [ ] Concurrent tab simulation
-  - [ ] Document changes between sessions
-  - [ ] Corrupt/malformed comment files
 
-## v0.3.0 - Comment Resolution Workflow
+## v0.3.0 - Markdown Polish & Resolution Workflow (in progress)
 
-Review documents, add comments, then resolve one-by-one with LLM assistance.
-
-- [ ] Comment status (`unresolved` / `resolved`)
-  - [ ] Add `status` field to Comment type
-  - [ ] Store status in `.comments.md` metadata: `<!-- c:{id}|{lineHint}|{timestamp}|{status} -->`
-  - [ ] Default new comments to `unresolved`
-- [ ] Navigate unresolved comments
-  - [ ] "Next unresolved" / "Previous unresolved" keyboard shortcuts
-  - [ ] Unresolved count in header
-- [ ] Visual status indicators
-  - [ ] Minimap: yellow = unresolved, green = resolved
-  - [ ] Margin notes: status badge + toggle button
-  - [ ] Highlight colors: yellow = unresolved, muted = resolved
-- [ ] Per-comment LLM copy
-  - [ ] Copy single comment + context (⌘⇧C on margin note)
-  - [ ] Include file path, line numbers, heading context
-- [ ] Mark resolved action
-  - [ ] Click to toggle status
-  - [ ] Auto-navigate to next unresolved (optional)
+- [x] Richer markdown support (rc.0)
+- [x] Checkbox support (rc.1)
+- [x] Richer LLM context copy: surrounding headings + line numbers (rc.2, #5)
+- [x] Settings: persist keybinding overrides via `PUT /api/settings` (rc.4, #9)
+- [x] Settings: serialize concurrent `PUT /api/settings` cycles (rc.4, #10)
+- [x] Settings: suppress app shortcuts during keybinding rebind (rc.4, #8)
+- [x] Density-adaptive margin note layout (rc.5, #11)
+- [x] Margin comment popover opens in edit mode with auto-growing textarea (rc.5, #13)
+- [x] Slack-aware growth for TIER_1 margin notes (rc.6, #12)
+- [x] e2e test stability fixes (rc.4)
 
 ## v0.4.0 - Visual Enhancements ✅
 
-- [x] Highlight commented text in document (moved to v0.1.0)
 - [x] Syntax highlighting for code blocks (shiki, server-side)
 - [x] Click highlight → scroll to margin note
 - [x] Click margin note → scroll to highlighted text
@@ -73,7 +56,6 @@ Review documents, add comments, then resolve one-by-one with LLM assistance.
 - [x] Floating TOC in fullscreen mode
 - [x] Settings modal with font preference (serif / sans-serif)
 - [x] Per-document settings storage (`~/.readit/settings/`)
-- [ ] Better mobile support
 
 ## v0.5.0 - Comment Categories
 
@@ -84,12 +66,12 @@ Review documents, add comments, then resolve one-by-one with LLM assistance.
 
 ## v0.6.0 - Multi-file Support (Partial ✅)
 
-- [ ] Glob pattern support (`readit docs/*.md`)
 - [x] Multiple file arguments (`readit file1.md file2.md`)
 - [x] Directory scanning (`readit <dir>`)
 - [x] `readit open <files...>` to add files to running server
 - [x] File tab navigation (TabBar.svelte)
 - [x] Per-file comment storage
+- [ ] Glob pattern support (`readit docs/*.md`)
 - [ ] Bulk export across files
 
 ## v0.7.0 - Shell Integration & Editor Plugins ✅
@@ -106,16 +88,26 @@ Review documents, add comments, then resolve one-by-one with LLM assistance.
   - [x] Configurable keymaps (`<leader>r` prefix by default)
   - [x] `:checkhealth readit` support
   - [x] Auto-cleanup on VimLeavePre
+- [x] VS Code extension (`vscode-readit/`)
 - [x] Enhanced live reload on file changes
   - [x] Handle `rename` events (Vim/Neovim write-to-temp-then-rename saves)
   - [x] Auto re-establish watcher after rename with retry logic
   - [x] SSE auto-reconnect with exponential backoff
   - [x] Parallel document + comments fetch on reload
 
+## Infrastructure ✅
+
+Cross-cutting work not tied to a single milestone:
+
+- [x] Go production binary (`go/`, `Makefile`) — single-binary distribution with embedded frontend via `go:embed`
+- [x] Internationalization (`src/lib/i18n/`) — English + Japanese translations
+- [x] Biome (lint + format) + lefthook + Vitest + Playwright
+
 ## Future Considerations
 
-- Sticky notes (ペタペタ) - add notes not tied to text selection
+- Better mobile support
+- Storage edge-case test suite (large documents, 100+ comments, unicode/emoji, concurrent tabs, corrupt files)
+- Sticky notes (ペタペタ) — add notes not tied to text selection
 - Collaborative mode (WebSocket sync)
 - GitHub integration (create issues from comments)
-- VS Code extension
-- PDF export with highlights and comments - export the current document view as a PDF with all highlights and margin notes visible, preserving the visual review state for sharing or archiving
+- PDF export with highlights and comments — export the current document view as a PDF with all highlights and margin notes visible, preserving the visual review state for sharing or archiving
