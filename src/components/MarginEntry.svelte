@@ -22,7 +22,10 @@ let isOverflowing = $state(false);
 
 $effect(() => {
   const el = wrapperEl;
-  if (!el || tier.type !== TierTypes.TIER_1) return;
+  if (!el || tier.type !== TierTypes.TIER_1) {
+    isOverflowing = false;
+    return;
+  }
   const update = () => {
     isOverflowing = el.scrollHeight > el.clientHeight + 1;
   };
@@ -67,7 +70,7 @@ function onKey(e: KeyboardEvent) {
     tier.type === TierTypes.GROUP && "py-2",
     unresolved && "opacity-60",
     isOverflowing &&
-      "[mask-image:linear-gradient(to_bottom,black_calc(100%-14px),transparent)]",
+      "[mask-image:linear-gradient(to_bottom,black_calc(100%_-_14px),transparent)]",
   )}
   style={canGrow
     ? `min-height: ${tier.height}px; max-height: var(--margin-avail-height, ${tier.height}px)`

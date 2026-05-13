@@ -35,7 +35,7 @@ Tier selection lives in `src/lib/clustering.ts:17-27`, density is computed in
 
 For TIER_1:
 
-```
+```text
 height        50px
 py-2          -16px (8 top + 8 bottom)
 header row    -14px (text-[10px] tabular-nums)
@@ -179,7 +179,7 @@ $effect(() => {
     "relative w-full px-3 cursor-pointer overflow-hidden",
     /* ... */,
     isOverflowing &&
-      "[mask-image:linear-gradient(to_bottom,black_calc(100%-14px),transparent)]",
+      "[mask-image:linear-gradient(to_bottom,black_calc(100%_-_14px),transparent)]",
   )}
   style={canGrow
     ? `min-height: ${tier.height}px; max-height: var(--margin-avail-height, ${tier.height}px)`
