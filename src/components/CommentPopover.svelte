@@ -19,8 +19,13 @@ interface Props {
 
 let { comment, index, onedit, ondelete, oncopy }: Props = $props();
 
-let isEditing = $state(false);
+let isEditing = $state(true);
 let popoverEl: HTMLElement | undefined = $state();
+
+$effect(() => {
+  void comment.id;
+  isEditing = true;
+});
 let style = $state("opacity: 0;");
 let mounted = $state(false);
 

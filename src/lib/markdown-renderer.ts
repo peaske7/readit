@@ -53,6 +53,7 @@ function createMarkdownRenderer(
   const md = new MarkdownIt({
     html: true, // Allow raw HTML (matches rehype-raw behavior)
     linkify: true,
+    breaks: true,
     typographer: false,
     highlight(code: string, lang: string): string {
       if (lang === "mermaid") {
