@@ -59,8 +59,8 @@ export const en: Translations = {
   "commentList.unresolved": "unresolved",
 
   // Comment nav
-  "commentNav.previous": "Previous comment (Alt+↑)",
-  "commentNav.next": "Next comment (Alt+↓)",
+  "commentNav.previous": "Previous comment",
+  "commentNav.next": "Next comment",
   "commentNav.of": "{{current}} of {{total}}",
 
   // Inline editor

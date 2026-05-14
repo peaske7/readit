@@ -796,7 +796,7 @@ onDestroy(() => {
           {@const pendingSelectionTop = docState.pendingSelectionTop}
           {@const reanchorTarget = docState.reanchorTarget}
 
-          <div class="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col overflow-x-hidden">
+          <div class="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col">
             <Header
               fileName={docState.document.fileName}
               {comments}

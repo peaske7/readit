@@ -1,11 +1,17 @@
 <script lang="ts">
 import { ChevronLeft, ChevronRight } from "lucide-svelte";
 import { onDestroy } from "svelte";
+import { formatBinding, ShortcutActions } from "../lib/shortcut-registry";
 import { cn } from "../lib/utils";
 import type { Comment } from "../schema";
 import { t } from "../stores/locale.svelte";
+import { shortcutState } from "../stores/shortcuts.svelte";
 import Button from "./ui/Button.svelte";
+import Kbd from "./ui/Kbd.svelte";
 import Text from "./ui/Text.svelte";
+
+const IS_MAC =
+  typeof navigator !== "undefined" && navigator.platform.includes("Mac");
 
 const ANIMATION_DURATION_MS = 200;
 
@@ -45,6 +51,25 @@ function handleNext() {
 }
 
 let totalComments = $derived(sortedComments.length);
+
+let prevShortcut = $derived(
+  shortcutState.shortcuts.find(
+    (s) => s.id === ShortcutActions.NAVIGATE_PREVIOUS,
+  ),
+);
+let nextShortcut = $derived(
+  shortcutState.shortcuts.find((s) => s.id === ShortcutActions.NAVIGATE_NEXT),
+);
+let prevTitle = $derived(
+  prevShortcut?.enabled
+    ? `${t("commentNav.previous")} (${formatBinding(prevShortcut.binding, IS_MAC)})`
+    : t("commentNav.previous"),
+);
+let nextTitle = $derived(
+  nextShortcut?.enabled
+    ? `${t("commentNav.next")} (${formatBinding(nextShortcut.binding, IS_MAC)})`
+    : t("commentNav.next"),
+);
 </script>
 
 {#if totalComments > 1}
@@ -70,10 +95,11 @@ let totalComments = $derived(sortedComments.length);
             "scale-90 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300",
         )}
         onclick={handlePrevious}
-        title={t("commentNav.previous")}
+        title={prevTitle}
       >
         <ChevronLeft class="w-4 h-4" />
       </Button>
+      <Kbd action={ShortcutActions.NAVIGATE_PREVIOUS} class="-ml-0.5" />
 
       <Text
         variant="body"
@@ -91,6 +117,7 @@ let totalComments = $derived(sortedComments.length);
         })}
       </Text>
 
+      <Kbd action={ShortcutActions.NAVIGATE_NEXT} class="-mr-0.5" />
       <Button
         variant="ghost"
         size="icon"
@@ -100,7 +127,7 @@ let totalComments = $derived(sortedComments.length);
             "scale-90 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300",
         )}
         onclick={handleNext}
-        title={t("commentNav.next")}
+        title={nextTitle}
       >
         <ChevronRight class="w-4 h-4" />
       </Button>

@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Settings,
 } from "lucide-svelte";
+import { ShortcutActions } from "../lib/shortcut-registry";
 import { t } from "../stores/locale.svelte";
 import RawModal from "./RawModal.svelte";
 import SettingsModal from "./SettingsModal.svelte";
@@ -14,6 +15,7 @@ import Button from "./ui/Button.svelte";
 import DropdownMenu from "./ui/DropdownMenu.svelte";
 import DropdownMenuItem from "./ui/DropdownMenuItem.svelte";
 import DropdownMenuSeparator from "./ui/DropdownMenuSeparator.svelte";
+import Kbd from "./ui/Kbd.svelte";
 
 interface Props {
   commentCount: number;
@@ -69,6 +71,7 @@ let settingsOpen = $state(false);
     >
       <ClipboardCopy />
       {t("actions.copyAll")}
+      <Kbd action={ShortcutActions.COPY_ALL} class="ml-auto" />
     </DropdownMenuItem>
     <DropdownMenuItem
       onselect={() => {

@@ -134,7 +134,7 @@ $effect(() => {
       initialText={comment.comment}
       onsave={(text) => {
         onedit(comment.id, text);
-        isEditing = false;
+        dismiss();
       }}
       oncancel={() => (isEditing = false)}
     />

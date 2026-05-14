@@ -1,11 +1,16 @@
 <script lang="ts">
 import { Copy, Trash2 } from "lucide-svelte";
 import { generatePrompt } from "../lib/export";
+import { formatBinding, ShortcutActions } from "../lib/shortcut-registry";
 import type { Comment } from "../schema";
 import { t } from "../stores/locale.svelte";
+import { shortcutState } from "../stores/shortcuts.svelte";
 import CommentListItem from "./CommentListItem.svelte";
 import Button from "./ui/Button.svelte";
 import Text from "./ui/Text.svelte";
+
+const IS_MAC =
+  typeof navigator !== "undefined" && navigator.platform.includes("Mac");
 
 interface Props {
   comments: Comment[];
@@ -49,6 +54,15 @@ function copyAll() {
   const text = generatePrompt(comments, fileName);
   navigator.clipboard.writeText(text);
 }
+
+let copyAllShortcut = $derived(
+  shortcutState.shortcuts.find((s) => s.id === ShortcutActions.COPY_ALL),
+);
+let copyAllTitle = $derived(
+  copyAllShortcut?.enabled
+    ? `${t("commentManager.copyAllTitle")} (${formatBinding(copyAllShortcut.binding, IS_MAC)})`
+    : t("commentManager.copyAllTitle"),
+);
 </script>
 
 {#if confirmingDelete}
@@ -93,7 +107,7 @@ function copyAll() {
         type="button"
         class="p-1 rounded hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
         onclick={copyAll}
-        title={t("commentManager.copyAllTitle")}
+        title={copyAllTitle}
       >
         <Copy size={13} />
       </button>

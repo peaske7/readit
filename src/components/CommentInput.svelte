@@ -1,11 +1,20 @@
 <script lang="ts">
 import { onMount } from "svelte";
+import { formatBinding } from "../lib/shortcut-registry";
 import { cn } from "../lib/utils";
 import { FontFamilies } from "../schema";
 import { t } from "../stores/locale.svelte";
 import { settings } from "../stores/settings.svelte";
 import Button from "./ui/Button.svelte";
 import Text from "./ui/Text.svelte";
+
+const IS_MAC =
+  typeof navigator !== "undefined" && navigator.platform.includes("Mac");
+const submitHint = formatBinding(
+  IS_MAC ? { key: "Enter", meta: true } : { key: "Enter", ctrl: true },
+  IS_MAC,
+);
+const cancelHint = formatBinding({ key: "Escape" }, IS_MAC);
 
 interface Props {
   selectedText: string | null;
@@ -34,7 +43,7 @@ function handleSubmit() {
 }
 
 function handleKeyDown(e: KeyboardEvent) {
-  if (e.key === "Enter" && e.metaKey) {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
     e.preventDefault();
     handleSubmit();
   }
@@ -66,9 +75,11 @@ function handleKeyDown(e: KeyboardEvent) {
     <div class="flex justify-end items-center gap-3 mt-2 text-sm">
       <Button variant="ghost" size="sm" onclick={oncancel}>
         {t("comment.cancel")}
+        <span class="text-zinc-400 dark:text-zinc-500">{cancelHint}</span>
       </Button>
-      <Button variant="link" size="sm" onclick={handleSubmit} title="Cmd+Enter">
+      <Button variant="link" size="sm" onclick={handleSubmit}>
         {commentText.trim() ? t("comment.addNote") : t("comment.highlight")}
+        <span class="text-zinc-400 dark:text-zinc-500">{submitHint}</span>
       </Button>
     </div>
   </div>

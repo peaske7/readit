@@ -60,8 +60,8 @@ export const ja: Translations = {
   "commentList.unresolved": "未解決",
 
   // Comment nav
-  "commentNav.previous": "前のコメント (Alt+↑)",
-  "commentNav.next": "次のコメント (Alt+↓)",
+  "commentNav.previous": "前のコメント",
+  "commentNav.next": "次のコメント",
   "commentNav.of": "{{current}} / {{total}}",
 
   // Inline editor

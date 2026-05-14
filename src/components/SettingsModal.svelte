@@ -71,7 +71,7 @@ let fontDropdownOpen = $state(false);
 let localeDropdownOpen = $state(false);
 </script>
 
-<Dialog bind:open {onclose} contentClass="max-w-md">
+<Dialog bind:open {onclose} contentClass="max-w-xl">
   {#snippet header()}
     {t("settings.title")}
   {/snippet}

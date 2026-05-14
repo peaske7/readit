@@ -1,9 +1,18 @@
 <script lang="ts">
+import { formatBinding } from "../lib/shortcut-registry";
 import { cn } from "../lib/utils";
 import { FontFamilies } from "../schema";
 import { t } from "../stores/locale.svelte";
 import { settings } from "../stores/settings.svelte";
 import Button from "./ui/Button.svelte";
+
+const IS_MAC =
+  typeof navigator !== "undefined" && navigator.platform.includes("Mac");
+const saveHint = formatBinding(
+  IS_MAC ? { key: "Enter", meta: true } : { key: "Enter", ctrl: true },
+  IS_MAC,
+);
+const cancelHint = formatBinding({ key: "Escape" }, IS_MAC);
 
 interface Props {
   initialText: string;
@@ -48,7 +57,7 @@ function handleSave() {
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === "Enter" && e.metaKey) {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
     handleSave();
   }
   if (e.key === "Escape") {
@@ -69,12 +78,14 @@ function handleKeydown(e: KeyboardEvent) {
     {rows}
     onkeydown={handleKeydown}
   ></textarea>
-  <div class="flex gap-3 text-sm">
-    <Button variant="link" size="sm" onclick={handleSave}>
-      {t("editor.save")}
-    </Button>
+  <div class="flex justify-end gap-3 text-sm">
     <Button variant="ghost" size="sm" onclick={oncancel}>
       {t("editor.cancel")}
+      <span class="text-zinc-400 dark:text-zinc-500">{cancelHint}</span>
+    </Button>
+    <Button variant="link" size="sm" onclick={handleSave}>
+      {t("editor.save")}
+      <span class="text-zinc-400 dark:text-zinc-500">{saveHint}</span>
     </Button>
   </div>
 </div>
