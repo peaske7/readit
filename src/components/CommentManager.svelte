@@ -5,6 +5,7 @@ import { formatBinding, ShortcutActions } from "../lib/shortcut-registry";
 import type { Comment } from "../schema";
 import { t } from "../stores/locale.svelte";
 import { shortcutState } from "../stores/shortcuts.svelte";
+import { showToast } from "../stores/toast.svelte";
 import CommentListItem from "./CommentListItem.svelte";
 import Button from "./ui/Button.svelte";
 import Text from "./ui/Text.svelte";
@@ -53,6 +54,7 @@ let sortedComments = $derived(
 function copyAll() {
   const text = generatePrompt(comments, fileName);
   navigator.clipboard.writeText(text);
+  showToast(t("toast.copiedAllComments"));
 }
 
 let copyAllShortcut = $derived(

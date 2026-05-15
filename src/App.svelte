@@ -11,6 +11,7 @@ import MarginNotesContainer from "./components/MarginNotesContainer.svelte";
 import ReanchorConfirm from "./components/ReanchorConfirm.svelte";
 import TabBar from "./components/TabBar.svelte";
 import TableOfContents from "./components/TableOfContents.svelte";
+import Toast from "./components/Toast.svelte";
 import type { Cluster } from "./lib/clustering";
 import { extractContext, formatForLLM } from "./lib/context";
 import {
@@ -40,6 +41,7 @@ import {
 import { t } from "./stores/locale.svelte";
 import { initSettings } from "./stores/settings.svelte";
 import { initShortcuts, shortcutState } from "./stores/shortcuts.svelte";
+import { showToast } from "./stores/toast.svelte";
 import { setActiveCommentId, ui } from "./stores/ui.svelte";
 
 let isInitialized = $state(false);
@@ -382,6 +384,7 @@ function handleCopyAll(filePath: string) {
   navigator.clipboard.writeText(
     generatePrompt(docState.comments, docState.document.fileName),
   );
+  showToast(t("toast.copiedAllComments"));
 }
 
 function handleExportJson(filePath: string) {
@@ -653,6 +656,7 @@ function handleKeyDown(event: KeyboardEvent) {
         navigator.clipboard.writeText(
           docState.comments.map(formatComment).join("\n\n---\n\n"),
         );
+        showToast(t("toast.copiedAllComments"));
         break;
       case ShortcutActions.NAVIGATE_NEXT:
         navigateNext(docState.sortedComments);
@@ -935,3 +939,6 @@ onDestroy(() => {
     {/if}
   {/each}
 {/if}
+
+<Toast />
+

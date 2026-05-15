@@ -93,11 +93,26 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   },
 ];
 
+// On macOS, Option+<letter> produces a diacritic (Option+C → "ç"), so
+// event.key cannot be relied on for letter/digit shortcuts. event.code is
+// layout- and modifier-independent for those keys, so we use it as a fallback.
+function logicalKey(event: KeyboardEvent): string {
+  const code = event.code;
+  if (code.length === 4 && code.startsWith("Key")) return code.slice(3);
+  if (code.length === 6 && code.startsWith("Digit")) return code.slice(5);
+  return event.key;
+}
+
 export function matchesBinding(
   event: KeyboardEvent,
   binding: ShortcutBinding,
 ): boolean {
-  if (event.key.toLowerCase() !== binding.key.toLowerCase()) return false;
+  const bindingKey = binding.key.toLowerCase();
+  if (
+    event.key.toLowerCase() !== bindingKey &&
+    logicalKey(event).toLowerCase() !== bindingKey
+  )
+    return false;
   if (!!binding.alt !== event.altKey) return false;
   if (!!binding.ctrl !== event.ctrlKey) return false;
   if (!!binding.meta !== event.metaKey) return false;
@@ -199,8 +214,9 @@ export function isReservedBinding(
 }
 
 export function eventToBinding(event: KeyboardEvent): ShortcutBinding {
+  const key = logicalKey(event);
   return {
-    key: event.key,
+    key: key.length === 1 ? key.toLowerCase() : key,
     ...(event.altKey && { alt: true }),
     ...(event.ctrlKey && { ctrl: true }),
     ...(event.metaKey && { meta: true }),
