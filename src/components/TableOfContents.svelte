@@ -33,6 +33,22 @@ let h2sWithChildren = $derived.by(() => {
   return result;
 });
 
+let parentH2ById = $derived.by(() => {
+  const map = new Map<string, string>();
+  let currentH2: string | null = null;
+
+  for (const heading of headings) {
+    if (heading.level === 1) {
+      currentH2 = null;
+    } else if (heading.level === 2) {
+      currentH2 = heading.id;
+    } else if (heading.level > 2 && currentH2) {
+      map.set(heading.id, currentH2);
+    }
+  }
+  return map;
+});
+
 let visibleHeadings = $derived.by(() => {
   let currentH2: string | null = null;
 
@@ -92,7 +108,14 @@ $effect(() => {
   return () => observer.disconnect();
 });
 
-let effectiveActiveId = $derived(observedActiveId);
+let effectiveActiveId = $derived.by(() => {
+  if (!observedActiveId) return null;
+  const parent = parentH2ById.get(observedActiveId);
+  if (parent && !expandedH2s.has(parent)) {
+    return parent;
+  }
+  return observedActiveId;
+});
 </script>
 
 {#if headings.length > 0}
