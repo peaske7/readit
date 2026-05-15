@@ -59,6 +59,7 @@ export interface Translations {
   // Comment list item
   "commentList.edit": string;
   "commentList.delete": string;
+  "commentList.copy": string;
   "commentList.goTo": string;
   "commentList.reanchor": string;
   "commentList.unresolved": string;
@@ -88,6 +89,7 @@ export interface Translations {
   // Toast messages
   "toast.copied": string;
   "toast.copiedAllComments": string;
+  "toast.copiedComment": string;
 
   // Comment badge
   "commentBadge.title": string;

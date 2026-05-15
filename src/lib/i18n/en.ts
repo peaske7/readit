@@ -54,6 +54,7 @@ export const en: Translations = {
   // Comment list item
   "commentList.edit": "Edit",
   "commentList.delete": "Delete",
+  "commentList.copy": "Copy",
   "commentList.goTo": "Go to",
   "commentList.reanchor": "Re-anchor",
   "commentList.unresolved": "unresolved",
@@ -83,6 +84,7 @@ export const en: Translations = {
   // Toast messages
   "toast.copied": 'Copied: "{{text}}"',
   "toast.copiedAllComments": "Copied all comments",
+  "toast.copiedComment": "Copied comment",
 
   // Comment badge
   "commentBadge.title": "{{count}} comment",

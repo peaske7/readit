@@ -55,6 +55,7 @@ export const ja: Translations = {
   // Comment list item
   "commentList.edit": "編集",
   "commentList.delete": "削除",
+  "commentList.copy": "コピー",
   "commentList.goTo": "移動",
   "commentList.reanchor": "再アンカー",
   "commentList.unresolved": "未解決",
@@ -85,6 +86,7 @@ export const ja: Translations = {
   // Toast messages
   "toast.copied": 'コピーしました: "{{text}}"',
   "toast.copiedAllComments": "全てのコメントをコピーしました",
+  "toast.copiedComment": "コメントをコピーしました",
 
   // Comment badge
   "commentBadge.title": "{{count}}件のコメント",

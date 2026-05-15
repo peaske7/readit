@@ -334,6 +334,7 @@ function navigateNext(sortedComments: Comment[]) {
 
 function copyComment(comment: Comment) {
   navigator.clipboard.writeText(formatComment(comment));
+  showToast(t("toast.copiedComment"));
 }
 
 function onTextSelect(
@@ -811,6 +812,7 @@ onDestroy(() => {
               onedit={(id, text) => editComment(filePath, id, text)}
               ondelete={(id) => deleteComment(filePath, id)}
               ondeleteall={() => deleteAllComments(filePath)}
+              oncopy={copyComment}
               onnavigate={navigateToComment}
               onstartreanchor={(id) => startReanchor(filePath, id)}
             />

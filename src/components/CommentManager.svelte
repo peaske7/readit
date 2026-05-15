@@ -20,6 +20,7 @@ interface Props {
   onedit: (id: string, newText: string) => void;
   ondelete: (id: string) => void;
   ondeleteall: () => void;
+  oncopy: (comment: Comment) => void;
   onnavigate: (id: string) => void;
   onstartreanchor: (id: string) => void;
 }
@@ -31,6 +32,7 @@ let {
   onedit,
   ondelete,
   ondeleteall,
+  oncopy,
   onnavigate,
   onstartreanchor,
 }: Props = $props();
@@ -137,6 +139,7 @@ let copyAllTitle = $derived(
         onaction={onclose}
         {onedit}
         {ondelete}
+        {oncopy}
         {onnavigate}
         {onstartreanchor}
       />

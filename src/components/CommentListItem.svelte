@@ -11,6 +11,7 @@ interface Props {
   onaction?: () => void;
   onedit: (id: string, newText: string) => void;
   ondelete: (id: string) => void;
+  oncopy: (comment: Comment) => void;
   onnavigate: (id: string) => void;
   onstartreanchor: (id: string) => void;
 }
@@ -20,6 +21,7 @@ let {
   onaction,
   onedit,
   ondelete,
+  oncopy,
   onnavigate,
   onstartreanchor,
 }: Props = $props();
@@ -79,6 +81,9 @@ function handleReanchor() {
       </ActionLink>
       <ActionLink onclick={() => ondelete(comment.id)}>
         {t("commentList.delete")}
+      </ActionLink>
+      <ActionLink onclick={() => oncopy(comment)}>
+        {t("commentList.copy")}
       </ActionLink>
       {#if canGoTo}
         <ActionLink onclick={handleGoTo}>
