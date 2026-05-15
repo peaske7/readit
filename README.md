@@ -1,6 +1,6 @@
 # readit
 
-A CLI tool to review Markdown and HTML documents with inline comments. Add margin notes to highlighted text, then export for AI or apply back to source.
+A CLI tool to review Markdown documents with inline comments. Add margin notes to highlighted text, then export for AI or apply back to source.
 
 <img width="4014" height="2440" alt="CleanShot 2025-12-25 at 09 23 20@2x" src="https://github.com/user-attachments/assets/2dfda51c-b5a2-45ef-839f-e3ab5854bf90" />
 
@@ -18,10 +18,22 @@ Inspired by [difit](https://github.com/yoshiko-pg/difit).
 bunx readit document.md
 ```
 
+## Install
+
+Install globally with any package manager. Bun is required at runtime regardless of how you install.
+
+```bash
+bun add -g @peaske7/readit       # bun
+pnpm add -g @peaske7/readit      # pnpm
+npm install -g @peaske7/readit   # npm
+```
+
+Then run `readit <file>` directly without `bunx`.
+
 ## Usage
 
 ```bash
-readit <file>                 # Review a .md or .html file
+readit <file>                 # Review a .md or .markdown file
 readit <file> --port 3000     # Custom port (default: 4567)
 readit <file> --host 0.0.0.0  # Custom host (default: 127.0.0.1)
 readit <file> --no-open       # Don't auto-open browser
@@ -34,6 +46,16 @@ readit completion zsh         # Output shell integration script
 ```
 
 Select text to add comments. Comments appear as margin notes. Copy all comments formatted for AI with a single click.
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Alt + ↑` / `Alt + ↓` | Previous / next comment |
+| `⌘ + C` | Copy selected text |
+| `⌘ + Shift + C` | Copy selection with LLM context (line numbers + surrounding lines) |
+
+All shortcuts are rebindable from the settings panel.
 
 ## Shell Integration
 
