@@ -272,26 +272,19 @@ Pre-existing comment to be cleared.
       let fileContent = readFileSync(commentPath, "utf-8");
       expect(fileContent).toContain(initialComment);
 
-      // Find the margin note by data-comment-id (first one)
+      // Click the margin entry — popover opens in edit mode by default
       const marginNote = page.locator("[data-comment-id]").first();
+      await marginNote.click();
 
-      // Force-click edit button (may be hidden behind opacity-0 group-hover)
-      const editButton = marginNote.getByText("Edit").first();
-      await editButton.click({ force: true });
-
-      // Wait for edit mode — find textarea globally since hasText filter breaks in edit mode
-      const textarea = page.locator("[data-comment-id] textarea");
+      const popover = page.locator(
+        '[role="dialog"][aria-label="Comment details"]',
+      );
+      const textarea = popover.locator("textarea");
       await expect(textarea).toBeVisible();
 
-      // Clear and type new text
       await textarea.fill("Updated comment text");
 
-      // Save edit
-      const saveButton = page
-        .locator("[data-comment-id]")
-        .getByText("Save")
-        .first();
-      await saveButton.click();
+      await popover.getByRole("button", { name: /save/i }).click();
 
       // Wait for file to be updated
       await page.waitForTimeout(500);
@@ -331,16 +324,18 @@ Pre-existing comment to be cleared.
       let fileContent = readFileSync(commentPath, "utf-8");
       expect(fileContent).toContain(commentText);
 
-      // Find the margin note containing the comment
+      // Click the margin entry — popover opens in edit mode; cancel to reveal Delete link
       const marginNote = page
-        .locator(".group")
+        .locator("[data-comment-id]")
         .filter({ hasText: commentText })
         .first();
-      await marginNote.hover();
+      await marginNote.click();
 
-      // Click delete button
-      const deleteButton = marginNote.locator('button:has-text("Delete")');
-      await deleteButton.click();
+      const popover = page.locator(
+        '[role="dialog"][aria-label="Comment details"]',
+      );
+      await popover.getByRole("button", { name: /cancel/i }).click();
+      await popover.getByRole("button", { name: /delete/i }).click();
 
       // Wait for file to be updated
       await page.waitForTimeout(500);
