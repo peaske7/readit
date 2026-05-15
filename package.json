@@ -1,6 +1,6 @@
 {
   "name": "@peaske7/readit",
-  "version": "0.3.0-rc.7",
+  "version": "0.3.0-rc.8",
   "description": "A CLI tool to review Markdown documents with inline comments",
   "author": "Jay Shimada <peaske@pm.me>",
   "license": "MIT",
