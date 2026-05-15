@@ -21,7 +21,8 @@
     "shell"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
     "dev": "NODE_ENV=development bun --watch src/cli.ts --",
