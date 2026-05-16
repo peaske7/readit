@@ -822,7 +822,7 @@ onDestroy(() => {
               ondismiss={() => setCommentsError(null, filePath)}
             />
 
-            <div class="flex-1 flex gap-4 w-full max-w-7xl mx-auto overflow-x-clip">
+            <div class="flex-1 flex items-start gap-4 w-full max-w-7xl mx-auto overflow-x-clip">
               {#if headings.length > 0}
                 <aside class="w-48 flex-shrink-0 py-6 pl-6 hidden xl:block">
                   <div class="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto">

@@ -4,6 +4,10 @@ import { type ClusterPosition, resolveClusterPositions } from "./margin-layout";
 
 type Listener = () => void;
 
+// Matches the column's py-6 (24px) plus a small breathing buffer so the last
+// cluster doesn't sit flush against the footer.
+const COLUMN_BOTTOM_PADDING_PX = 48;
+
 export interface ClusterShape {
   id: string;
   commentIds: string[];
@@ -52,6 +56,7 @@ export class Positions {
     this.cacheRaf = null;
     this.unsubCache?.();
     this.unsubCache = null;
+    if (this.container) this.container.style.minHeight = "";
     this.container = null;
     this.highlighter = null;
   }
@@ -155,6 +160,7 @@ export class Positions {
 
     this.resolved = resolveClusterPositions(inputs, this.pendingTop);
 
+    let maxBottom = 0;
     for (const [id, el] of this.elements) {
       const pos = this.resolved.get(id);
       if (pos) {
@@ -166,9 +172,18 @@ export class Positions {
             : "none",
         );
         el.style.visibility = "visible";
+        const bottom = pos.top + pos.height;
+        if (bottom > maxBottom) maxBottom = bottom;
       } else {
         el.style.visibility = "hidden";
       }
+    }
+
+    if (this.container) {
+      // Absolutely-positioned clusters don't contribute to parent height, so
+      // grow the column to fit the lowest one and keep the footer below it.
+      this.container.style.minHeight =
+        maxBottom > 0 ? `${maxBottom + COLUMN_BOTTOM_PADDING_PX}px` : "";
     }
   }
 

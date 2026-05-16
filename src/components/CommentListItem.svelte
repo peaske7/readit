@@ -69,7 +69,7 @@ function handleReanchor() {
       oncancel={() => (isEditing = false)}
     />
   {:else}
-    <Text variant="body" class="line-clamp-2">
+    <Text variant="body" class="line-clamp-2 whitespace-pre-line">
       {comment.comment}
     </Text>
 

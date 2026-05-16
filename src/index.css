@@ -393,8 +393,15 @@ html {
 }
 
 .prose li {
-  margin: 0.5em 0;
+  margin: 0.25em 0;
   padding-left: 0.375em;
+}
+
+/* markdown-it wraps li content in <p> for "loose" lists (blank lines
+   between items). Without this, those paragraphs inherit the body
+   1.25em margin and bloat the list vertically. */
+.prose li > p {
+  margin: 0;
 }
 
 .prose li::marker {
@@ -416,7 +423,7 @@ html {
 /* Nested lists */
 .prose li > ul,
 .prose li > ol {
-  margin: 0.35em 0;
+  margin: 0.25em 0;
 }
 
 /* Code */
