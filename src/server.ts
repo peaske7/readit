@@ -702,6 +702,7 @@ interface FileState {
   headings: import("./lib/headings").Heading[] | null;
   isLoaded: boolean;
   debounceTimer: ReturnType<typeof setTimeout> | null;
+  needsRewatch?: boolean;
 }
 
 interface ServerWithWatchers {
@@ -946,16 +947,25 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       const watcher = watch(targetPath, async (eventType) => {
         // Handle both "change" and "rename" events.
         // Many editors (Vim, Neovim, Emacs) save files by writing to a temp
-        // file and then renaming it over the original. This triggers a
-        // "rename" event rather than "change". After a rename the original
-        // watcher may become invalid, so we re-establish it.
+        // file and then renaming it over the original. The rename invalidates
+        // the underlying fs.watch handle even if the file is back in place by
+        // the time the debounce fires, so we must always re-establish the
+        // watcher after a "rename" — latch the flag so a trailing "change"
+        // event in the same debounce window doesn't clear it.
         if (eventType !== "change" && eventType !== "rename") return;
 
         const state = fileMap.get(targetPath);
         if (!state) return;
 
+        if (eventType === "rename") state.needsRewatch = true;
+
         if (state.debounceTimer) clearTimeout(state.debounceTimer);
         state.debounceTimer = setTimeout(async () => {
+          if (state.needsRewatch) {
+            state.needsRewatch = false;
+            await rewatch(targetPath);
+            return;
+          }
           try {
             const newContent = await fs.readFile(targetPath, "utf-8");
             if (!state.isLoaded || newContent !== state.content) {
