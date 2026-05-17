@@ -37,7 +37,6 @@ function handleWindowKeydown(e: KeyboardEvent) {
 
 <svelte:window onkeydown={handleWindowKeydown} />
 
-<!-- Backdrop -->
 <button
   type="button"
   aria-label={t("comment.cancel")}
@@ -45,11 +44,9 @@ function handleWindowKeydown(e: KeyboardEvent) {
   onclick={dismiss}
 ></button>
 
-<!-- Floating panel -->
 <div
   class="fixed bottom-16 left-4 right-4 z-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg p-4 lg:hidden"
 >
-  <!-- Selected text -->
   <div class={cn(fontClass, "text-sm italic text-zinc-500 dark:text-zinc-400 mb-2 line-clamp-2")}>
     <button
       type="button"
@@ -73,7 +70,6 @@ function handleWindowKeydown(e: KeyboardEvent) {
       oncancel={() => (isEditing = false)}
     />
   {:else}
-    <!-- Comment text -->
     {#if hasNote}
       <p class={cn(fontClass, "text-sm text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap mb-3")}>
         {comment.comment}
@@ -84,7 +80,6 @@ function handleWindowKeydown(e: KeyboardEvent) {
       </Text>
     {/if}
 
-    <!-- Actions -->
     <div class="flex items-center text-xs text-zinc-400 gap-3 pt-2 border-t border-zinc-100 dark:border-zinc-800">
       <ActionLink onclick={() => (isEditing = true)}>
         {hasNote ? t("marginNote.edit") : t("marginNote.addNote")}

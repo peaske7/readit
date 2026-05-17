@@ -55,7 +55,6 @@ func RenderPage(tmpl *template.Template, data TemplateData) (string, error) {
 	return b.String(), nil
 }
 
-// SafeJSONStringify serializes data for embedding in a <script> tag.
 func SafeJSONStringify(data any) (template.JS, error) {
 	b, err := json.Marshal(data)
 	if err != nil {

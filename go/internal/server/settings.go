@@ -74,7 +74,6 @@ func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Validate keybinding overrides
 	for _, kb := range body.Keybindings {
 		if kb.ID == "" {
 			writeError(w, http.StatusBadRequest, "keybinding id is required")

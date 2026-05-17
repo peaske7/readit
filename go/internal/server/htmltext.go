@@ -38,7 +38,6 @@ func ExtractTextFromHTML(html string) string {
 			prevWasBlock = false
 		}
 
-		// Check if this tag is a block element
 		tag := htmlTagRe.FindStringSubmatch(html[loc[0]:loc[1]])
 		if len(tag) > 1 && blockElements[strings.ToLower(tag[1])] {
 			prevWasBlock = true
@@ -47,7 +46,6 @@ func ExtractTextFromHTML(html string) string {
 		lastPos = loc[1]
 	}
 
-	// Trailing text
 	if lastPos < len(html) {
 		text := html[lastPos:]
 		decoded := decodeEntities(text)
@@ -108,7 +106,6 @@ func FindTextPosition(textContent, selectedText string, hintOffset int) (start, 
 		return positions[0], positions[0] + len(selectedText), true
 	}
 
-	// Multiple matches - pick closest to hint
 	best := positions[0]
 	bestDist := abs(best - hintOffset)
 	for _, pos := range positions[1:] {

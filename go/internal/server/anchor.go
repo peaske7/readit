@@ -29,7 +29,6 @@ func ParseLineHint(hint string) (start, end int) {
 	return
 }
 
-// lineOffset returns the byte offset of the start of the given 1-indexed line.
 func lineOffset(content string, line int) int {
 	if line <= 1 {
 		return 0
@@ -51,7 +50,6 @@ func FindAnchor(source, selectedText, lineHint string) *AnchorResult {
 		return nil
 	}
 
-	// Try exact match near hint first
 	hintLine, _ := ParseLineHint(lineHint)
 	offset := lineOffset(source, hintLine)
 
@@ -68,7 +66,6 @@ func FindAnchor(source, selectedText, lineHint string) *AnchorResult {
 		}
 	}
 
-	// Fall back to full source
 	if idx := strings.Index(source, selectedText); idx >= 0 {
 		return &AnchorResult{
 			StartOffset: idx,
@@ -104,7 +101,6 @@ func FindAnchorNormalized(source, selectedText, lineHint string) *AnchorResult {
 		return nil // no normalization needed
 	}
 
-	// Try windowed search near the hint first
 	hintLine, _ := ParseLineHint(lineHint)
 	offset := lineOffset(source, hintLine)
 	normCharOffset := mapSourceToNormCharOffset(source, offset)
@@ -122,7 +118,6 @@ func FindAnchorNormalized(source, selectedText, lineHint string) *AnchorResult {
 		return resolveNormalizedMatch(source, windowStart+charIdx, normTextRuneLen)
 	}
 
-	// Fall back to full source
 	if before, _, ok := strings.Cut(normSource, normText); ok {
 		charIdx := utf8.RuneCountInString(before)
 		return resolveNormalizedMatch(source, charIdx, normTextRuneLen)
@@ -135,7 +130,6 @@ func resolveNormalizedMatch(source string, normCharIdx int, normTextRuneLen int)
 	origStart := mapNormalizedCharOffset(source, normCharIdx)
 	origEnd := mapNormalizedCharOffset(source, normCharIdx+normTextRuneLen)
 
-	// Trim trailing whitespace at end position
 	for origEnd > origStart && origEnd < len(source) {
 		if c := source[origEnd-1]; c == ' ' || c == '\t' || c == '\n' || c == '\r' {
 			origEnd--
@@ -218,7 +212,6 @@ func FindAnchorFuzzy(source, selectedText, lineHint string) *AnchorResult {
 			dist := levenshteinRunes(selectedRunes, candidate, threshold)
 			if dist <= threshold && dist < bestDist {
 				bestDist = dist
-				// Convert rune indices back to byte offsets
 				byteStart := len(string(windowRunes[:i]))
 				byteEnd := len(string(windowRunes[:i+candLen]))
 				bestStart = windowStart + byteStart

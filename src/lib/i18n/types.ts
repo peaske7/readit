@@ -6,17 +6,14 @@ export const Locales = {
 export type Locale = (typeof Locales)[keyof typeof Locales];
 
 export interface Translations {
-  // App
   "app.loading": string;
   "app.noDocuments": string;
   "app.noDocumentsHintPrefix": string;
   "app.noDocumentsHintSuffix": string;
   "app.footer": string;
 
-  // Header
   "header.selectTextToReanchor": string;
 
-  // Actions menu
   "actions.ariaLabel": string;
   "actions.settings": string;
   "actions.reload": string;
@@ -24,7 +21,6 @@ export interface Translations {
   "actions.exportJson": string;
   "actions.viewRaw": string;
 
-  // Settings
   "settings.title": string;
   "settings.theme": string;
   "settings.font": string;
@@ -35,19 +31,16 @@ export interface Translations {
   "settings.font.serif": string;
   "settings.font.sansSerif": string;
 
-  // Comment input
   "comment.placeholder": string;
   "comment.cancel": string;
   "comment.addNote": string;
   "comment.highlight": string;
 
-  // Margin note
   "marginNote.addNote": string;
   "marginNote.delete": string;
   "marginNote.edit": string;
   "marginNote.copy": string;
 
-  // Comment manager
   "commentManager.unresolved": string;
   "commentManager.deleteAllConfirm": string;
   "commentManager.delete": string;
@@ -56,7 +49,6 @@ export interface Translations {
   "commentManager.deleteAllTitle": string;
   "commentManager.noComments": string;
 
-  // Comment list item
   "commentList.edit": string;
   "commentList.delete": string;
   "commentList.copy": string;
@@ -64,21 +56,17 @@ export interface Translations {
   "commentList.reanchor": string;
   "commentList.unresolved": string;
 
-  // Comment nav
   "commentNav.previous": string;
   "commentNav.next": string;
   "commentNav.of": string;
 
-  // Inline editor
   "editor.save": string;
   "editor.cancel": string;
 
-  // Reanchor confirm
   "reanchor.question": string;
   "reanchor.confirm": string;
   "reanchor.cancel": string;
 
-  // Raw comments modal
   "rawModal.title": string;
   "rawModal.copyTitle": string;
   "rawModal.loading": string;
@@ -86,16 +74,13 @@ export interface Translations {
   "rawModal.copiedToClipboard": string;
   "rawModal.failedToCopy": string;
 
-  // Toast messages
   "toast.copied": string;
   "toast.copiedAllComments": string;
   "toast.copiedComment": string;
 
-  // Comment badge
   "commentBadge.title": string;
   "commentBadge.titlePlural": string;
 
-  // Keyboard shortcuts
   "shortcuts.title": string;
   "shortcutGroup.copy": string;
   "shortcutGroup.navigate": string;
@@ -120,7 +105,6 @@ export interface Translations {
   "shortcut.clearSelection.label": string;
   "shortcut.clearSelection.description": string;
 
-  // Mermaid diagram
   "mermaid.modalTitle": string;
   "mermaid.viewGraph": string;
   "mermaid.viewCode": string;

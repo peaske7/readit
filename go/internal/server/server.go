@@ -15,7 +15,6 @@ import (
 	"sync"
 )
 
-// Options configures the server.
 type Options struct {
 	Files      []FileEntry
 	Port       int

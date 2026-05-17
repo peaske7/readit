@@ -485,7 +485,7 @@ function setupDocumentStream() {
     documentStreamSource = new EventSource("/api/document/stream");
 
     documentStreamSource.onopen = () => {
-      reconnectDelay = 1000; // Reset on successful connection
+      reconnectDelay = 1000;
     };
 
     documentStreamSource.onmessage = async (e) => {
@@ -519,7 +519,6 @@ function setupDocumentStream() {
             return;
           }
 
-          // Fetch updated document and comments in parallel
           const [docRes, commentsRes] = await Promise.all([
             fetch(`/api/document?path=${encodeURIComponent(path)}`),
             fetch(`/api/comments?path=${encodeURIComponent(path)}`),
@@ -543,7 +542,6 @@ function setupDocumentStream() {
 
     documentStreamSource.onerror = () => {
       documentStreamSource?.close();
-      // Auto-reconnect with exponential backoff
       setTimeout(() => {
         reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
         connect();
@@ -598,7 +596,6 @@ async function reload() {
     setHeadings(data.headings ?? [], path);
     updateDocumentHtml(data.html, path);
 
-    // Also refresh comments
     const commentsRes = await fetch(
       `/api/comments?path=${encodeURIComponent(path)}`,
     );
@@ -892,7 +889,6 @@ onDestroy(() => {
               {/if}
             {/if}
 
-            <!-- Floating comment input for narrow viewports (below lg) -->
             {#if selection && pendingSelectionTop !== undefined}
               <div class="fixed bottom-16 left-4 right-4 z-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg p-4 lg:hidden">
                 {#if reanchorTarget !== null}
@@ -911,7 +907,6 @@ onDestroy(() => {
               </div>
             {/if}
 
-            <!-- Floating comment viewer for narrow viewports (click highlight to show) -->
             {#if ui.activeCommentId}
               {@const activeComment = comments.find((c) => c.id === ui.activeCommentId)}
               {#if activeComment}

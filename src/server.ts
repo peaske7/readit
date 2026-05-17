@@ -990,7 +990,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         }, 100);
       });
 
-      // Re-establish file watch after a rename-style save
       async function rewatch(filePath: string) {
         const maxRetries = 10;
         const retryInterval = 200;
@@ -998,7 +997,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
           await new Promise((r) => setTimeout(r, retryInterval));
           try {
             await fs.access(filePath);
-            // File exists again — close old watcher, create new one
             try {
               watcher.close();
             } catch {}
@@ -1008,7 +1006,6 @@ function createServer(options: ServerOptions): ServerWithWatchers {
               if (idx >= 0) watchers[idx] = newWatcher;
               else watchers.push(newWatcher);
             }
-            // Read the new content and emit update
             const state = fileMap.get(filePath);
             if (state) {
               const newContent = await fs.readFile(filePath, "utf-8");

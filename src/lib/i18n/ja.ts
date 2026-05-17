@@ -1,17 +1,14 @@
 import type { Translations } from "./types";
 
 export const ja: Translations = {
-  // App
   "app.loading": "読み込み中...",
   "app.noDocuments": "開いているドキュメントがありません。",
   "app.noDocumentsHintPrefix": "",
   "app.noDocumentsHintSuffix": "を実行してファイルを追加してください。",
   "app.footer": "Made with ❤️ by Jay and Claude",
 
-  // Header
   "header.selectTextToReanchor": "テキストを選択して再アンカー",
 
-  // Actions menu
   "actions.ariaLabel": "操作メニュー",
   "actions.settings": "設定",
   "actions.reload": "再読み込み",
@@ -19,7 +16,6 @@ export const ja: Translations = {
   "actions.exportJson": "JSONエクスポート",
   "actions.viewRaw": "生データを表示",
 
-  // Settings
   "settings.title": "設定",
   "settings.theme": "テーマ",
   "settings.font": "フォント",
@@ -30,19 +26,16 @@ export const ja: Translations = {
   "settings.font.serif": "明朝体",
   "settings.font.sansSerif": "ゴシック体",
 
-  // Comment input
   "comment.placeholder": "コメントを入力...",
   "comment.cancel": "キャンセル",
   "comment.addNote": "メモを追加",
   "comment.highlight": "ハイライト",
 
-  // Margin note
   "marginNote.addNote": "メモを追加",
   "marginNote.delete": "削除",
   "marginNote.edit": "編集",
   "marginNote.copy": "コピー",
 
-  // Comment manager
   "commentManager.unresolved": "未解決",
   "commentManager.deleteAllConfirm":
     "{{count}}件のコメントを全て削除しますか？",
@@ -52,7 +45,6 @@ export const ja: Translations = {
   "commentManager.deleteAllTitle": "全てのコメントを削除",
   "commentManager.noComments": "コメントはまだありません",
 
-  // Comment list item
   "commentList.edit": "編集",
   "commentList.delete": "削除",
   "commentList.copy": "コピー",
@@ -60,21 +52,17 @@ export const ja: Translations = {
   "commentList.reanchor": "再アンカー",
   "commentList.unresolved": "未解決",
 
-  // Comment nav
   "commentNav.previous": "前のコメント",
   "commentNav.next": "次のコメント",
   "commentNav.of": "{{current}} / {{total}}",
 
-  // Inline editor
   "editor.save": "保存",
   "editor.cancel": "キャンセル",
 
-  // Reanchor confirm
   "reanchor.question": "この選択範囲に再アンカーしますか？",
   "reanchor.confirm": "確認",
   "reanchor.cancel": "キャンセル",
 
-  // Raw comments modal
   "rawModal.title": "コメント生データ",
   "rawModal.copyTitle": "クリップボードにコピー",
   "rawModal.loading": "読み込み中...",
@@ -83,16 +71,13 @@ export const ja: Translations = {
   "rawModal.copiedToClipboard": "クリップボードにコピーしました",
   "rawModal.failedToCopy": "コピーに失敗しました",
 
-  // Toast messages
   "toast.copied": 'コピーしました: "{{text}}"',
   "toast.copiedAllComments": "全てのコメントをコピーしました",
   "toast.copiedComment": "コメントをコピーしました",
 
-  // Comment badge
   "commentBadge.title": "{{count}}件のコメント",
   "commentBadge.titlePlural": "{{count}}件のコメント",
 
-  // Keyboard shortcuts
   "shortcuts.title": "キーボードショートカット",
   "shortcutGroup.copy": "コピー",
   "shortcutGroup.navigate": "ナビゲーション",
@@ -118,7 +103,6 @@ export const ja: Translations = {
   "shortcut.clearSelection.label": "選択を解除",
   "shortcut.clearSelection.description": "テキスト選択を解除",
 
-  // Mermaid diagram
   "mermaid.modalTitle": "Mermaid ダイアグラム",
   "mermaid.viewGraph": "図",
   "mermaid.viewCode": "コード",

@@ -35,17 +35,14 @@ function escapeAttr(str: string): string {
  * same purpose.
  */
 function sanitizeHtml(html: string): string {
-  // Remove <script> tags and their content
   let sanitized = html.replace(
     /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
     "",
   );
-  // Remove event handler attributes (onclick, onerror, onload, etc.)
   sanitized = sanitized.replace(
     /\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi,
     "",
   );
-  // Remove javascript: URLs
   sanitized = sanitized.replace(
     /\bhref\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi,
     "",

@@ -25,7 +25,6 @@ func ExtractHeadings(source []byte) []Heading {
 	return extractHeadingsFromAST(doc, source)
 }
 
-// collectHeadingText recursively collects plain text from heading AST nodes.
 func collectHeadingText(n ast.Node, source []byte) string {
 	var buf bytes.Buffer
 	collectText(n, source, &buf)

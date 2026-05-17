@@ -222,7 +222,6 @@ func (r *Renderer) Render(source []byte) (RenderResult, error) {
 	// Extract headings from the AST (IDs match rendered HTML exactly)
 	headings := extractHeadingsFromAST(doc, processedBytes)
 
-	// Render the AST to HTML
 	var buf bytes.Buffer
 	if err := r.md.Renderer().Render(&buf, processedBytes, doc); err != nil {
 		return RenderResult{}, fmt.Errorf("goldmark render: %w", err)
@@ -304,7 +303,6 @@ func extractHeadingsFromAST(doc ast.Node, source []byte) []Heading {
 			}
 		}
 
-		// Collect plain text from all inline children recursively
 		var textBuf bytes.Buffer
 		collectText(h, source, &textBuf)
 
@@ -320,7 +318,6 @@ func extractHeadingsFromAST(doc ast.Node, source []byte) []Heading {
 	return headings
 }
 
-// collectText recursively collects plain text from AST nodes.
 func collectText(n ast.Node, source []byte, buf *bytes.Buffer) {
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
 		if t, ok := c.(*ast.Text); ok {

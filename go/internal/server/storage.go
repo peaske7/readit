@@ -112,7 +112,6 @@ func parseCommentBlock(block string) (Comment, bool) {
 		CreatedAt: strings.TrimSpace(meta[3]),
 	}
 
-	// Optional anchor prefix (base64-encoded)
 	if ap := anchorPrefixRe.FindStringSubmatch(block); len(ap) > 1 {
 		if decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(ap[1])); err == nil {
 			c.AnchorPrefix = string(decoded)
@@ -136,7 +135,6 @@ func parseCommentBlock(block string) (Comment, bool) {
 		}
 		if !pastBlockquote && pastMeta && (strings.HasPrefix(line, "> ") || line == ">") {
 			inLeadingBlockquote = true
-			// Extract the text after "> "
 			if strings.HasPrefix(line, "> ") {
 				selectedLines = append(selectedLines, line[2:])
 			} else {
@@ -247,7 +245,6 @@ func GetLineHint(content string, startOffset, endOffset int) string {
 func NewCommentID() string {
 	b := make([]byte, 4)
 	if _, err := rand.Read(b); err != nil {
-		// Fallback to pseudo-random if crypto/rand fails
 		fallback := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 		for i := range b {
 			b[i] = byte(fallback.Intn(256))

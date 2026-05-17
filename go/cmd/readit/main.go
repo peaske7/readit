@@ -61,8 +61,6 @@ func cmdServe() {
 	assetsDir := fs.String("assets-dir", "", "serve assets from directory instead of embedded")
 	dev := fs.Bool("dev", false, "development mode (proxy to Vite)")
 
-	// Separate file args from flag args. Flags that take values
-	// (--port 3000, --host 0.0.0.0, --assets-dir ./dist) consume the next arg.
 	valueFlags := map[string]bool{
 		"-port": true, "--port": true,
 		"-host": true, "--host": true,
@@ -76,7 +74,6 @@ func cmdServe() {
 		arg := args[i]
 		if strings.HasPrefix(arg, "-") {
 			flagArgs = append(flagArgs, arg)
-			// If this flag takes a value, consume the next arg too
 			if valueFlags[arg] && i+1 < len(args) {
 				i++
 				flagArgs = append(flagArgs, args[i])
@@ -102,7 +99,6 @@ func cmdServe() {
 		*port = 4567
 	}
 
-	// Dev mode: spawn Vite
 	var viteCmd *exec.Cmd
 	if *dev {
 		viteCmd = spawnVite()
@@ -142,7 +138,6 @@ func cmdServe() {
 		_ = browser.OpenURL(url)
 	}
 
-	// Wait for interrupt or SSE-triggered shutdown
 	<-sig
 
 	fmt.Println("\nShutting down...")
@@ -233,10 +228,8 @@ func cmdOpen() {
 		os.Exit(1)
 	}
 
-	// Try to discover a running server
 	info, err := discoverServer()
 	if err == nil && info != nil {
-		// Attach to existing server
 		for _, f := range files {
 			attachFile(info, f.FilePath)
 		}
@@ -245,7 +238,6 @@ func cmdOpen() {
 		return
 	}
 
-	// No running server — start one
 	os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
 	cmdServe()
 }
@@ -271,7 +263,6 @@ func resolveFiles(args []string) ([]server.FileEntry, error) {
 		}
 
 		if info.IsDir() {
-			// Scan directory for markdown files
 			_ = filepath.Walk(absPath, func(path string, fi os.FileInfo, err error) error {
 				if err != nil || fi.IsDir() {
 					if fi != nil && fi.IsDir() && strings.HasPrefix(fi.Name(), ".") {
@@ -345,7 +336,6 @@ func discoverServer() (*serverInfo, error) {
 		return nil, err
 	}
 
-	// Check if process is alive
 	proc, err := os.FindProcess(info.PID)
 	if err != nil {
 		return nil, err
@@ -354,7 +344,6 @@ func discoverServer() (*serverInfo, error) {
 		return nil, fmt.Errorf("process not alive")
 	}
 
-	// Health check
 	client := &http.Client{Timeout: 2 * time.Second}
 	resp, err := client.Get(fmt.Sprintf("http://%s:%d/api/health", info.resolvedHost(), info.Port))
 	if err != nil {

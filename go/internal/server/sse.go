@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// SSEBroker manages Server-Sent Event connections for document updates and heartbeat.
 type SSEBroker struct {
 	docClients       map[chan string]struct{}
 	heartbeatClients map[chan string]struct{}

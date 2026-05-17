@@ -1,17 +1,14 @@
 import type { Translations } from "./types";
 
 export const en: Translations = {
-  // App
   "app.loading": "Loading...",
   "app.noDocuments": "No documents open.",
   "app.noDocumentsHintPrefix": "Run",
   "app.noDocumentsHintSuffix": "to add a file.",
   "app.footer": "Made with ❤️ by Jay and Claude",
 
-  // Header
   "header.selectTextToReanchor": "Select text to re-anchor",
 
-  // Actions menu
   "actions.ariaLabel": "Actions menu",
   "actions.settings": "Settings",
   "actions.reload": "Reload",
@@ -19,7 +16,6 @@ export const en: Translations = {
   "actions.exportJson": "Export JSON",
   "actions.viewRaw": "View Raw",
 
-  // Settings
   "settings.title": "Settings",
   "settings.theme": "Theme",
   "settings.font": "Font",
@@ -30,19 +26,16 @@ export const en: Translations = {
   "settings.font.serif": "Serif",
   "settings.font.sansSerif": "Sans-serif",
 
-  // Comment input
   "comment.placeholder": "Add your comment...",
   "comment.cancel": "Cancel",
   "comment.addNote": "Add Note",
   "comment.highlight": "Highlight",
 
-  // Margin note
   "marginNote.addNote": "Add note",
   "marginNote.delete": "Delete",
   "marginNote.edit": "Edit",
   "marginNote.copy": "Copy",
 
-  // Comment manager
   "commentManager.unresolved": "unresolved",
   "commentManager.deleteAllConfirm": "Delete all {{count}} comments?",
   "commentManager.delete": "Delete",
@@ -51,7 +44,6 @@ export const en: Translations = {
   "commentManager.deleteAllTitle": "Delete all comments",
   "commentManager.noComments": "No comments yet",
 
-  // Comment list item
   "commentList.edit": "Edit",
   "commentList.delete": "Delete",
   "commentList.copy": "Copy",
@@ -59,21 +51,17 @@ export const en: Translations = {
   "commentList.reanchor": "Re-anchor",
   "commentList.unresolved": "unresolved",
 
-  // Comment nav
   "commentNav.previous": "Previous comment",
   "commentNav.next": "Next comment",
   "commentNav.of": "{{current}} of {{total}}",
 
-  // Inline editor
   "editor.save": "Save",
   "editor.cancel": "Cancel",
 
-  // Reanchor confirm
   "reanchor.question": "Re-anchor to this selection?",
   "reanchor.confirm": "Confirm",
   "reanchor.cancel": "Cancel",
 
-  // Raw comments modal
   "rawModal.title": "Raw Comments",
   "rawModal.copyTitle": "Copy to clipboard",
   "rawModal.loading": "Loading...",
@@ -81,16 +69,13 @@ export const en: Translations = {
   "rawModal.copiedToClipboard": "Copied to clipboard",
   "rawModal.failedToCopy": "Failed to copy",
 
-  // Toast messages
   "toast.copied": 'Copied: "{{text}}"',
   "toast.copiedAllComments": "Copied all comments",
   "toast.copiedComment": "Copied comment",
 
-  // Comment badge
   "commentBadge.title": "{{count}} comment",
   "commentBadge.titlePlural": "{{count}} comments",
 
-  // Keyboard shortcuts
   "shortcuts.title": "Keyboard Shortcuts",
   "shortcutGroup.copy": "Copy",
   "shortcutGroup.navigate": "Navigate",
@@ -116,7 +101,6 @@ export const en: Translations = {
   "shortcut.clearSelection.label": "Clear Selection",
   "shortcut.clearSelection.description": "Clear text selection",
 
-  // Mermaid diagram
   "mermaid.modalTitle": "Mermaid diagram",
   "mermaid.viewGraph": "Graph",
   "mermaid.viewCode": "Code",
