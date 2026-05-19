@@ -30,6 +30,14 @@ export const en: Translations = {
   "comment.cancel": "Cancel",
   "comment.addNote": "Add Note",
   "comment.highlight": "Highlight",
+  "comment.draftRestored": "Draft restored",
+  "comment.draftSaved": "Draft saved locally",
+  "comment.submitFailedRetry":
+    "Couldn't send. Your text is kept — try again when reconnected.",
+
+  "connection.disconnectedTitle": "Server disconnected",
+  "connection.disconnectedBody":
+    "Reconnecting… new comments will be saved as drafts until the server is back.",
 
   "marginNote.addNote": "Add note",
   "marginNote.delete": "Delete",

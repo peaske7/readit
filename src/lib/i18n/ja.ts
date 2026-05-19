@@ -30,6 +30,14 @@ export const ja: Translations = {
   "comment.cancel": "キャンセル",
   "comment.addNote": "メモを追加",
   "comment.highlight": "ハイライト",
+  "comment.draftRestored": "下書きを復元しました",
+  "comment.draftSaved": "下書きを保存しました",
+  "comment.submitFailedRetry":
+    "送信に失敗しました。テキストは保持されています。再接続後にもう一度お試しください。",
+
+  "connection.disconnectedTitle": "サーバーから切断されました",
+  "connection.disconnectedBody":
+    "再接続中… 復旧するまで新しいコメントは下書きとして保存されます。",
 
   "marginNote.addNote": "メモを追加",
   "marginNote.delete": "削除",

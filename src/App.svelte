@@ -4,6 +4,7 @@ import CommentErrorBanner from "./components/CommentErrorBanner.svelte";
 import CommentInput from "./components/CommentInput.svelte";
 import CommentNav from "./components/CommentNav.svelte";
 import CommentPopover from "./components/CommentPopover.svelte";
+import ConnectionBanner from "./components/ConnectionBanner.svelte";
 import DocumentViewer from "./components/DocumentViewer.svelte";
 import FloatingComment from "./components/FloatingComment.svelte";
 import Header from "./components/Header.svelte";
@@ -13,6 +14,7 @@ import TabBar from "./components/TabBar.svelte";
 import TableOfContents from "./components/TableOfContents.svelte";
 import Toast from "./components/Toast.svelte";
 import type { Cluster } from "./lib/clustering";
+import { purgeExpiredDrafts } from "./lib/comment-drafts";
 import { extractContext, formatForLLM } from "./lib/context";
 import {
   exportCommentsAsJson,
@@ -38,6 +40,7 @@ import {
   setWorkingDirectory,
   updateDocumentHtml,
 } from "./stores/app.svelte";
+import { startHeartbeat, stopHeartbeat } from "./stores/connection.svelte";
 import { t } from "./stores/locale.svelte";
 import { initSettings } from "./stores/settings.svelte";
 import { initShortcuts, shortcutState } from "./stores/shortcuts.svelte";
@@ -107,7 +110,7 @@ async function addComment(
   commentText: string,
   startOffset: number,
   endOffset: number,
-) {
+): Promise<boolean> {
   const tempId = `temp-${crypto.randomUUID()}`;
   const optimisticComment: Comment = {
     id: tempId,
@@ -144,6 +147,7 @@ async function addComment(
       current.map((c) => (c.id === tempId ? data.comment : c)),
       filePath,
     );
+    return true;
   } catch (err) {
     console.error("Failed to add comment:", err);
     setCommentsError(
@@ -151,6 +155,7 @@ async function addComment(
       filePath,
     );
     setComments(previousComments, filePath);
+    return false;
   }
 }
 
@@ -394,12 +399,24 @@ function handleExportJson(filePath: string) {
   exportCommentsAsJson(docState.comments, docState.document);
 }
 
-function handleAddComment(filePath: string, commentText: string) {
+async function handleAddComment(
+  filePath: string,
+  commentText: string,
+): Promise<boolean> {
   const docState = app.documents.get(filePath);
-  if (!docState?.selection) return;
+  if (!docState?.selection) return false;
   const { text, startOffset, endOffset } = docState.selection;
-  addComment(filePath, text, commentText, startOffset, endOffset);
-  clearSelection(filePath);
+  const ok = await addComment(
+    filePath,
+    text,
+    commentText,
+    startOffset,
+    endOffset,
+  );
+  if (ok) {
+    clearSelection(filePath);
+  }
+  return ok;
 }
 
 function handleConfirmReanchor(filePath: string) {
@@ -438,7 +455,6 @@ function startReanchor(filePath: string, commentId: string) {
   setReanchorTarget({ commentId }, filePath);
 }
 
-let heartbeatSource: EventSource | undefined;
 let documentStreamSource: EventSource | undefined;
 
 async function initialize() {
@@ -726,8 +742,9 @@ $effect(() => {
 
 onMount(() => {
   initialize();
+  purgeExpiredDrafts();
 
-  heartbeatSource = new EventSource("/api/heartbeat");
+  startHeartbeat();
   setupDocumentStream();
 
   window.addEventListener("keydown", handleKeyDown);
@@ -735,7 +752,7 @@ onMount(() => {
 });
 
 onDestroy(() => {
-  heartbeatSource?.close();
+  stopHeartbeat();
   documentStreamSource?.close();
   window.removeEventListener("keydown", handleKeyDown);
   document.removeEventListener("mousedown", handleClickOutside);
@@ -861,6 +878,9 @@ onDestroy(() => {
                     {:else}
                       <CommentInput
                         selectedText={selection.text}
+                        {filePath}
+                        startOffset={selection.startOffset}
+                        endOffset={selection.endOffset}
                         onsubmit={(text) => handleAddComment(filePath, text)}
                         oncancel={() => clearSelection(filePath)}
                       />
@@ -900,6 +920,9 @@ onDestroy(() => {
                 {:else}
                   <CommentInput
                     selectedText={selection.text}
+                    {filePath}
+                    startOffset={selection.startOffset}
+                    endOffset={selection.endOffset}
                     onsubmit={(text) => handleAddComment(filePath, text)}
                     oncancel={() => clearSelection(filePath)}
                   />
@@ -937,5 +960,6 @@ onDestroy(() => {
   {/each}
 {/if}
 
+<ConnectionBanner />
 <Toast />
 

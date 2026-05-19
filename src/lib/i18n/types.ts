@@ -35,6 +35,12 @@ export interface Translations {
   "comment.cancel": string;
   "comment.addNote": string;
   "comment.highlight": string;
+  "comment.draftRestored": string;
+  "comment.draftSaved": string;
+  "comment.submitFailedRetry": string;
+
+  "connection.disconnectedTitle": string;
+  "connection.disconnectedBody": string;
 
   "marginNote.addNote": string;
   "marginNote.delete": string;
