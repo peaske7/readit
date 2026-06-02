@@ -841,36 +841,42 @@ function createServer(options: ServerOptions): ServerWithWatchers {
     }
   }
 
-  let pageCache: string | null = null;
-  let pageCacheGz: Uint8Array<ArrayBuffer> | null = null;
+  const pageCache = new Map<string, string>();
+  const pageCacheGz = new Map<string, Uint8Array<ArrayBuffer>>();
 
   function invalidatePageCache(): void {
-    pageCache = null;
-    pageCacheGz = null;
+    pageCache.clear();
+    pageCacheGz.clear();
   }
 
   async function serveAppPage(req: Request): Promise<Response> {
     const acceptGzip =
       req.headers.get("accept-encoding")?.includes("gzip") ?? false;
+    const url = new URL(req.url);
+    const requestedPath = url.searchParams.get("path");
+    const activePath =
+      requestedPath && fileMap.has(requestedPath) ? requestedPath : defaultPath;
 
     try {
-      if (pageCache) {
-        if (acceptGzip && pageCacheGz) {
-          return new Response(pageCacheGz, {
+      const cachedPage = pageCache.get(activePath);
+      if (cachedPage) {
+        const cachedPageGz = pageCacheGz.get(activePath);
+        if (acceptGzip && cachedPageGz) {
+          return new Response(cachedPageGz, {
             headers: {
               "Content-Type": "text/html; charset=utf-8",
               "Content-Encoding": "gzip",
             },
           });
         }
-        return new Response(pageCache, {
+        return new Response(cachedPage, {
           headers: { "Content-Type": "text/html; charset=utf-8" },
         });
       }
 
-      const { html, headings } = await ensureRenderedHtml(defaultPath);
-      const content = await ensureFileContent(defaultPath);
-      const comments = await readCommentsFromFile(defaultPath, content, html);
+      const { html, headings } = await ensureRenderedHtml(activePath);
+      const content = await ensureFileContent(activePath);
+      const comments = await readCommentsFromFile(activePath, content, html);
       const settings = await readSettings();
 
       const files = fileOrder.map((fp) => ({
@@ -880,10 +886,10 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 
       const inlineData = {
         files,
-        activeFile: defaultPath,
+        activeFile: activePath,
         settings,
         documents: {
-          [defaultPath]: {
+          [activePath]: {
             headings,
             comments,
           },
@@ -907,7 +913,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       }
 
       const body = renderTemplate({
-        title: basename(defaultPath),
+        title: basename(activePath),
         cssPath,
         jsPath,
         documentHtml: html,
@@ -917,14 +923,17 @@ function createServer(options: ServerOptions): ServerWithWatchers {
       });
 
       if (!isDev) {
-        pageCache = body;
-        pageCacheGz = Bun.gzipSync(
+        const gz = Bun.gzipSync(
           new TextEncoder().encode(body),
         ) as Uint8Array<ArrayBuffer>;
+        pageCache.set(activePath, body);
+        pageCacheGz.set(activePath, gz);
       }
 
       if (acceptGzip) {
-        const gz = pageCacheGz ?? Bun.gzipSync(new TextEncoder().encode(body));
+        const gz =
+          pageCacheGz.get(activePath) ??
+          Bun.gzipSync(new TextEncoder().encode(body));
         return new Response(gz, {
           headers: {
             "Content-Type": "text/html; charset=utf-8",

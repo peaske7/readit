@@ -1,0 +1,11 @@
+id = "readit"
+name = "readit"
+version = "0.0.1"
+schema_version = 1
+authors = ["Jay Shimada <peaske@pm.me>"]
+description = "Open Markdown files in readit for inline review comments"
+repository = "https://github.com/peaske7/readit"
+
+[language_servers.readit]
+name = "readit"
+languages = ["Markdown"]

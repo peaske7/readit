@@ -111,6 +111,8 @@ _readit() {
       local -a commands
       commands=(
         'open:Add files to a running server or start a new one'
+        'zed-open:Open a Markdown file from Zed'
+        'zed-lsp:Run the Zed LSP bridge'
         'list:List all files with comments'
         'show:Show comments for a file'
         'completion:Output shell completion script'
@@ -127,6 +129,17 @@ _readit() {
             '--port[Port for new server]:port:' \
             '--host[Host for new server]:host:' \
             '*:file:_readit_markdown_files'
+          ;;
+        zed-open)
+          _arguments \
+            '-p[Port for new server]:port:' \
+            '--port[Port for new server]:port:' \
+            '--host[Host for new server]:host:' \
+            '--no-open[Do not automatically open browser]' \
+            '1:file:_readit_markdown_files'
+          ;;
+        zed-lsp)
+          # Internal command used by the Zed extension.
           ;;
         show)
           _arguments \

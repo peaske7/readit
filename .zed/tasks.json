@@ -1,0 +1,10 @@
+[
+  {
+    "label": "readit: open preview",
+    "command": "readit",
+    "args": ["zed-open", "$ZED_FILE"],
+    "save": "current",
+    "reveal": "never",
+    "hide": "on_success"
+  }
+]

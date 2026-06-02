@@ -42,6 +42,7 @@ readit <file> --clean         # Clear existing comments
 readit list                   # List all files with comments
 readit show <file>            # Show comments for a file
 readit open <files...>        # Add files to running server
+readit zed-open <file>        # Open from a Zed task or extension
 readit completion zsh         # Output shell integration script
 ```
 
@@ -128,6 +129,40 @@ require("readit").setup({
 ```
 
 Run `:checkhealth readit` to verify your setup.
+
+## Zed
+
+Zed can open the current Markdown file in readit through a task. The preview opens in your browser because Zed extensions do not currently expose arbitrary preview webviews like the VS Code extension API.
+
+Add this to `.zed/tasks.json` in a project:
+
+```json
+[
+  {
+    "label": "readit: open preview",
+    "command": "readit",
+    "args": ["zed-open", "$ZED_FILE"],
+    "save": "current",
+    "reveal": "never",
+    "hide": "on_success"
+  }
+]
+```
+
+Then add a keybinding in `~/.config/zed/keymap.json`:
+
+```json
+[
+  {
+    "context": "Workspace",
+    "bindings": {
+      "cmd-shift-r": ["task::Spawn", { "task_name": "readit: open preview" }]
+    }
+  }
+]
+```
+
+Run `readit zed-open README.md` manually if the task fails. Check that `readit` is on `PATH`, Bun is installed, and `~/.readit/server.json` points to a healthy server process.
 
 ## Live Reload
 

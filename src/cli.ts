@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { spawn } from "node:child_process";
 import {
   existsSync,
   lstatSync,
@@ -18,6 +19,7 @@ import { getCommentPath, parseCommentFile } from "./lib/comment-storage.js";
 import { isMarkdownFile } from "./lib/utils.js";
 import type { FileEntry } from "./server.js";
 import { removeServerInfo, startServer } from "./server.js";
+import { startZedLspServer } from "./zed-lsp.js";
 
 const program = new Command();
 
@@ -47,6 +49,8 @@ const SERVER_LOCK_PATH = join(READIT_DIR, "server.lock");
 const SERVER_LOCK_MAX_AGE_MS = 30_000;
 const SERVER_LOCK_TIMEOUT_MS = 10_000;
 const SERVER_LOCK_WAIT_MS = 100;
+const BACKGROUND_SERVER_TIMEOUT_MS = 10_000;
+const BACKGROUND_SERVER_WAIT_MS = 100;
 
 function isAlive(pid: number): boolean {
   try {
@@ -65,6 +69,68 @@ function getErrnoCode(err: unknown): string | undefined {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parsePort(value: string): number {
+  const port = Number.parseInt(value, 10);
+
+  if (Number.isNaN(port) || port < 1 || port > 65535) {
+    throw new Error(`invalid port number: ${value}`);
+  }
+
+  return port;
+}
+
+function readRawOption(name: string, shortName?: string): string | undefined {
+  const args = process.argv.slice(2);
+  const longName = `--${name}`;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === longName || (shortName && arg === shortName)) {
+      const value = args[i + 1];
+      return value && !value.startsWith("-") ? value : undefined;
+    }
+    if (arg.startsWith(`${longName}=`)) {
+      return arg.slice(longName.length + 1);
+    }
+  }
+
+  return undefined;
+}
+
+function hasRawFlag(name: string): boolean {
+  return process.argv.slice(2).includes(`--${name}`);
+}
+
+function resolveExistingPath(arg: string): string {
+  const inputPath = resolve(process.cwd(), arg);
+
+  if (!existsSync(inputPath)) {
+    console.error(`error: not found: ${inputPath}`);
+    process.exit(1);
+  }
+
+  return realpathSync(inputPath);
+}
+
+function resolveMarkdownFile(arg: string): string {
+  const filePath = resolveExistingPath(arg);
+  const stat = statSync(filePath);
+
+  if (stat.isDirectory()) {
+    console.error(`error: expected a Markdown file, got directory: ${arg}`);
+    process.exit(1);
+  }
+
+  if (!isMarkdownFile(filePath)) {
+    console.error(
+      `error: unsupported file type: ${arg} (expected .md or .markdown)`,
+    );
+    process.exit(1);
+  }
+
+  return filePath;
 }
 
 async function clearStaleServerLock(): Promise<void> {
@@ -154,38 +220,122 @@ async function discoverServer(): Promise<ServerInfo | null> {
   }
 }
 
+interface AttachedDocument {
+  fileName: string;
+  path: string;
+  status: "added" | "present";
+}
+
+async function addDocumentToServer(
+  server: ServerInfo,
+  file: { path: string },
+): Promise<AttachedDocument> {
+  const res = await fetch(`http://127.0.0.1:${server.port}/api/documents`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: file.path }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(
+      `failed to add ${file.path}: ${data.error ?? res.statusText}`,
+    );
+  }
+
+  return data as AttachedDocument;
+}
+
 async function attachFiles(
   server: ServerInfo,
   files: { path: string }[],
+  opts: { quiet?: boolean } = {},
 ): Promise<void> {
   for (const file of files) {
     try {
-      const res = await fetch(`http://127.0.0.1:${server.port}/api/documents`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: file.path }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        console.error(`error: failed to add ${file.path}: ${data.error}`);
-        process.exit(1);
-      }
-
-      const data = await res.json();
-      if (data.status === "added") {
-        console.log(`Added: ${data.fileName}`);
-      } else {
-        console.log(`Present: ${data.fileName}`);
+      const data = await addDocumentToServer(server, file);
+      if (!opts.quiet) {
+        if (data.status === "added") {
+          console.log(`Added: ${data.fileName}`);
+        } else {
+          console.log(`Present: ${data.fileName}`);
+        }
       }
     } catch (err) {
       console.error(
-        "error: failed to connect to server:",
+        "error: failed to add document:",
         err instanceof Error ? err.message : err,
       );
       process.exit(1);
     }
   }
+}
+
+function readitUrlForFile(port: number, filePath: string): string {
+  return `http://127.0.0.1:${port}/?path=${encodeURIComponent(filePath)}`;
+}
+
+function getCurrentCliInvocation(args: string[]): {
+  command: string;
+  args: string[];
+} {
+  if (!process.versions.bun) {
+    throw new Error("Bun is required to start readit. Install Bun and retry.");
+  }
+
+  const entrypoint = process.argv[1];
+  if (!entrypoint) {
+    throw new Error("failed to locate the readit CLI entrypoint");
+  }
+
+  return {
+    command: process.execPath,
+    args: [entrypoint, ...args],
+  };
+}
+
+async function waitForBackgroundServer(pid: number | undefined) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < BACKGROUND_SERVER_TIMEOUT_MS) {
+    const server = await discoverServer();
+    if (server) return server;
+
+    if (pid !== undefined && !isAlive(pid)) {
+      throw new Error("readit server process exited before becoming healthy");
+    }
+
+    await sleep(BACKGROUND_SERVER_WAIT_MS);
+  }
+
+  throw new Error("timed out waiting for readit server to start");
+}
+
+async function startBackgroundServer(
+  files: FileEntry[],
+  port: number,
+  host: string,
+): Promise<ServerInfo> {
+  const invocation = getCurrentCliInvocation([
+    "--port",
+    String(port),
+    "--host",
+    host,
+    "--no-open",
+    ...files.map((file) => file.filePath),
+  ]);
+
+  const child = spawn(invocation.command, invocation.args, {
+    cwd: process.cwd(),
+    detached: true,
+    env: { ...process.env },
+    stdio: "ignore",
+  });
+
+  child.unref();
+
+  return waitForBackgroundServer(child.pid);
 }
 
 async function getServerTarget(
@@ -280,15 +430,7 @@ function resolveFiles(args: string[]): FileEntry[] {
   const files: FileEntry[] = [];
 
   for (const arg of args) {
-    const inputPath = resolve(process.cwd(), arg);
-
-    if (!existsSync(inputPath)) {
-      console.error(`error: not found: ${inputPath}`);
-      process.exit(1);
-    }
-
-    const filePath = realpathSync(inputPath);
-
+    const filePath = resolveExistingPath(arg);
     const stat = statSync(filePath);
 
     if (stat.isDirectory()) {
@@ -540,14 +682,14 @@ program
         }
       }
 
-      const preferredPort = Number.parseInt(options.port, 10);
-
-      if (
-        Number.isNaN(preferredPort) ||
-        preferredPort < 1 ||
-        preferredPort > 65535
-      ) {
-        console.error(`error: invalid port number: ${options.port}`);
+      let preferredPort: number;
+      try {
+        preferredPort = parsePort(options.port);
+      } catch (err) {
+        console.error(
+          "error:",
+          err instanceof Error ? err.message : String(err),
+        );
         process.exit(1);
       }
 
@@ -622,6 +764,65 @@ ${fileList.join("\n")}
   );
 
 program
+  .command("zed-open")
+  .argument("<file>", "Markdown file to open in readit from Zed")
+  .description("Open a Markdown file in readit and return after launch")
+  .option("-p, --port <number>", "Port for new server (if starting)", "4567")
+  .option("--host <address>", "Host for new server (if starting)", "127.0.0.1")
+  .option("--no-open", "Don't automatically open browser")
+  .action(
+    async (
+      fileArg: string,
+      options: { port: string; host: string; open: boolean },
+    ) => {
+      const filePath = resolveMarkdownFile(fileArg);
+      const host = readRawOption("host") ?? options.host;
+      const shouldOpen = options.open && !hasRawFlag("no-open");
+
+      let preferredPort: number;
+      try {
+        preferredPort = parsePort(readRawOption("port", "-p") ?? options.port);
+      } catch (err) {
+        console.error(
+          "error:",
+          err instanceof Error ? err.message : String(err),
+        );
+        process.exit(1);
+      }
+
+      try {
+        const file = { path: filePath };
+        const server = await withServerLock(async () => {
+          const existing = await discoverServer();
+          if (existing) return existing;
+          return startBackgroundServer([{ filePath }], preferredPort, host);
+        });
+
+        await attachFiles(server, [file], { quiet: true });
+
+        const url = readitUrlForFile(server.port, filePath);
+        if (shouldOpen) {
+          await open(url);
+        }
+        console.log(`Opened: ${url}`);
+      } catch (err) {
+        console.error(
+          "error: failed to open readit from Zed:",
+          err instanceof Error ? err.message : err,
+        );
+        process.exit(1);
+      }
+    },
+  );
+
+program
+  .command("zed-lsp")
+  .description("Run the readit Zed LSP bridge")
+  .action(async () => {
+    await startZedLspServer();
+  });
+
+program
   .command("open")
   .argument("<files...>", "Markdown files to add to running server")
   .description("Add files to a running readit server, or start a new one")
@@ -631,22 +832,7 @@ program
     async (fileArgs: string[], options: { port: string; host: string }) => {
       const resolvedFiles: { path: string }[] = [];
       for (const arg of fileArgs) {
-        const inputPath = resolve(process.cwd(), arg);
-
-        if (!existsSync(inputPath)) {
-          console.error(`error: not found: ${inputPath}`);
-          process.exit(1);
-        }
-
-        const filePath = realpathSync(inputPath);
-
-        if (!isMarkdownFile(filePath)) {
-          console.error(
-            `error: unsupported file type: ${arg} (expected .md or .markdown)`,
-          );
-          process.exit(1);
-        }
-
+        const filePath = resolveMarkdownFile(arg);
         resolvedFiles.push({ path: filePath });
       }
 
@@ -654,7 +840,17 @@ program
         filePath: f.path,
       }));
 
-      const preferredPort = Number.parseInt(options.port, 10);
+      let preferredPort: number;
+      try {
+        preferredPort = parsePort(options.port);
+      } catch (err) {
+        console.error(
+          "error:",
+          err instanceof Error ? err.message : String(err),
+        );
+        process.exit(1);
+      }
+
       try {
         const target = await getServerTarget(
           files,
@@ -794,6 +990,8 @@ _readit() {
     cmd_or_files)
       local -a commands=(
         'open:Add files to running server'
+        'zed-open:Open a Markdown file from Zed'
+        'zed-lsp:Run the Zed LSP bridge'
         'list:List files with comments'
         'show:Show comments for a file'
         'completion:Output shell completion script'
@@ -802,7 +1000,7 @@ _readit() {
       ;;
     args)
       case "\${line[1]}" in
-        open) _arguments '*:file:_readit_markdown_files' ;;
+        open|zed-open) _arguments '*:file:_readit_markdown_files' ;;
         show) _arguments '1:file:_files -g "*.md *.markdown"' ;;
         *) _arguments '*:file:_readit_markdown_files' ;;
       esac
@@ -823,7 +1021,7 @@ _readit_completions() {
   COMPREPLY=()
   cur="\${COMP_WORDS[COMP_CWORD]}"
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
-  commands="open list show completion"
+  commands="open zed-open zed-lsp list show completion"
 
   if [[ \${COMP_CWORD} -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "\${commands}" -- "\${cur}") )
@@ -835,7 +1033,7 @@ _readit_completions() {
   fi
 
   case "\${COMP_WORDS[1]}" in
-    open|show)
+    open|zed-open|show)
       local files=$(find . -type f \\( -name '*.md' -o -name '*.markdown' \\) \\
         -not -path '*/.*' -not -path '*/node_modules/*' 2>/dev/null | sed 's|^\\./||')
       COMPREPLY=( $(compgen -W "\${files}" -- "\${cur}") )
@@ -861,6 +1059,8 @@ complete -c readit -f
 
 # Subcommands
 complete -c readit -n '__fish_use_subcommand' -a 'open' -d 'Add files to running server'
+complete -c readit -n '__fish_use_subcommand' -a 'zed-open' -d 'Open a Markdown file from Zed'
+complete -c readit -n '__fish_use_subcommand' -a 'zed-lsp' -d 'Run the Zed LSP bridge'
 complete -c readit -n '__fish_use_subcommand' -a 'list' -d 'List files with comments'
 complete -c readit -n '__fish_use_subcommand' -a 'show' -d 'Show comments for a file'
 complete -c readit -n '__fish_use_subcommand' -a 'completion' -d 'Output shell completion script'
@@ -874,6 +1074,7 @@ complete -c readit -l clean -d 'Clear existing comments'
 # File arguments for default command and open
 complete -c readit -n '__fish_use_subcommand' -F -a '(find . -type f \\( -name "*.md" -o -name "*.markdown" \\) -not -path "*/.*" -not -path "*/node_modules/*" 2>/dev/null | sed "s|^\\./||")'
 complete -c readit -n '__fish_seen_subcommand_from open' -F -a '(find . -type f \\( -name "*.md" -o -name "*.markdown" \\) -not -path "*/.*" -not -path "*/node_modules/*" 2>/dev/null | sed "s|^\\./||")'
+complete -c readit -n '__fish_seen_subcommand_from zed-open' -F -a '(find . -type f \\( -name "*.md" -o -name "*.markdown" \\) -not -path "*/.*" -not -path "*/node_modules/*" 2>/dev/null | sed "s|^\\./||")'
 complete -c readit -n '__fish_seen_subcommand_from show' -F -a '(find . -type f \\( -name "*.md" -o -name "*.markdown" \\) -not -path "*/.*" -not -path "*/node_modules/*" 2>/dev/null | sed "s|^\\./||")'
 
 # Shell completions for completion subcommand
