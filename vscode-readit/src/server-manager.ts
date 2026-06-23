@@ -30,6 +30,15 @@ export class ServerManager implements vscode.Disposable {
     return `http://127.0.0.1:${this.port}`;
   }
 
+  /** Returns the readit URL for a document on the running server. */
+  getDocumentUrl(filePath: string): string {
+    const baseUrl = this.getBaseUrl();
+    if (!baseUrl) {
+      throw new Error("readit server is not running");
+    }
+    return `${baseUrl}/?path=${encodeURIComponent(filePath)}`;
+  }
+
   /** True if the server process is running. */
   isRunning(): boolean {
     return this.process !== null && this.process.exitCode === null;

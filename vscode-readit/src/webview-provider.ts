@@ -31,7 +31,6 @@ export class ReaditWebviewProvider implements vscode.Disposable {
     readitDistDir: string,
     column: vscode.ViewColumn = vscode.ViewColumn.Active,
   ): Promise<void> {
-    // If a panel for this file already exists, reveal it
     const existing = this.panels.get(filePath);
     if (existing) {
       existing.reveal(column);
@@ -86,6 +85,26 @@ export class ReaditWebviewProvider implements vscode.Disposable {
       null,
       this.disposables,
     );
+  }
+
+  /** Opens the readit preview for a file in the system browser. */
+  async openInExternalBrowser(
+    filePath: string,
+    readitDistDir: string,
+  ): Promise<void> {
+    try {
+      await this.serverManager.ensureRunning(filePath, readitDistDir);
+      const url = this.serverManager.getDocumentUrl(filePath);
+      const opened = await vscode.env.openExternal(vscode.Uri.parse(url));
+      if (!opened) {
+        vscode.window.showErrorMessage(
+          "readit: Failed to open the system browser.",
+        );
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      vscode.window.showErrorMessage(`readit: ${message}`);
+    }
   }
 
   /**

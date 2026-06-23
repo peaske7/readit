@@ -16,6 +16,7 @@ import { cn } from "../lib/utils";
 import { AnchorConfidences, type Comment, FontFamilies } from "../schema";
 import { settings } from "../stores/settings.svelte";
 import BodyMarkers from "./BodyMarkers.svelte";
+import CodeBlockEnhancer from "./CodeBlockEnhancer.svelte";
 import MermaidEnhancer from "./MermaidEnhancer.svelte";
 
 let {
@@ -318,3 +319,5 @@ $effect(() => {
     }
   }}
 />
+
+<CodeBlockEnhancer root={contentEl} {contentVersion} />

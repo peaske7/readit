@@ -99,12 +99,28 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   );
 
+  const openPreviewInBrowser = vscode.commands.registerCommand(
+    "readit.openPreviewInBrowser",
+    async (arg?: vscode.Uri) => {
+      const filePath = resolveFilePath(arg);
+      if (!filePath) {
+        vscode.window.showWarningMessage(
+          "readit: No Markdown file is open or selected.",
+        );
+        return;
+      }
+
+      await webviewProvider!.openInExternalBrowser(filePath, readitDistDir);
+    },
+  );
+
   context.subscriptions.push(
     outputChannel,
     serverManager,
     webviewProvider,
     openPreview,
     openPreviewToSide,
+    openPreviewInBrowser,
   );
 }
 

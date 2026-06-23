@@ -25,7 +25,8 @@
   "activationEvents": [
     "onLanguage:markdown",
     "onCommand:readit.openPreview",
-    "onCommand:readit.openPreviewToSide"
+    "onCommand:readit.openPreviewToSide",
+    "onCommand:readit.openPreviewInBrowser"
   ],
   "icon": "icon.svg",
   "main": "./dist/extension.js",
@@ -42,6 +43,14 @@
       {
         "command": "readit.openPreviewToSide",
         "title": "readit: Open Preview to the Side",
+        "icon": {
+          "light": "icon.svg",
+          "dark": "icon.svg"
+        }
+      },
+      {
+        "command": "readit.openPreviewInBrowser",
+        "title": "readit: Open in External Browser",
         "icon": {
           "light": "icon.svg",
           "dark": "icon.svg"
@@ -67,6 +76,11 @@
         {
           "when": "resourceLangId == markdown",
           "command": "readit.openPreview",
+          "group": "navigation"
+        },
+        {
+          "when": "resourceLangId == markdown",
+          "command": "readit.openPreviewInBrowser",
           "group": "navigation"
         }
       ]

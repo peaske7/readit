@@ -1,9 +1,12 @@
 # Dependencies
 node_modules
+zed-readit/node_modules
 
 # Build output
 dist
 .turbo
+target
+*.wasm
 
 # Logs
 *.log

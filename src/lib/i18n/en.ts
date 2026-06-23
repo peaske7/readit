@@ -119,4 +119,8 @@ export const en: Translations = {
   "mermaid.zoomOut": "Zoom out",
   "mermaid.zoomFit": "Fit to screen",
   "mermaid.zoomReset": "Reset zoom",
+
+  "codeBlock.copy": "Copy code",
+  "codeBlock.copied": "Copied code",
+  "codeBlock.copyFailed": "Failed to copy code",
 };

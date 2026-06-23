@@ -3,8 +3,7 @@ import { fileURLToPath } from "node:url";
 import pkg from "../package.json" with { type: "json" };
 import { isMarkdownFile } from "./lib/utils.js";
 
-const OPEN_PREVIEW_COMMAND = "readit.openPreview";
-const OPEN_PREVIEW_IN_BROWSER_COMMAND = "readit.openPreviewInBrowser";
+const OPEN_IN_EXTERNAL_BROWSER_COMMAND = "readit.openPreviewInBrowser";
 
 type JsonRpcId = number | string | null;
 
@@ -85,25 +84,16 @@ function getTextDocumentUri(params: unknown): string | null {
   return typeof uri === "string" ? uri : null;
 }
 
-function codeActionsFor(uri: string): CodeAction[] {
+export function codeActionsForUri(uri: string): CodeAction[] {
   if (!isMarkdownUri(uri)) return [];
 
   return [
     {
-      title: "readit: Open Preview",
+      title: "readit: Open in External Browser",
       kind: "source",
       command: {
-        title: "readit: Open Preview",
-        command: OPEN_PREVIEW_COMMAND,
-        arguments: [uri],
-      },
-    },
-    {
-      title: "readit: Open Preview in Browser",
-      kind: "source",
-      command: {
-        title: "readit: Open Preview in Browser",
-        command: OPEN_PREVIEW_IN_BROWSER_COMMAND,
+        title: "readit: Open in External Browser",
+        command: OPEN_IN_EXTERNAL_BROWSER_COMMAND,
         arguments: [uri],
       },
     },
@@ -154,10 +144,7 @@ async function runReaditZedOpen(filePath: string): Promise<void> {
 async function executeCommand(params: unknown): Promise<void> {
   const p = params as ExecuteCommandParams;
 
-  if (
-    p.command !== OPEN_PREVIEW_COMMAND &&
-    p.command !== OPEN_PREVIEW_IN_BROWSER_COMMAND
-  ) {
+  if (p.command !== OPEN_IN_EXTERNAL_BROWSER_COMMAND) {
     throw new Error(`unsupported command: ${String(p.command)}`);
   }
 
@@ -198,10 +185,7 @@ async function handleMessage(
             capabilities: {
               codeActionProvider: true,
               executeCommandProvider: {
-                commands: [
-                  OPEN_PREVIEW_COMMAND,
-                  OPEN_PREVIEW_IN_BROWSER_COMMAND,
-                ],
+                commands: [OPEN_IN_EXTERNAL_BROWSER_COMMAND],
               },
             },
             serverInfo: {
@@ -218,7 +202,7 @@ async function handleMessage(
       case "textDocument/codeAction": {
         const uri = getTextDocumentUri(message.params);
         if (requestHasId) {
-          sendResponse(message.id, uri ? codeActionsFor(uri) : []);
+          sendResponse(message.id, uri ? codeActionsForUri(uri) : []);
         }
         return;
       }

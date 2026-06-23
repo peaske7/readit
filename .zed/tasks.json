@@ -1,6 +1,6 @@
 [
   {
-    "label": "readit: open preview",
+    "label": "readit: open in external browser",
     "command": "readit",
     "args": ["zed-open", "$ZED_FILE"],
     "save": "current",

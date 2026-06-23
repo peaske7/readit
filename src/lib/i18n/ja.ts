@@ -121,4 +121,8 @@ export const ja: Translations = {
   "mermaid.zoomOut": "縮小",
   "mermaid.zoomFit": "画面に合わせる",
   "mermaid.zoomReset": "ズームをリセット",
+
+  "codeBlock.copy": "コードをコピー",
+  "codeBlock.copied": "コードをコピーしました",
+  "codeBlock.copyFailed": "コードのコピーに失敗しました",
 };
