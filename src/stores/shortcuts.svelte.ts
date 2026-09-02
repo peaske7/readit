@@ -1,3 +1,4 @@
+import { apiUrl } from "../lib/api";
 import {
   bindingsEqual,
   DEFAULT_SHORTCUTS,
@@ -5,13 +6,28 @@ import {
   type ShortcutDefinition,
 } from "../lib/shortcut-registry";
 import type { KeybindingOverride, ShortcutBinding } from "../schema";
+import { app } from "./app.svelte";
+
+const KEYBINDINGS_STORAGE_KEY = "readit:keybindings";
 
 export const shortcutState = $state({
   shortcuts: DEFAULT_SHORTCUTS as ShortcutDefinition[],
 });
 
 export function initShortcuts(overrides: KeybindingOverride[]): void {
-  shortcutState.shortcuts = resolveShortcuts(overrides);
+  shortcutState.shortcuts = resolveShortcuts(
+    app.hosted ? readStoredOverrides() : overrides,
+  );
+}
+
+function readStoredOverrides(): KeybindingOverride[] {
+  try {
+    const raw = localStorage.getItem(KEYBINDINGS_STORAGE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as KeybindingOverride[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function updateBinding(
@@ -87,8 +103,18 @@ function toOverrides(shortcuts: ShortcutDefinition[]): KeybindingOverride[] {
 async function persistOverrides(
   shortcuts: ShortcutDefinition[],
 ): Promise<void> {
+  if (app.hosted) {
+    try {
+      localStorage.setItem(
+        KEYBINDINGS_STORAGE_KEY,
+        JSON.stringify(toOverrides(shortcuts)),
+      );
+    } catch {}
+    return;
+  }
+
   try {
-    const response = await fetch("/api/settings", {
+    const response = await fetch(apiUrl("/api/settings"), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ keybindings: toOverrides(shortcuts) }),

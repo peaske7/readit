@@ -13,6 +13,7 @@ import ReanchorConfirm from "./components/ReanchorConfirm.svelte";
 import TabBar from "./components/TabBar.svelte";
 import TableOfContents from "./components/TableOfContents.svelte";
 import Toast from "./components/Toast.svelte";
+import { apiUrl } from "./lib/api";
 import type { Cluster } from "./lib/clustering";
 import { purgeExpiredDrafts } from "./lib/comment-drafts";
 import { extractContext, formatForLLM } from "./lib/context";
@@ -89,7 +90,7 @@ async function toggleTask(
   checked: boolean,
 ): Promise<boolean> {
   try {
-    const res = await fetch("/api/document/task", {
+    const res = await fetch(apiUrl("/api/document/task"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path: filePath, index, checked }),
@@ -128,7 +129,7 @@ async function addComment(
 
   try {
     const response = await fetchOrThrow(
-      `/api/comments?path=${encodeURIComponent(filePath)}`,
+      apiUrl(`/api/comments?path=${encodeURIComponent(filePath)}`),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -174,7 +175,7 @@ async function editComment(filePath: string, id: string, newText: string) {
   setCommentsError(null, filePath);
   try {
     await fetchOrThrow(
-      `/api/comments/${id}?path=${encodeURIComponent(filePath)}`,
+      apiUrl(`/api/comments/${id}?path=${encodeURIComponent(filePath)}`),
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -204,7 +205,7 @@ async function deleteComment(filePath: string, id: string) {
   setCommentsError(null, filePath);
   try {
     await fetchOrThrow(
-      `/api/comments/${id}?path=${encodeURIComponent(filePath)}`,
+      apiUrl(`/api/comments/${id}?path=${encodeURIComponent(filePath)}`),
       { method: "DELETE" },
       "Failed to delete comment",
     );
@@ -227,7 +228,7 @@ async function deleteAllComments(filePath: string) {
   setCommentsError(null, filePath);
   try {
     await fetchOrThrow(
-      `/api/comments?path=${encodeURIComponent(filePath)}`,
+      apiUrl(`/api/comments?path=${encodeURIComponent(filePath)}`),
       { method: "DELETE" },
       "Failed to delete all comments",
     );
@@ -269,7 +270,9 @@ async function reanchorComment(
   setCommentsError(null, filePath);
   try {
     const response = await fetchOrThrow(
-      `/api/comments/${id}/reanchor?path=${encodeURIComponent(filePath)}`,
+      apiUrl(
+        `/api/comments/${id}/reanchor?path=${encodeURIComponent(filePath)}`,
+      ),
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -466,7 +469,7 @@ async function initialize() {
 
   // Fallback: fetch from API (e.g. if inline data was missing)
   try {
-    const res = await fetch("/api/documents");
+    const res = await fetch(apiUrl("/api/documents"));
     if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const data = await res.json();
 
@@ -498,7 +501,7 @@ function setupDocumentStream() {
   const MAX_RECONNECT_DELAY = 30000;
 
   function connect() {
-    documentStreamSource = new EventSource("/api/document/stream");
+    documentStreamSource = new EventSource(apiUrl("/api/document/stream"));
 
     documentStreamSource.onopen = () => {
       reconnectDelay = 1000;
@@ -536,8 +539,8 @@ function setupDocumentStream() {
           }
 
           const [docRes, commentsRes] = await Promise.all([
-            fetch(`/api/document?path=${encodeURIComponent(path)}`),
-            fetch(`/api/comments?path=${encodeURIComponent(path)}`),
+            fetch(apiUrl(`/api/document?path=${encodeURIComponent(path)}`)),
+            fetch(apiUrl(`/api/comments?path=${encodeURIComponent(path)}`)),
           ]);
 
           if (docRes.ok) {
@@ -577,16 +580,16 @@ $effect(() => {
   const query = `?path=${encodeURIComponent(path)}`;
   const isClean = state.document.clean;
 
-  const docFetch = fetch(`/api/document${query}`).then((r) => {
+  const docFetch = fetch(apiUrl(`/api/document${query}`)).then((r) => {
     if (!r.ok) throw new Error(`Server error: ${r.status}`);
     return r.json();
   });
 
   const commentsFetch = isClean
-    ? fetch(`/api/comments${query}`, { method: "DELETE" }).then(
+    ? fetch(apiUrl(`/api/comments${query}`), { method: "DELETE" }).then(
         () => [] as unknown[],
       )
-    : fetch(`/api/comments${query}`)
+    : fetch(apiUrl(`/api/comments${query}`))
         .then((r) => (r.ok ? r.json() : { comments: [] }))
         .then((d) => d.comments || []);
 
@@ -606,14 +609,16 @@ async function reload() {
   const path = app.activeDocumentPath;
   if (!path) return;
   try {
-    const res = await fetch(`/api/document?path=${encodeURIComponent(path)}`);
+    const res = await fetch(
+      apiUrl(`/api/document?path=${encodeURIComponent(path)}`),
+    );
     if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const data = await res.json();
     setHeadings(data.headings ?? [], path);
     updateDocumentHtml(data.html, path);
 
     const commentsRes = await fetch(
-      `/api/comments?path=${encodeURIComponent(path)}`,
+      apiUrl(`/api/comments?path=${encodeURIComponent(path)}`),
     );
     if (commentsRes.ok) {
       const commentsData = await commentsRes.json();
@@ -744,8 +749,10 @@ onMount(() => {
   initialize();
   purgeExpiredDrafts();
 
-  startHeartbeat();
-  setupDocumentStream();
+  if (!app.hosted) {
+    startHeartbeat();
+    setupDocumentStream();
+  }
 
   window.addEventListener("keydown", handleKeyDown);
   document.addEventListener("mousedown", handleClickOutside);
@@ -855,7 +862,9 @@ onDestroy(() => {
                   {isActive}
                   onTextSelect={(text, start, end, top) => onTextSelect(filePath, text, start, end, top)}
                   onHighlightClick={handleHighlightClick}
-                  onTaskToggle={(index, checked) => toggleTask(filePath, index, checked)}
+                  onTaskToggle={app.hosted
+                    ? undefined
+                    : (index, checked) => toggleTask(filePath, index, checked)}
                   onClustersChanged={(clusters, indexById) => handleClustersChanged(filePath, clusters, indexById)}
                   registerHighlighter={(focused, scrollTo) => registerHighlighter(filePath, focused, scrollTo)}
                   unregisterHighlighter={() => unregisterHighlighter(filePath)}

@@ -1,11 +1,14 @@
+import { apiUrl } from "../lib/api";
 import {
   FontFamilies,
   type FontFamily,
   type ThemeMode,
   ThemeModes,
 } from "../schema";
+import { app } from "./app.svelte";
 
 const THEME_STORAGE_KEY = "readit:theme";
+const FONT_STORAGE_KEY = "readit:fontFamily";
 const DARK_MQ = "(prefers-color-scheme: dark)";
 
 function getStoredTheme(): ThemeMode {
@@ -38,8 +41,16 @@ export const settings = $state({
 export async function updateFontFamily(font: FontFamily): Promise<void> {
   settings.fontFamily = font;
 
+  // Hosted snapshots have no settings endpoint; remember the choice per browser.
+  if (app.hosted) {
+    try {
+      localStorage.setItem(FONT_STORAGE_KEY, font);
+    } catch {}
+    return;
+  }
+
   try {
-    const response = await fetch("/api/settings", {
+    const response = await fetch(apiUrl("/api/settings"), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fontFamily: font }),
@@ -66,6 +77,15 @@ export function updateThemeMode(mode: ThemeMode): void {
 export function initSettings(data?: { fontFamily?: string }): void {
   if (data?.fontFamily) {
     settings.fontFamily = data.fontFamily as FontFamily;
+  }
+
+  if (app.hosted) {
+    try {
+      const stored = localStorage.getItem(FONT_STORAGE_KEY);
+      if (stored === FontFamilies.SERIF || stored === FontFamilies.SANS_SERIF) {
+        settings.fontFamily = stored;
+      }
+    } catch {}
   }
 
   applyTheme(settings.themeMode);

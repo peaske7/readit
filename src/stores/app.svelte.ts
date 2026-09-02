@@ -1,5 +1,5 @@
 import type { Heading } from "../lib/headings";
-import type { Comment, Document, Selection } from "../schema";
+import type { Comment, Document, InlineData, Selection } from "../schema";
 
 export interface DocumentState {
   document: Document;
@@ -11,22 +11,6 @@ export interface DocumentState {
   pendingSelectionTop: number | undefined;
   scrollY: number;
   reanchorTarget: { commentId: string } | null;
-}
-
-interface InlineData {
-  files: { path: string; fileName: string }[];
-  activeFile: string;
-  clean: boolean;
-  workingDirectory: string;
-  documents: Record<
-    string,
-    {
-      html: string;
-      headings: { id: string; text: string; level: number }[];
-      comments: Comment[];
-    }
-  >;
-  settings: { version: number; fontFamily: string };
 }
 
 function createInitialDocumentState(doc: Document): DocumentState {
@@ -52,6 +36,7 @@ export const app = $state({
   activeDocumentPath: null as string | null,
   documentOrder: [] as string[],
   workingDirectory: null as string | null,
+  hosted: false,
 });
 
 export function getActiveDocumentState(): DocumentState | undefined {
@@ -194,6 +179,7 @@ export function setHeadings(headings: Heading[], filePath?: string): void {
 
 export function hydrateFromInlineData(data: InlineData): void {
   app.workingDirectory = data.workingDirectory;
+  app.hosted = data.hosted ?? false;
 
   const newDocs = new Map<string, DocumentState>();
   const order: string[] = [];

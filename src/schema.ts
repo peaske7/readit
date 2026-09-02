@@ -91,3 +91,27 @@ export interface DocumentSettings {
   onboarded?: boolean;
   keybindings?: KeybindingOverride[];
 }
+
+export interface InlineDocData {
+  html?: string;
+  headings: { id: string; text: string; level: number }[];
+  comments: Comment[];
+}
+
+/** JSON embedded in the page as `#__readit`, produced by every readit server. */
+export interface InlineData {
+  files: { path: string; fileName: string }[];
+  activeFile: string;
+  clean: boolean;
+  workingDirectory: string;
+  documents: Record<string, InlineDocData>;
+  settings: {
+    version: number;
+    fontFamily: string;
+    keybindings?: KeybindingOverride[];
+  };
+  /** True when served as a published snapshot with no live server behind it. */
+  hosted?: boolean;
+  /** Prefix for every `/api/...` request, e.g. `/s/{id}`. */
+  apiBase?: string;
+}

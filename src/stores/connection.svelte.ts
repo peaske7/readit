@@ -1,3 +1,5 @@
+import { apiUrl } from "../lib/api";
+
 export const ConnectionStates = {
   CONNECTED: "connected",
   DISCONNECTED: "disconnected",
@@ -16,7 +18,7 @@ let reconnectDelayMs = 1000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 
 function connect(): void {
-  source = new EventSource("/api/heartbeat");
+  source = new EventSource(apiUrl("/api/heartbeat"));
 
   source.onopen = () => {
     connection.state = ConnectionStates.CONNECTED;

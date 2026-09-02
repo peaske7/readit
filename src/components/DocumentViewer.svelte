@@ -235,6 +235,15 @@ onMount(() => {
   contentEl!.addEventListener("click", handleTaskClick);
   contentEl!.addEventListener("keydown", handleTaskKey);
 
+  if (!onTaskToggle) {
+    for (const box of contentEl!.querySelectorAll<HTMLElement>(
+      ".task-checkbox",
+    )) {
+      box.setAttribute("aria-disabled", "true");
+      box.removeAttribute("tabindex");
+    }
+  }
+
   document.documentElement.dataset.readitReady = "true";
 
   return () => {

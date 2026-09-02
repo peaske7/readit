@@ -1,5 +1,6 @@
 <script lang="ts">
 import { Copy } from "lucide-svelte";
+import { apiUrl } from "../lib/api";
 import { app } from "../stores/app.svelte";
 import { t } from "../stores/locale.svelte";
 import Button from "./ui/Button.svelte";
@@ -34,7 +35,7 @@ $effect(() => {
     ? `?path=${encodeURIComponent(app.activeDocumentPath)}`
     : "";
 
-  fetch(`/api/comments/raw${query}`)
+  fetch(apiUrl(`/api/comments/raw${query}`))
     .then((response) => {
       if (!response.ok) {
         throw new Error("Failed to fetch raw comments");
