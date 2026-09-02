@@ -29,6 +29,9 @@
     "dev:client": "bunx vite",
     "build": "bunx vite build && bun run build:cli",
     "build:cli": "NODE_ENV=production bun build src/cli.ts --outfile dist/index.js --target bun --format esm --packages external",
+    "build:worker": "bun run build && rm -rf worker/public && mkdir -p worker/public && cp -r dist/assets worker/public/assets && cp dist/.vite/manifest.json worker/src/manifest.json",
+    "worker:dev": "bun run build:worker && cd worker && wrangler dev",
+    "worker:deploy": "bun run build:worker && cd worker && wrangler deploy",
     "start": "bun run build && bun dist/index.js",
     "test": "vitest run",
     "bench": "vitest bench",
@@ -41,6 +44,7 @@
     "format": "biome format --write .",
     "lint": "biome lint .",
     "typecheck": "tsc --noEmit",
+    "typecheck:worker": "tsc -p worker/tsconfig.json",
     "prepack": "bun run build",
     "prepare": "lefthook install || true"
   },
@@ -57,6 +61,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.1",
+    "@cloudflare/workers-types": "^5.20260902.1",
     "@playwright/test": "^1.61.1",
     "@sveltejs/vite-plugin-svelte": "^5.1.1",
     "@tailwindcss/vite": "^4.3.1",
@@ -70,6 +75,7 @@
     "tailwindcss": "^4.3.1",
     "typescript": "^5.9.3",
     "vite": "^8.1.0",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "wrangler": "^4.128.0"
   }
 }
