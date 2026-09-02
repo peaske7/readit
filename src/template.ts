@@ -34,7 +34,7 @@ function escapeAttr(str: string): string {
  * preserving the rendered content. The Go server uses bluemonday for the
  * same purpose.
  */
-function sanitizeHtml(html: string): string {
+export function sanitizeHtml(html: string): string {
   let sanitized = html.replace(
     /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
     "",

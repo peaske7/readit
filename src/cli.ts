@@ -17,8 +17,23 @@ import open from "open";
 import pkg from "../package.json" with { type: "json" };
 import { getCommentPath, parseCommentFile } from "./lib/comment-storage.js";
 import { isMarkdownFile } from "./lib/utils.js";
+import {
+  ask,
+  loadRemote,
+  loadShares,
+  prompt,
+  remoteFetch,
+  saveRemote,
+} from "./remote.js";
 import type { FileEntry } from "./server.js";
 import { removeServerInfo, startServer } from "./server.js";
+import {
+  pullComments,
+  type ShareMode,
+  ShareModes,
+  shareFile,
+  unshareFile,
+} from "./share.js";
 import { startZedLspServer } from "./zed-lsp.js";
 
 const program = new Command();
@@ -640,6 +655,140 @@ program
         "error: failed to read comments:",
         err instanceof Error ? err.message : err,
       );
+      process.exit(1);
+    }
+  });
+
+const remote = program
+  .command("remote")
+  .description("Configure and inspect the share remote (Cloudflare Worker)");
+
+remote
+  .command("setup")
+  .description(
+    "Store the Worker URL and publish token in ~/.readit/config.json",
+  )
+  .action(async () => {
+    const [url, token] = await ask([
+      "Worker URL (e.g. https://readit-share.<account>.workers.dev): ",
+      "Publish token: ",
+    ]);
+    if (!url || !token) {
+      console.error("error: both URL and token are required.");
+      process.exit(1);
+    }
+    await saveRemote({ url: url.replace(/\/$/, ""), token });
+
+    const reachable = await fetch(`${url.replace(/\/$/, "")}/api/health`)
+      .then((r) => r.ok)
+      .catch(() => false);
+    console.log(
+      reachable
+        ? "Saved. Remote is reachable."
+        : "Saved, but the remote did not answer /api/health.",
+    );
+  });
+
+remote
+  .command("list")
+  .description("List shares on the remote")
+  .action(async () => {
+    try {
+      const config = await loadRemote();
+      const res = await remoteFetch(config, "/api/shares");
+      const { shares } = (await res.json()) as {
+        shares: {
+          id: string;
+          fileName: string;
+          mode: string;
+          updatedAt: string;
+        }[];
+      };
+      if (shares.length === 0) {
+        console.log("No shares.");
+        return;
+      }
+      for (const s of shares) {
+        console.log(
+          `${s.mode.padEnd(8)} ${config.url}/s/${s.id}  ${s.fileName}  (${s.updatedAt})`,
+        );
+      }
+    } catch (err) {
+      console.error("error:", err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("share <file>")
+  .description("Publish a Markdown file to the configured share remote")
+  .option(
+    "--public",
+    "Anyone with the link can view (default: unguessable link)",
+  )
+  .option("--password [password]", "Require a password (prompted when omitted)")
+  .action(
+    async (
+      file: string,
+      opts: { public?: boolean; password?: string | boolean },
+    ) => {
+      let mode: ShareMode = ShareModes.LINK;
+      let password: string | undefined;
+      if (opts.public) mode = ShareModes.PUBLIC;
+      if (opts.password !== undefined) {
+        mode = ShareModes.PASSWORD;
+        password =
+          typeof opts.password === "string"
+            ? opts.password
+            : await prompt("Password: ");
+        if (!password) {
+          console.error("error: password cannot be empty.");
+          process.exit(1);
+        }
+      }
+
+      try {
+        const filePath = resolveMarkdownFile(file);
+        const record = await shareFile(filePath, { mode, password });
+        console.log(`${mode}: ${record.url}`);
+      } catch (err) {
+        console.error("error:", err instanceof Error ? err.message : err);
+        process.exit(1);
+      }
+    },
+  );
+
+program
+  .command("unshare <file>")
+  .description("Remove a published share")
+  .action(async (file: string) => {
+    try {
+      const record = await unshareFile(resolveMarkdownFile(file));
+      console.log(record ? `Removed ${record.url}` : "Not shared.");
+    } catch (err) {
+      console.error("error:", err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("pull <file>")
+  .description("Merge comments made on the share back into the local comments")
+  .action(async (file: string) => {
+    try {
+      const remote = await loadRemote();
+      const absPath = await fs.realpath(resolveMarkdownFile(file));
+      const record = (await loadShares())[absPath];
+      if (!record) {
+        console.error("error: not shared. Run `readit share` first.");
+        process.exit(1);
+      }
+      const { merged, added } = await pullComments(remote, absPath, record);
+      console.log(
+        `Merged ${merged.length} comments (${added} new from the web).`,
+      );
+    } catch (err) {
+      console.error("error:", err instanceof Error ? err.message : err);
       process.exit(1);
     }
   });
