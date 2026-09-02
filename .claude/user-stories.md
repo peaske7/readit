@@ -179,7 +179,9 @@
 **Status:** Partially implemented (v0.8.0). `readit share` publishes a snapshot
 to a self-hosted Cloudflare Worker with link, public, or password access;
 viewers comment in the same UI; `readit pull` merges their comments back.
-Real-time sync and author attribution are not implemented.
+The browser's `⋯` menu has a Share dialog (publish, copy link, change mode,
+unshare) and a Copy link item on published pages. Real-time sync and author
+attribution are not implemented.
 
 **Acceptance Criteria:**
 

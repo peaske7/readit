@@ -3,14 +3,20 @@ import {
   ClipboardCopy,
   FileDown,
   FileText,
+  Link,
   MoreHorizontal,
   RefreshCw,
   Settings,
+  Share2,
 } from "lucide-svelte";
+import { apiUrl } from "../lib/api";
 import { ShortcutActions } from "../lib/shortcut-registry";
+import { app } from "../stores/app.svelte";
 import { t } from "../stores/locale.svelte";
+import { showToast } from "../stores/toast.svelte";
 import RawModal from "./RawModal.svelte";
 import SettingsModal from "./SettingsModal.svelte";
+import ShareModal from "./ShareModal.svelte";
 import Button from "./ui/Button.svelte";
 import DropdownMenu from "./ui/DropdownMenu.svelte";
 import DropdownMenuItem from "./ui/DropdownMenuItem.svelte";
@@ -29,6 +35,15 @@ let { commentCount, oncopyall, onexportjson, onreload }: Props = $props();
 let menuOpen = $state(false);
 let rawModalOpen = $state(false);
 let settingsOpen = $state(false);
+let shareOpen = $state(false);
+
+/** In hosted mode the page itself is the share; its URL is the API base. */
+async function copyShareLink() {
+  try {
+    await navigator.clipboard.writeText(`${location.origin}${apiUrl("")}`);
+    showToast(t("toast.copiedLink"));
+  } catch {}
+}
 </script>
 
 <DropdownMenu bind:open={menuOpen} align="end" contentClass="min-w-[160px]">
@@ -52,6 +67,27 @@ let settingsOpen = $state(false);
     <Settings />
     {t("actions.settings")}
   </DropdownMenuItem>
+  {#if app.canShare}
+    <DropdownMenuItem
+      onselect={() => {
+        shareOpen = true;
+        menuOpen = false;
+      }}
+    >
+      <Share2 />
+      {t("actions.share")}
+    </DropdownMenuItem>
+  {:else if app.hosted}
+    <DropdownMenuItem
+      onselect={() => {
+        copyShareLink();
+        menuOpen = false;
+      }}
+    >
+      <Link />
+      {t("actions.copyLink")}
+    </DropdownMenuItem>
+  {/if}
   <DropdownMenuSeparator />
   <DropdownMenuItem
     onselect={() => {
@@ -96,3 +132,4 @@ let settingsOpen = $state(false);
 
 <RawModal bind:open={rawModalOpen} onclose={() => (rawModalOpen = false)} />
 <SettingsModal bind:open={settingsOpen} onclose={() => (settingsOpen = false)} />
+<ShareModal bind:open={shareOpen} onclose={() => (shareOpen = false)} />

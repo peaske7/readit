@@ -9,7 +9,6 @@ import {
 } from "./lib/comment-storage.js";
 import { renderMarkdown } from "./lib/markdown-renderer.js";
 import { mergeComments } from "./lib/merge-comments.js";
-import { disposeMermaidWorker } from "./lib/mermaid-renderer.js";
 import {
   loadRemote,
   loadShares,
@@ -18,15 +17,10 @@ import {
   type ShareRecord,
   saveShares,
 } from "./remote.js";
-import type { Comment } from "./schema.js";
+import { type Comment, type ShareMode, ShareModes } from "./schema.js";
 import { sanitizeHtml } from "./template.js";
 
-export const ShareModes = {
-  PUBLIC: "public",
-  LINK: "link",
-  PASSWORD: "password",
-} as const;
-export type ShareMode = (typeof ShareModes)[keyof typeof ShareModes];
+export { type ShareMode, ShareModes };
 
 export interface ShareOptions {
   mode: ShareMode;
@@ -69,10 +63,11 @@ export async function shareFile(
         password: options.password,
       }),
     });
-    const created = (await res.json()) as { id: string; url: string };
+    const created = (await res.json()) as { id: string };
     record = {
       id: created.id,
-      url: created.url,
+      // Built from the configured remote so a proxy or dev host never leaks in.
+      url: `${remote.url}/s/${created.id}`,
       mode: options.mode,
       publishedIds: [],
     };
@@ -85,8 +80,6 @@ export async function shareFile(
   }
 
   const rendered = await renderMarkdown(source);
-  // The mermaid worker thread would otherwise keep the CLI process alive.
-  disposeMermaidWorker();
   const html = await uploadImages(
     remote,
     record.id,

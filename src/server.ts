@@ -22,15 +22,19 @@ import { disposeMermaidWorker } from "./lib/mermaid-renderer.js";
 import { resolveComments } from "./lib/resolve-comments.js";
 import { ShortcutActions } from "./lib/shortcut-registry.js";
 import { isMarkdownFile } from "./lib/utils.js";
+import { loadRemote, loadShares } from "./remote.js";
 import {
   AnchorConfidences,
   type Comment,
   type DocumentSettings,
   FontFamilies,
   type FontFamily,
+  isShareMode,
   type KeybindingOverride,
+  ShareModes,
   type ShortcutBinding,
 } from "./schema.js";
+import { shareFile, unshareFile } from "./share.js";
 import { renderTemplate } from "./template.js";
 
 function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
@@ -858,6 +862,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         },
         clean: options.clean || false,
         workingDirectory: process.cwd(),
+        canShare: true,
       };
 
       let cssPath = "";
@@ -1212,6 +1217,67 @@ function createServer(options: ServerOptions): ServerWithWatchers {
         }
         if (method === "DELETE") {
           return deleteComment(ctxOrRes, commentId);
+        }
+      }
+
+      if (pathname === "/api/share" && method === "GET") {
+        const ctxOrRes = requireContext(url);
+        if (ctxOrRes instanceof Response) return ctxOrRes;
+        const configured = await loadRemote().then(
+          () => true,
+          () => false,
+        );
+        const share = (await loadShares())[ctxOrRes.filePath];
+        return json({ configured, share });
+      }
+
+      if (pathname === "/api/share" && method === "POST") {
+        const ctxOrRes = requireContext(url);
+        if (ctxOrRes instanceof Response) return ctxOrRes;
+        const body = (await req.json().catch(() => ({}))) as {
+          mode?: unknown;
+          password?: unknown;
+        };
+        if (!isShareMode(body.mode)) {
+          return errorResponse("Invalid mode", 400);
+        }
+        if (body.password !== undefined && typeof body.password !== "string") {
+          return errorResponse("Invalid password", 400);
+        }
+        try {
+          const record = await shareFile(ctxOrRes.filePath, {
+            mode: body.mode,
+            password:
+              body.mode === ShareModes.PASSWORD && body.password
+                ? body.password
+                : undefined,
+          });
+          // Re-sharing merges web comments into the local file first.
+          invalidateResolvedComments(ctxOrRes.filePath);
+          invalidatePageCache();
+          sendEvent({ type: "document-updated", path: ctxOrRes.filePath });
+          return json(record);
+        } catch (err) {
+          console.error("Share failed:", err);
+          return errorResponse(
+            err instanceof Error ? err.message : "share failed",
+            502,
+          );
+        }
+      }
+
+      if (pathname === "/api/share" && method === "DELETE") {
+        const ctxOrRes = requireContext(url);
+        if (ctxOrRes instanceof Response) return ctxOrRes;
+        try {
+          const record = await unshareFile(ctxOrRes.filePath);
+          return json({ removed: record !== undefined });
+        } catch (err) {
+          console.error("Unshare failed:", err);
+          return errorResponse(
+            err instanceof Error ? err.message : "unshare failed",
+            502,
+          );
         }
       }
 

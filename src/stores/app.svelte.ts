@@ -37,6 +37,7 @@ export const app = $state({
   documentOrder: [] as string[],
   workingDirectory: null as string | null,
   hosted: false,
+  canShare: false,
 });
 
 export function getActiveDocumentState(): DocumentState | undefined {
@@ -180,6 +181,7 @@ export function setHeadings(headings: Heading[], filePath?: string): void {
 export function hydrateFromInlineData(data: InlineData): void {
   app.workingDirectory = data.workingDirectory;
   app.hosted = data.hosted ?? false;
+  app.canShare = data.canShare ?? false;
 
   const newDocs = new Map<string, DocumentState>();
   const order: string[] = [];

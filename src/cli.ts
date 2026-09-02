@@ -16,6 +16,7 @@ import { Command } from "commander";
 import open from "open";
 import pkg from "../package.json" with { type: "json" };
 import { getCommentPath, parseCommentFile } from "./lib/comment-storage.js";
+import { disposeMermaidWorker } from "./lib/mermaid-renderer.js";
 import { isMarkdownFile } from "./lib/utils.js";
 import {
   ask,
@@ -750,6 +751,8 @@ program
       try {
         const filePath = resolveMarkdownFile(file);
         const record = await shareFile(filePath, { mode, password });
+        // The mermaid worker thread would otherwise keep the CLI alive.
+        disposeMermaidWorker();
         console.log(`${mode}: ${record.url}`);
       } catch (err) {
         console.error("error:", err instanceof Error ? err.message : err);

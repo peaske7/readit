@@ -182,7 +182,9 @@ readit unshare doc.md                # Remove it
 readit remote list                   # What is currently shared
 ```
 
-A share is a snapshot: re-run `readit share` after editing and the URL stays the same. Viewers get the full readit UI and their comments are merged back with `readit pull` (for comments you already published the web copy wins; anything you added locally since is kept). Relative images are uploaded with the document.
+The same actions live in the browser: the `⋯` menu has **Share…**, which publishes the open document, shows the link with a copy button, and lets you switch between link, public, and password modes or unshare. On a published page the menu shows **Copy link** instead.
+
+A share is a snapshot: re-run `readit share` (or **Update** in the dialog) after editing and the URL stays the same. Viewers get the full readit UI and their comments are merged back with `readit pull` (for comments you already published the web copy wins; anything you added locally since is kept). Relative images are uploaded with the document.
 
 ## Live Reload
 

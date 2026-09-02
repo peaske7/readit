@@ -81,6 +81,7 @@ readit/
 │   │   ├── RawModal.svelte        # View raw .comments.md file
 │   │   ├── ReanchorConfirm.svelte # Re-anchor confirmation dialog
 │   │   ├── SettingsModal.svelte   # Settings modal
+│   │   ├── ShareModal.svelte      # Publish/update/unshare via the local server's /api/share
 │   │   ├── ShortcutCapture.svelte # Keyboard shortcut capture
 │   │   ├── ShortcutList.svelte    # Keyboard shortcuts list
 │   │   ├── TabBar.svelte          # Multi-file tab bar
