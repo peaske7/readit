@@ -4,6 +4,11 @@ main = "src/index.ts"
 compatibility_date = "2026-08-15"
 compatibility_flags = ["nodejs_compat"]
 
+# Serve only on the custom domain. Wrangler creates the DNS record and
+# certificate on deploy because the zone is on the same account.
+workers_dev = false
+routes = [{ pattern = "md.peas.ke", custom_domain = true }]
+
 # Svelte bundle copied from dist/assets by `bun run build:worker`.
 [assets]
 directory = "./public"

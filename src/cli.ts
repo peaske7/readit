@@ -670,7 +670,7 @@ remote
   )
   .action(async () => {
     const [url, token] = await ask([
-      "Worker URL (e.g. https://readit-share.<account>.workers.dev): ",
+      "Worker URL (e.g. https://md.peas.ke): ",
       "Publish token: ",
     ]);
     if (!url || !token) {

@@ -26,7 +26,9 @@ cd ..
 
 # 4. Build the frontend and deploy
 bun run worker:deploy
-# wrangler prints https://readit-share.<account>.workers.dev
+# Serves on the custom domain in wrangler.toml (md.peas.ke); wrangler creates
+# the DNS record and certificate. Remove `routes`/`workers_dev = false` to use
+# the <name>.<account>.workers.dev URL instead.
 
 # 5. Point the CLI at it
 readit remote setup
