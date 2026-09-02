@@ -2,7 +2,7 @@ name: Release to npm
 
 # Publishes @peaske7/readit when a v* tag is pushed. Needs the NPM_TOKEN
 # repository secret (an npm automation token). Tags containing "-" (rc, beta)
-# publish under the "next" dist-tag; plain tags publish as "latest".
+# publish under the "rc" dist-tag; plain tags publish as "latest".
 
 on:
   push:
@@ -37,6 +37,6 @@ jobs:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           case "$GITHUB_REF_NAME" in
-            *-*) bun publish --access public --tag next ;;
+            *-*) bun publish --access public --tag rc ;;
             *)   bun publish --access public ;;
           esac
