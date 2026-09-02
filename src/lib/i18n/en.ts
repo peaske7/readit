@@ -131,5 +131,6 @@ export const en: Translations = {
   "table.wide": "Widen table",
   "table.fit": "Fit table to text",
   "table.applyAll": "Apply to every table in this document",
-  "table.resize": "Drag to resize, double-click to reset",
+  "table.resize":
+    "Table width: drag or use arrow keys, Home/End for narrowest/widest, double-click to reset",
 };

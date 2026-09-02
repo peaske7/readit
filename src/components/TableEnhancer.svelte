@@ -4,6 +4,7 @@ import { mount, onDestroy, unmount } from "svelte";
 import { UI_CHROME_ATTR } from "../lib/highlight/dom";
 import {
   clampViewportWidth,
+  clampWidth,
   loadTablePreference,
   type ResolvedTableMode,
   resolveTableMode,
@@ -35,6 +36,9 @@ const FRAME_INSET_PX = 24;
 const COLUMN_GAP_PX = 16;
 /** Below this drag range the handle is pointless, so it is hidden. */
 const MIN_RESIZABLE_RANGE_PX = 48;
+/** Arrow-key resize step; Shift multiplies it. */
+const KEYBOARD_STEP_PX = 16;
+const KEYBOARD_SHIFT_MULTIPLIER = 4;
 
 interface TableEntry {
   key: string;
@@ -102,6 +106,7 @@ function syncLabels(entry: TableEntry) {
   entry.applyAllButton.setAttribute("aria-label", t("table.applyAll"));
   entry.applyAllButton.title = t("table.applyAll");
   entry.handle.title = t("table.resize");
+  entry.handle.setAttribute("aria-label", t("table.resize"));
 }
 
 function resolveMode(entry: TableEntry, bounds: TableBounds | undefined) {
@@ -135,7 +140,7 @@ function applyLayout(entry: TableEntry, bounds: TableBounds | undefined) {
   }
 
   const geometry = resolveWideGeometry(bounds);
-  const width = clampViewportWidth(entry.width ?? geometry.maxWidth, geometry);
+  const width = clampWidth(entry.width ?? geometry.maxWidth, geometry);
   container.style.setProperty("--table-offset", `${geometry.offset}px`);
   container.style.setProperty("--table-viewport-width", `${width}px`);
   table.style.width = `${resolveTableWidth({
@@ -147,6 +152,15 @@ function applyLayout(entry: TableEntry, bounds: TableBounds | undefined) {
     "is-resizable",
     geometry.maxWidth - geometry.minWidth >= MIN_RESIZABLE_RANGE_PX,
   );
+  entry.handle.setAttribute(
+    "aria-valuemin",
+    String(Math.round(geometry.minWidth)),
+  );
+  entry.handle.setAttribute(
+    "aria-valuemax",
+    String(Math.round(geometry.maxWidth)),
+  );
+  entry.handle.setAttribute("aria-valuenow", String(Math.round(width)));
   updateScrollHints(entry);
 }
 
@@ -198,7 +212,11 @@ function startResize(entry: TableEntry, event: PointerEvent) {
 
   const geometry = resolveWideGeometry(bounds);
   const { handle, container } = entry;
-  handle.setPointerCapture(event.pointerId);
+  try {
+    handle.setPointerCapture(event.pointerId);
+  } catch {
+    // Pointer already released; the drag simply ends on the next up/cancel.
+  }
   container.classList.add("is-resizing");
 
   const onMove = (e: PointerEvent) => {
@@ -207,18 +225,69 @@ function startResize(entry: TableEntry, event: PointerEvent) {
     entry.width = width === geometry.maxWidth ? undefined : width;
     applyLayout(entry, bounds);
   };
-  const onUp = (e: PointerEvent) => {
-    onMove(e);
+  const startWidth = entry.width;
+  const stop = () => {
     handle.removeEventListener("pointermove", onMove);
     handle.removeEventListener("pointerup", onUp);
-    handle.removeEventListener("pointercancel", onUp);
+    handle.removeEventListener("pointercancel", onCancel);
     container.classList.remove("is-resizing");
+  };
+  const onUp = (e: PointerEvent) => {
+    onMove(e);
+    stop();
     persist(entry);
     notifyLayoutChanged();
   };
+  // A canceled gesture (touch interrupted, capture lost) must not save.
+  const onCancel = () => {
+    stop();
+    entry.width = startWidth;
+    applyLayout(entry, bounds);
+  };
   handle.addEventListener("pointermove", onMove);
   handle.addEventListener("pointerup", onUp);
-  handle.addEventListener("pointercancel", onUp);
+  handle.addEventListener("pointercancel", onCancel);
+}
+
+// `width` undefined means "as wide as allowed", the default.
+function setWidth(entry: TableEntry, width: number | undefined) {
+  entry.width = width;
+  persist(entry);
+  applyLayout(entry, root ? measureBounds(root) : undefined);
+  notifyLayoutChanged();
+}
+
+function handleResizeKey(entry: TableEntry, event: KeyboardEvent) {
+  if (!root) return;
+  const bounds = measureBounds(root);
+  if (!bounds) return;
+  const geometry = resolveWideGeometry(bounds);
+  const current = Math.min(entry.width ?? geometry.maxWidth, geometry.maxWidth);
+  const step =
+    KEYBOARD_STEP_PX * (event.shiftKey ? KEYBOARD_SHIFT_MULTIPLIER : 1);
+
+  // Keys clamp without snapping: a step smaller than the snap threshold
+  // would otherwise bounce straight back to the edge it started from.
+  let next: number | undefined;
+  switch (event.key) {
+    case "ArrowLeft":
+      next = clampWidth(current - step, geometry);
+      break;
+    case "ArrowRight":
+      next = clampWidth(current + step, geometry);
+      break;
+    case "Home":
+      next = geometry.minWidth;
+      break;
+    case "End":
+      next = geometry.maxWidth;
+      break;
+    default:
+      return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  setWidth(entry, next === geometry.maxWidth ? undefined : next);
 }
 
 function buildButton(action: string): HTMLButtonElement {
@@ -256,6 +325,9 @@ function wrap(table: HTMLTableElement, index: number): TableEntry {
   handle.className = "table-resize-handle";
   handle.setAttribute("contenteditable", "false");
   handle.setAttribute(UI_CHROME_ATTR, "");
+  handle.setAttribute("role", "separator");
+  handle.setAttribute("aria-orientation", "vertical");
+  handle.tabIndex = 0;
   container.appendChild(handle);
 
   const icons = [
@@ -305,11 +377,9 @@ function wrap(table: HTMLTableElement, index: number): TableEntry {
   handle.addEventListener("dblclick", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    entry.width = undefined;
-    persist(entry);
-    applyLayout(entry, root ? measureBounds(root) : undefined);
-    notifyLayoutChanged();
+    setWidth(entry, undefined);
   });
+  handle.addEventListener("keydown", (e) => handleResizeKey(entry, e));
   viewport.addEventListener("scroll", () => updateScrollHints(entry), {
     passive: true,
   });

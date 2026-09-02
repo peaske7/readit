@@ -1211,11 +1211,21 @@ html {
 }
 
 .table-container:hover .table-resize-handle::after,
-.table-container.is-resizing .table-resize-handle::after {
+.table-container.is-resizing .table-resize-handle::after,
+.table-resize-handle:focus-visible::after {
   opacity: 1;
 }
 
 .table-resize-handle:hover::after,
-.table-container.is-resizing .table-resize-handle::after {
+.table-container.is-resizing .table-resize-handle::after,
+.table-resize-handle:focus-visible::after {
   background: var(--prose-links);
+}
+
+.table-resize-handle:focus-visible {
+  outline: none;
+}
+
+.table-resize-handle:focus-visible::after {
+  box-shadow: 0 0 0 3px var(--selection-bg);
 }

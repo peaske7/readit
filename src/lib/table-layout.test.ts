@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { TableModes } from "../schema";
 import {
   clampViewportWidth,
+  clampWidth,
   loadTablePreference,
   resolveTableMode,
   resolveTableWidth,
@@ -46,6 +47,14 @@ describe("clampViewportWidth", () => {
   it("clamps into range", () => {
     expect(clampViewportWidth(10, geometry)).toBe(geometry.minWidth);
     expect(clampViewportWidth(5000, geometry)).toBe(geometry.maxWidth);
+  });
+
+  it("clampWidth only clamps, so small keyboard steps stick", () => {
+    expect(clampWidth(geometry.maxWidth - 16, geometry)).toBe(
+      geometry.maxWidth - 16,
+    );
+    expect(clampWidth(5000, geometry)).toBe(geometry.maxWidth);
+    expect(clampWidth(10, geometry)).toBe(geometry.minWidth);
   });
 
   it("snaps near the edges and stays free in between", () => {

@@ -39,14 +39,16 @@ export function resolveWideGeometry(bounds: TableBounds): WideGeometry {
   };
 }
 
+export function clampWidth(requested: number, geometry: WideGeometry): number {
+  return Math.min(Math.max(requested, geometry.minWidth), geometry.maxWidth);
+}
+
+/** Drag-time clamp: also snaps onto the edges when close enough. */
 export function clampViewportWidth(
   requested: number,
   geometry: WideGeometry,
 ): number {
-  const clamped = Math.min(
-    Math.max(requested, geometry.minWidth),
-    geometry.maxWidth,
-  );
+  const clamped = clampWidth(requested, geometry);
   for (const snap of [geometry.minWidth, geometry.maxWidth]) {
     if (Math.abs(clamped - snap) <= SNAP_THRESHOLD_PX) return snap;
   }

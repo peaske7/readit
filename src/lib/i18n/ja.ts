@@ -133,5 +133,6 @@ export const ja: Translations = {
   "table.wide": "表を広げる",
   "table.fit": "表を本文幅に戻す",
   "table.applyAll": "この文書のすべての表に適用",
-  "table.resize": "ドラッグで幅を調整、ダブルクリックでリセット",
+  "table.resize":
+    "表の幅: ドラッグまたは矢印キーで調整、Home/End で最小/最大、ダブルクリックでリセット",
 };
