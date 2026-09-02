@@ -1,8 +1,10 @@
 name: Release to npm
 
-# Publishes @peaske7/readit when a v* tag is pushed. Needs the NPM_TOKEN
-# repository secret (an npm automation token). Tags containing "-" (rc, beta)
-# publish under the "rc" dist-tag; plain tags publish as "latest".
+# Publishes @peaske7/readit when a v* tag is pushed, using npm trusted
+# publishing (OIDC): no NPM_TOKEN secret. The package's Trusted Publisher on
+# npmjs.com must point at this repo and this workflow file (release.yml).
+# Tags containing "-" (rc, beta) publish under the "rc" dist-tag; plain tags
+# publish as "latest". Provenance attestations are generated automatically.
 
 on:
   push:
@@ -19,6 +21,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+      # bun publish has no OIDC support yet; npm >= 11.5.1 is required for
+      # trusted publishing, so publish with the npm CLI.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest
       - run: bun install --frozen-lockfile
       - run: bun run check
       - run: bun run typecheck
@@ -33,10 +42,8 @@ jobs:
             exit 1
           fi
       - name: Publish
-        env:
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           case "$GITHUB_REF_NAME" in
-            *-*) bun publish --access public --tag rc ;;
-            *)   bun publish --access public ;;
+            *-*) npm publish --access public --tag rc ;;
+            *)   npm publish --access public ;;
           esac
