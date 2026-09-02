@@ -95,6 +95,21 @@ Plain markdown storage enables git versioning, LLM accessibility, and cross-tool
   - [x] SSE auto-reconnect with exponential backoff
   - [x] Parallel document + comments fetch on reload
 
+## v0.8.0 - Sharing & Publishing ✅
+
+Publish a document to a self-hosted Cloudflare Worker (design: `docs/plans/2026-09-02-share-design.md`).
+
+- [x] `readit share <file>` with link (default), `--public`, and `--password` modes; stable URL per file
+- [x] Worker as a third readit server on R2 (`worker/`), reusing template, anchor, and comment-format code
+- [x] Svelte app `hosted` mode: `/api` prefix via `apiUrl()`, no heartbeat/stream, local settings, read-only task checkboxes
+- [x] Viewer comments API with the same shapes as the local server
+- [x] `readit pull` merge (remote wins for published ids); `readit share` merges first so re-publish never drops comments
+- [x] Relative images uploaded as content-addressed assets
+- [x] PBKDF2 passwords, HMAC path-scoped unlock cookie, rate-limited unlock, noindex for non-public shares
+- [x] GitHub Actions: CI, Worker deploy on main, npm release on tags
+- [ ] Go CLI parity for `share`/`pull` (Bun CLI only for now)
+- [ ] Live reload of a share while the local server runs
+
 ## Infrastructure ✅
 
 Cross-cutting work not tied to a single milestone:
@@ -105,9 +120,9 @@ Cross-cutting work not tied to a single milestone:
 
 ## Future Considerations
 
-- Better mobile support
+- Better mobile support (reading shared documents on a phone works as of v0.8.0; commenting UX untested)
 - Storage edge-case test suite (large documents, 100+ comments, unicode/emoji, concurrent tabs, corrupt files)
 - Sticky notes (ペタペタ) — add notes not tied to text selection
-- Collaborative mode (WebSocket sync)
+- Collaborative mode (real-time WebSocket sync; link sharing + pull merge shipped in v0.8.0)
 - GitHub integration (create issues from comments)
 - PDF export with highlights and comments — export the current document view as a PDF with all highlights and margin notes visible, preserving the visual review state for sharing or archiving

@@ -41,6 +41,15 @@ bunx readit list                    # List all files with comments
 bunx readit show <file.md>          # Show comments for a file
 bunx readit open <files...>         # Add files to running server
 bunx readit completion zsh          # Output shell integration script
+
+# Sharing (self-hosted Cloudflare Worker, see worker/README.md)
+bunx readit remote setup            # Store Worker URL + publish token
+bunx readit share <file.md>         # Publish; --public or --password [pw]
+bunx readit pull <file.md>          # Merge web comments into local .comments.md
+bunx readit unshare <file.md>       # Delete the share
+bunx readit remote list             # List shares on the remote
+bun run worker:dev                  # Worker on :8787 with simulated R2
+bun run worker:deploy               # Build frontend + wrangler deploy
 ```
 
 ## Architecture
@@ -50,6 +59,8 @@ readit/
 ├── src/
 │   ├── cli.ts                 # CLI entry point (Commander.js)
 │   ├── server.ts              # Bun.serve() server + API routes
+│   ├── remote.ts              # Share remote config (~/.readit/config.json, shares.json)
+│   ├── share.ts               # readit share/unshare/pull: render, upload, merge
 │   ├── App.svelte             # Main Svelte component
 │   ├── main.ts                # Svelte entry point
 │   ├── schema.ts              # TypeScript types
@@ -90,7 +101,10 @@ readit/
 │   │   └── ui.svelte.ts       # UI state
 │   └── lib/
 │       ├── anchor.ts          # Anchor-based comment resolution
+│       ├── api.ts             # apiUrl(): /api prefix for hosted (share) mode
 │       ├── comment-storage.ts # File-based comment storage
+│       ├── merge-comments.ts  # Merge rule for readit pull
+│       ├── resolve-comments.ts # Anchor resolution shared by server and Worker
 │       ├── export.ts          # Export utilities (JSON, prompt format)
 │       ├── headings.ts        # Heading extraction
 │       ├── html-text.ts       # HTML text extraction
@@ -117,6 +131,10 @@ readit/
 ├── go/                        # Go server (production binary)
 │   ├── cmd/readit/main.go     # Go CLI entry point
 │   └── internal/server/       # HTTP server, markdown, comments, SSE
+├── worker/                    # Cloudflare Worker: share server on R2 (third readit server)
+│   ├── wrangler.toml          # Bindings: ASSETS, SHARES (R2), UNLOCK_LIMITER
+│   └── src/                   # Router, publisher API, viewer routes, comments API
+├── .github/workflows/         # CI, worker deploy (main), npm release (v* tags)
 ├── shell/                     # Shell integration
 │   ├── readit.zsh             # Zsh plugin (@ file picker + completions)
 │   └── _readit                # Zsh compdef completion function
@@ -149,6 +167,7 @@ readit/
 7. **i18n support**: English and Japanese translations
 8. **Live reload**: fs.watch() on documents + SSE push to browser; handles rename-style saves (Vim/Neovim/Emacs)
 9. **Editor integrations**: Neovim plugin (Lua), VS Code extension, shell completions with `@` fzf file picker
+10. **Sharing is a snapshot publish**: `readit share` pushes rendered HTML + source + comments to a self-hosted Cloudflare Worker that implements the same API contract on R2; the Svelte app runs unchanged in `hosted` mode under `/s/{id}`; web comments come back with `readit pull` (remote wins for published ids)
 
 ## Tech Stack
 
@@ -161,6 +180,7 @@ readit/
 - **Icons**: lucide-svelte
 - **Testing**: Vitest (unit) + Playwright (e2e)
 - **Production Binary**: Go (embeds frontend via go:embed)
+- **Sharing**: Cloudflare Workers + R2 + static assets (wrangler), GitHub Actions deploy
 - **Quality**: Biome (lint + format), lefthook
 - **Shell Integration**: Zsh/Bash/Fish completions, fzf-powered `@` file picker
 - **Editor Plugins**: Neovim (Lua), VS Code (TypeScript)

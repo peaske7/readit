@@ -1669,3 +1669,17 @@ git commit -m "docs: sharing setup, roadmap v0.8.0, US-011 status"
    Expected: the URL returns 404 and `readit remote list` no longer lists it
 8. Run: `bun run typecheck && bun run typecheck:worker && bun run check && bun run test && bun run test:e2e`
    Expected: all green; local mode is unchanged
+
+---
+
+## Implementation notes (2026-09-02)
+
+Deviations from the plan as written, made while implementing:
+
+- **`readit share` merges before pushing.** Re-sharing replaces the remote `comments.md`, which would have discarded web comments unless the author ran `readit pull` first. `shareFile` now calls the same `pullComments` the `pull` command uses whenever the share already exists. Task 10's merge rule is unchanged.
+- **Prompts buffer stdin lines.** `readline.question` drops lines that arrive before the question is registered (piped input delivers them all at once), so `ask()` collects `line` events instead. `readit remote setup` works interactively and from a pipe.
+- **Worker resolves stored comments before mutating** so `PUT /comments/{id}` responses carry offsets, matching the local server.
+- **Task checkboxes** are made inert by omitting `onTaskToggle` in hosted mode; `DocumentViewer` marks them `aria-disabled` when no handler is passed, instead of keying on `app.hosted`.
+- **Uploads use `Bun.file()`** as the request body; the CLI is Bun-only and `Buffer` is not a `BodyInit` under TypeScript 5.9.
+- **CI/CD added** (not in the original task list): `.github/workflows/ci.yml`, `deploy-worker.yml`, `release.yml`. See `worker/README.md` for the secrets each needs.
+- **Task 12 is pending** Cloudflare account setup (login, bucket, secrets, GitHub repository secrets), which the author does.
