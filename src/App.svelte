@@ -836,7 +836,7 @@ onDestroy(() => {
               ondismiss={() => setCommentsError(null, filePath)}
             />
 
-            <div class="flex-1 flex items-start gap-4 w-full max-w-7xl mx-auto overflow-x-clip">
+            <div data-reading-frame class="flex-1 flex items-start gap-4 w-full max-w-7xl mx-auto overflow-x-clip">
               {#if headings.length > 0}
                 <aside class="w-48 flex-shrink-0 py-6 pl-6 hidden xl:block">
                   <div class="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto">
@@ -853,6 +853,7 @@ onDestroy(() => {
                   content={docState.document.html}
                   {comments}
                   {isActive}
+                  {filePath}
                   onTextSelect={(text, start, end, top) => onTextSelect(filePath, text, start, end, top)}
                   onHighlightClick={handleHighlightClick}
                   onTaskToggle={(index, checked) => toggleTask(filePath, index, checked)}

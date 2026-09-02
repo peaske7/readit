@@ -1062,3 +1062,160 @@ html {
     transform: translateX(0);
   }
 }
+
+/* ========================================
+   Tables - Fit / Wide
+   ======================================== */
+
+.table-container {
+  position: relative;
+  margin: 1.75em 0;
+  transition:
+    width 160ms ease-out,
+    margin-left 160ms ease-out;
+}
+
+.prose .table-container table {
+  margin: 0;
+}
+
+.table-viewport {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.table-container[data-mode="wide"] {
+  margin-left: var(--table-offset, 0px);
+  width: var(--table-viewport-width, 100%);
+  max-width: none;
+}
+
+.table-container.is-resizing {
+  transition: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Separate borders so sticky cells keep theirs while scrolling. */
+.table-container[data-mode="wide"] table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border-top: 1px solid var(--prose-border);
+  border-left: 1px solid var(--prose-border);
+}
+
+.table-container[data-mode="wide"] th,
+.table-container[data-mode="wide"] td {
+  border-width: 0 1px 1px 0;
+  min-width: 6em;
+}
+
+.table-container[data-mode="wide"] tr > :first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--page-bg);
+}
+
+.table-container[data-mode="wide"] th:first-child {
+  background: var(--prose-table-header-bg);
+}
+
+/* Keep scroll-into-view targets clear of the sticky first column. */
+.table-container[data-mode="wide"] .table-viewport * {
+  scroll-margin-left: 9em;
+}
+
+.table-container[data-mode="wide"] tr:nth-child(even) > td:first-child {
+  background: var(--prose-table-even-bg);
+}
+
+.table-container.has-overflow-left tr > :first-child {
+  box-shadow: 6px 0 8px -6px rgba(0, 0, 0, 0.18);
+}
+
+.dark .table-container.has-overflow-left tr > :first-child {
+  box-shadow: 6px 0 8px -6px rgba(0, 0, 0, 0.6);
+}
+
+.table-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 2.5rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  background: linear-gradient(to left, var(--page-bg), transparent);
+}
+
+.table-container.has-overflow-right::after {
+  opacity: 1;
+}
+
+.table-toolbar {
+  top: 0;
+  right: 0;
+  transform: translateY(calc(-100% - 0.25rem));
+  padding: 0.125rem;
+}
+
+.table-toolbar button {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.table-container:hover .table-toolbar,
+.table-toolbar:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.table-container[data-mode="wide"] .table-icon-wide,
+.table-container[data-mode="fit"] .table-icon-fit {
+  display: none;
+}
+
+.table-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -0.75rem;
+  width: 1.5rem;
+  cursor: col-resize;
+  display: none;
+  touch-action: none;
+  z-index: 6;
+}
+
+.table-container[data-mode="wide"].is-resizable .table-resize-handle {
+  display: block;
+}
+
+.table-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 2.5rem;
+  border-radius: 2px;
+  background: var(--prose-blockquote-border);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition:
+    opacity 120ms ease-out,
+    background 120ms ease-out;
+}
+
+.table-container:hover .table-resize-handle::after,
+.table-container.is-resizing .table-resize-handle::after {
+  opacity: 1;
+}
+
+.table-resize-handle:hover::after,
+.table-container.is-resizing .table-resize-handle::after {
+  background: var(--prose-links);
+}

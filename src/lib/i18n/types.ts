@@ -30,6 +30,10 @@ export interface Translations {
   "settings.theme.dark": string;
   "settings.font.serif": string;
   "settings.font.sansSerif": string;
+  "settings.tables": string;
+  "settings.tables.auto": string;
+  "settings.tables.fit": string;
+  "settings.tables.wide": string;
 
   "comment.placeholder": string;
   "comment.cancel": string;
@@ -125,6 +129,11 @@ export interface Translations {
   "codeBlock.copy": string;
   "codeBlock.copied": string;
   "codeBlock.copyFailed": string;
+
+  "table.wide": string;
+  "table.fit": string;
+  "table.applyAll": string;
+  "table.resize": string;
 }
 
 export type TranslationKey = keyof Translations;

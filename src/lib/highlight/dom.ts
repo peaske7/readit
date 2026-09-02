@@ -16,6 +16,26 @@ const BLOCK_ELEMENTS = new Set([
   "BR",
 ]);
 
+/** Marks chrome injected into the article (toolbars, handles) that carries no document text. */
+export const UI_CHROME_ATTR = "data-readit-ui";
+
+// Walks text nodes only, pruning UI chrome so injected Svelte anchors never
+// count as block boundaries and shift comment offsets.
+function createTextWalker(root: Node): TreeWalker {
+  return document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
+        return (node as Element).hasAttribute(UI_CHROME_ATTR)
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_SKIP;
+      },
+    },
+  );
+}
+
 function findBlockParent(node: Node): Element | null {
   let parent = node.parentElement;
   while (parent && !BLOCK_ELEMENTS.has(parent.tagName)) {
@@ -31,7 +51,7 @@ export function getTextOffset(
 ): number {
   let offset = 0;
   let lastBlockParent: Element | null = null;
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const walker = createTextWalker(root);
 
   let node = walker.nextNode();
   while (node) {
@@ -58,7 +78,7 @@ export function getTextOffset(
 }
 
 export function getDOMTextContent(root: Node): string {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const walker = createTextWalker(root);
   let text = "";
   let lastBlockParent: Element | null = null;
   let node = walker.nextNode();
@@ -88,7 +108,7 @@ export function collectTextNodes(root: Node): TextNodeInfo[] {
   let currentOffset = 0;
   let lastBlockParent: Element | null = null;
 
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const walker = createTextWalker(root);
   let node = walker.nextNode();
 
   while (node) {
@@ -126,7 +146,7 @@ export function collectTextNodesWithContent(root: Node): {
   let currentOffset = 0;
   let lastBlockParent: Element | null = null;
 
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const walker = createTextWalker(root);
   let node = walker.nextNode();
 
   while (node) {

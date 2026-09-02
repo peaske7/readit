@@ -1,11 +1,14 @@
 import {
   FontFamilies,
   type FontFamily,
+  type TableMode,
+  TableModes,
   type ThemeMode,
   ThemeModes,
 } from "../schema";
 
 const THEME_STORAGE_KEY = "readit:theme";
+const TABLE_MODE_STORAGE_KEY = "readit:tableMode";
 const DARK_MQ = "(prefers-color-scheme: dark)";
 
 function getStoredTheme(): ThemeMode {
@@ -22,6 +25,20 @@ function getStoredTheme(): ThemeMode {
   return ThemeModes.SYSTEM;
 }
 
+function getStoredTableMode(): TableMode {
+  try {
+    const stored = localStorage.getItem(TABLE_MODE_STORAGE_KEY);
+    if (
+      stored === TableModes.AUTO ||
+      stored === TableModes.FIT ||
+      stored === TableModes.WIDE
+    ) {
+      return stored;
+    }
+  } catch {}
+  return TableModes.AUTO;
+}
+
 function applyTheme(mode: ThemeMode): void {
   const isDark =
     mode === ThemeModes.DARK ||
@@ -33,6 +50,7 @@ function applyTheme(mode: ThemeMode): void {
 export const settings = $state({
   fontFamily: FontFamilies.SERIF as FontFamily,
   themeMode: getStoredTheme() as ThemeMode,
+  tableMode: getStoredTableMode() as TableMode,
 });
 
 export async function updateFontFamily(font: FontFamily): Promise<void> {
@@ -60,6 +78,13 @@ export function updateThemeMode(mode: ThemeMode): void {
 
   try {
     localStorage.setItem(THEME_STORAGE_KEY, mode);
+  } catch {}
+}
+
+export function updateTableMode(mode: TableMode): void {
+  settings.tableMode = mode;
+  try {
+    localStorage.setItem(TABLE_MODE_STORAGE_KEY, mode);
   } catch {}
 }
 

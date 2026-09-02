@@ -25,6 +25,10 @@ export const en: Translations = {
   "settings.theme.dark": "Dark",
   "settings.font.serif": "Serif",
   "settings.font.sansSerif": "Sans-serif",
+  "settings.tables": "Tables",
+  "settings.tables.auto": "Auto",
+  "settings.tables.fit": "Fit to text",
+  "settings.tables.wide": "Wide",
 
   "comment.placeholder": "Add your comment...",
   "comment.cancel": "Cancel",
@@ -123,4 +127,9 @@ export const en: Translations = {
   "codeBlock.copy": "Copy code",
   "codeBlock.copied": "Copied code",
   "codeBlock.copyFailed": "Failed to copy code",
+
+  "table.wide": "Widen table",
+  "table.fit": "Fit table to text",
+  "table.applyAll": "Apply to every table in this document",
+  "table.resize": "Drag to resize, double-click to reset",
 };

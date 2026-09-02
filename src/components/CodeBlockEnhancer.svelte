@@ -2,6 +2,7 @@
 import { Copy } from "lucide-svelte";
 import { mount, unmount } from "svelte";
 import { getCodeBlockText } from "../lib/code-block";
+import { UI_CHROME_ATTR } from "../lib/highlight/dom";
 import { localeState, t } from "../stores/locale.svelte";
 import { showToast } from "../stores/toast.svelte";
 
@@ -38,6 +39,7 @@ function buildToolbar(pre: HTMLPreElement): HTMLElement {
   const toolbar = document.createElement("div");
   toolbar.className = "code-block-toolbar";
   toolbar.setAttribute("contenteditable", "false");
+  toolbar.setAttribute(UI_CHROME_ATTR, "");
 
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";

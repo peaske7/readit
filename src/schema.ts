@@ -91,3 +91,11 @@ export interface DocumentSettings {
   onboarded?: boolean;
   keybindings?: KeybindingOverride[];
 }
+
+export const TableModes = {
+  AUTO: "auto",
+  FIT: "fit",
+  WIDE: "wide",
+} as const;
+
+export type TableMode = (typeof TableModes)[keyof typeof TableModes];
