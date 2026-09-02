@@ -3,7 +3,6 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { basename, dirname, join } from "node:path";
-import { findAnchorWithFallback } from "./lib/anchor.js";
 import {
   computeHash,
   createComment,
@@ -13,8 +12,6 @@ import {
   serializeComments,
   truncateSelection,
 } from "./lib/comment-storage.js";
-import { findTextPosition } from "./lib/highlight/resolver.js";
-import { extractTextFromHtml } from "./lib/html-text.js";
 import { createKeyLock } from "./lib/key-lock.js";
 import {
   getShiki,
@@ -22,6 +19,7 @@ import {
   toggleTaskInSource,
 } from "./lib/markdown-renderer.js";
 import { disposeMermaidWorker } from "./lib/mermaid-renderer.js";
+import { resolveComments } from "./lib/resolve-comments.js";
 import { ShortcutActions } from "./lib/shortcut-registry.js";
 import { isMarkdownFile } from "./lib/utils.js";
 import {
@@ -99,46 +97,10 @@ async function readCommentsFromFile(
     const content = await fs.readFile(commentPath, "utf-8");
     const file = parseCommentFile(content);
 
-    const domText = renderedHtml ? extractTextFromHtml(renderedHtml) : null;
-
-    const resolvedComments = file.comments.map((comment) => {
-      const textForMatching = comment.anchorPrefix || comment.selectedText;
-
-      const anchor = findAnchorWithFallback({
-        source: sourceContent,
-        selectedText: textForMatching,
-        lineHint: comment.lineHint || "L1",
-      });
-
-      if (!anchor) {
-        return {
-          ...comment,
-          anchorConfidence: AnchorConfidences.UNRESOLVED,
-        };
-      }
-
-      let startOffset = anchor.start;
-      let endOffset = anchor.end;
-
-      if (domText) {
-        const domPos = findTextPosition(
-          domText,
-          comment.selectedText,
-          anchor.start,
-        );
-        if (domPos) {
-          startOffset = domPos.start;
-          endOffset = domPos.end;
-        }
-      }
-
-      return {
-        ...comment,
-        startOffset,
-        endOffset,
-        lineHint: `L${anchor.line}`,
-        anchorConfidence: anchor.confidence,
-      };
+    const resolvedComments = resolveComments({
+      comments: file.comments,
+      source: sourceContent,
+      html: renderedHtml,
     });
 
     resolvedCommentsCache.set(filePath, {
