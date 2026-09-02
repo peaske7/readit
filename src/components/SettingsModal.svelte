@@ -2,11 +2,17 @@
 import { Check, ChevronDown } from "lucide-svelte";
 import { type Locale, Locales } from "../lib/i18n";
 import { cn } from "../lib/utils";
-import { FontFamilies, type FontFamily, ThemeModes } from "../schema";
+import {
+  FontFamilies,
+  type FontFamily,
+  TableModes,
+  ThemeModes,
+} from "../schema";
 import { localeState, setLocale, t } from "../stores/locale.svelte";
 import {
   settings,
   updateFontFamily,
+  updateTableMode,
   updateThemeMode,
 } from "../stores/settings.svelte";
 import ShortcutList from "./ShortcutList.svelte";
@@ -46,6 +52,16 @@ let fontOptions = $derived([
   },
 ]);
 
+let tableOptions = $derived([
+  { value: TableModes.AUTO, label: t("settings.tables.auto") },
+  { value: TableModes.FIT, label: t("settings.tables.fit") },
+  { value: TableModes.WIDE, label: t("settings.tables.wide") },
+]);
+
+let activeTableMode = $derived(
+  tableOptions.find((o) => o.value === settings.tableMode) ?? tableOptions[0],
+);
+
 let activeTheme = $derived(
   themeOptions.find((o) => o.value === settings.themeMode) ?? themeOptions[0],
 );
@@ -68,6 +84,7 @@ const triggerClassName = cn(
 
 let themeDropdownOpen = $state(false);
 let fontDropdownOpen = $state(false);
+let tableDropdownOpen = $state(false);
 let localeDropdownOpen = $state(false);
 </script>
 
@@ -174,6 +191,35 @@ let localeDropdownOpen = $state(false);
             >Aa</span>
             <span class="flex-1">{option.label}</span>
             {#if settings.fontFamily === option.value}
+              <Check class="size-3.5 text-zinc-500 dark:text-zinc-400" />
+            {/if}
+          </DropdownMenuItem>
+        {/each}
+      </DropdownMenu>
+    </div>
+
+    <div>
+      <Text variant="overline" as="h3" class="mb-3">
+        {t("settings.tables")}
+      </Text>
+      <DropdownMenu bind:open={tableDropdownOpen} align="start" contentClass="min-w-[160px]">
+        {#snippet trigger()}
+          <button type="button" class={triggerClassName}>
+            <span>{activeTableMode.label}</span>
+            <ChevronDown class="size-3 text-zinc-400 dark:text-zinc-500" />
+          </button>
+        {/snippet}
+
+        {#each tableOptions as option (option.value)}
+          <DropdownMenuItem
+            onselect={() => {
+              updateTableMode(option.value);
+              tableDropdownOpen = false;
+            }}
+            class="flex items-center gap-2"
+          >
+            <span class="flex-1">{option.label}</span>
+            {#if settings.tableMode === option.value}
               <Check class="size-3.5 text-zinc-500 dark:text-zinc-400" />
             {/if}
           </DropdownMenuItem>

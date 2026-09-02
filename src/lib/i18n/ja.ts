@@ -25,6 +25,10 @@ export const ja: Translations = {
   "settings.theme.dark": "ダーク",
   "settings.font.serif": "明朝体",
   "settings.font.sansSerif": "ゴシック体",
+  "settings.tables": "表",
+  "settings.tables.auto": "自動",
+  "settings.tables.fit": "本文幅",
+  "settings.tables.wide": "ワイド",
 
   "comment.placeholder": "コメントを入力...",
   "comment.cancel": "キャンセル",
@@ -125,4 +129,10 @@ export const ja: Translations = {
   "codeBlock.copy": "コードをコピー",
   "codeBlock.copied": "コードをコピーしました",
   "codeBlock.copyFailed": "コードのコピーに失敗しました",
+
+  "table.wide": "表を広げる",
+  "table.fit": "表を本文幅に戻す",
+  "table.applyAll": "この文書のすべての表に適用",
+  "table.resize":
+    "表の幅: ドラッグまたは矢印キーで調整、Home/End で最小/最大、ダブルクリックでリセット",
 };
