@@ -1,6 +1,6 @@
 <script lang="ts">
 import { Check, Copy } from "lucide-svelte";
-import { apiUrl } from "../lib/api";
+import { client, type ShareRecord } from "../lib/client";
 import { cn } from "../lib/utils";
 import { type ShareMode, ShareModes } from "../schema";
 import { app } from "../stores/app.svelte";
@@ -17,18 +17,11 @@ interface Props {
 
 let { open = $bindable(false), onclose }: Props = $props();
 
-/** Subset of the server's ShareRecord that the dialog shows. */
-interface ShareInfo {
-  id: string;
-  url: string;
-  mode: string;
-}
-
 type ModalState =
   | { status: "loading" }
   | { status: "error"; error: string }
   | { status: "unconfigured" }
-  | { status: "ready"; share?: ShareInfo };
+  | { status: "ready"; share?: ShareRecord };
 
 let modalState = $state<ModalState>({ status: "loading" });
 let mode = $state<ShareMode>(ShareModes.LINK);
@@ -60,15 +53,12 @@ let modeOptions = $derived([
   },
 ]);
 
-function shareUrl(): string {
-  return apiUrl(
-    `/api/share?path=${encodeURIComponent(app.activeDocumentPath ?? "")}`,
-  );
+function activePath(): string {
+  return app.activeDocumentPath ?? "";
 }
 
-async function readError(res: Response): Promise<string> {
-  const body = await res.json().catch(() => undefined);
-  return body?.error ?? `${res.status} ${res.statusText}`;
+function messageOf(err: unknown): string {
+  return err instanceof Error ? err.message : "Unknown error";
 }
 
 $effect(() => {
@@ -80,13 +70,9 @@ $effect(() => {
   confirmingUnshare = false;
   password = "";
 
-  fetch(shareUrl())
-    .then(async (res) => {
-      if (!res.ok) throw new Error(await readError(res));
-      const data = (await res.json()) as {
-        configured: boolean;
-        share?: ShareInfo;
-      };
+  client
+    .getShare(activePath())
+    .then((data) => {
       if (!data.configured) {
         modalState = { status: "unconfigured" };
         return;
@@ -95,10 +81,7 @@ $effect(() => {
       modalState = { status: "ready", share: data.share };
     })
     .catch((err) => {
-      modalState = {
-        status: "error",
-        error: err instanceof Error ? err.message : "Unknown error",
-      };
+      modalState = { status: "error", error: messageOf(err) };
     });
 });
 
@@ -112,18 +95,15 @@ async function publish() {
   busy = true;
   actionError = "";
   try {
-    const res = await fetch(shareUrl(), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode, password: password || undefined }),
+    const record = await client.share(activePath(), {
+      mode,
+      password: password || undefined,
     });
-    if (!res.ok) throw new Error(await readError(res));
-    const record = (await res.json()) as ShareInfo;
     modalState = { status: "ready", share: record };
     password = "";
     await copyLink(record.url);
   } catch (err) {
-    actionError = err instanceof Error ? err.message : "Unknown error";
+    actionError = messageOf(err);
   } finally {
     busy = false;
   }
@@ -134,12 +114,11 @@ async function unshare() {
   busy = true;
   actionError = "";
   try {
-    const res = await fetch(shareUrl(), { method: "DELETE" });
-    if (!res.ok) throw new Error(await readError(res));
+    await client.unshare(activePath());
     modalState = { status: "ready" };
     mode = ShareModes.LINK;
   } catch (err) {
-    actionError = err instanceof Error ? err.message : "Unknown error";
+    actionError = messageOf(err);
   } finally {
     busy = false;
     confirmingUnshare = false;

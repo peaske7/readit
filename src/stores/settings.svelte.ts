@@ -1,4 +1,4 @@
-import { apiUrl } from "../lib/api";
+import { client } from "../lib/client";
 import {
   FontFamilies,
   type FontFamily,
@@ -7,7 +7,6 @@ import {
   type ThemeMode,
   ThemeModes,
 } from "../schema";
-import { app } from "./app.svelte";
 
 const THEME_STORAGE_KEY = "readit:theme";
 const FONT_STORAGE_KEY = "readit:fontFamily";
@@ -60,7 +59,7 @@ export async function updateFontFamily(font: FontFamily): Promise<void> {
   settings.fontFamily = font;
 
   // Hosted snapshots have no settings endpoint; remember the choice per browser.
-  if (app.hosted) {
+  if (!client.capabilities.putSettings) {
     try {
       localStorage.setItem(FONT_STORAGE_KEY, font);
     } catch {}
@@ -68,15 +67,7 @@ export async function updateFontFamily(font: FontFamily): Promise<void> {
   }
 
   try {
-    const response = await fetch(apiUrl("/api/settings"), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fontFamily: font }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to save settings");
-    }
+    await client.putSettings({ fontFamily: font });
   } catch (err) {
     console.error("Failed to save font preference:", err);
   }
@@ -104,7 +95,7 @@ export function initSettings(data?: { fontFamily?: string }): void {
     settings.fontFamily = data.fontFamily as FontFamily;
   }
 
-  if (app.hosted) {
+  if (!client.capabilities.putSettings) {
     try {
       const stored = localStorage.getItem(FONT_STORAGE_KEY);
       if (stored === FontFamilies.SERIF || stored === FontFamilies.SANS_SERIF) {

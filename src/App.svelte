@@ -13,7 +13,7 @@ import ReanchorConfirm from "./components/ReanchorConfirm.svelte";
 import TabBar from "./components/TabBar.svelte";
 import TableOfContents from "./components/TableOfContents.svelte";
 import Toast from "./components/Toast.svelte";
-import { apiUrl } from "./lib/api";
+import { client } from "./lib/client";
 import type { Cluster } from "./lib/clustering";
 import { purgeExpiredDrafts } from "./lib/comment-drafts";
 import { extractContext, formatForLLM } from "./lib/context";
@@ -22,7 +22,6 @@ import {
   formatComment,
   generatePrompt,
 } from "./lib/export";
-import { fetchOrThrow } from "./lib/fetch-or-throw";
 import { Positions } from "./lib/positions";
 import { matchesBinding, ShortcutActions } from "./lib/shortcut-registry";
 import { AnchorConfidences, type Comment } from "./schema";
@@ -89,16 +88,12 @@ async function toggleTask(
   index: number,
   checked: boolean,
 ): Promise<boolean> {
+  if (!client.capabilities.patchTask) return false;
+
   try {
-    const res = await fetch(apiUrl("/api/document/task"), {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: filePath, index, checked }),
-    });
-    if (res.ok) {
-      recentTaskPatches.set(filePath, Date.now());
-    }
-    return res.ok;
+    await client.patchTask({ path: filePath, index, checked });
+    recentTaskPatches.set(filePath, Date.now());
+    return true;
   } catch (err) {
     console.error("Failed to toggle task:", err);
     return false;
@@ -128,24 +123,15 @@ async function addComment(
   setCommentsError(null, filePath);
 
   try {
-    const response = await fetchOrThrow(
-      apiUrl(`/api/comments?path=${encodeURIComponent(filePath)}`),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          selectedText,
-          comment: commentText.trim(),
-          startOffset,
-          endOffset,
-        }),
-      },
-      "Failed to add comment",
-    );
-    const data = await response.json();
+    const saved = await client.createComment(filePath, {
+      selectedText,
+      comment: commentText.trim(),
+      startOffset,
+      endOffset,
+    });
     const current = app.documents.get(filePath)?.comments ?? [];
     setComments(
-      current.map((c) => (c.id === tempId ? data.comment : c)),
+      current.map((c) => (c.id === tempId ? saved : c)),
       filePath,
     );
     return true;
@@ -174,15 +160,7 @@ async function editComment(filePath: string, id: string, newText: string) {
 
   setCommentsError(null, filePath);
   try {
-    await fetchOrThrow(
-      apiUrl(`/api/comments/${id}?path=${encodeURIComponent(filePath)}`),
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment: trimmed }),
-      },
-      "Failed to update comment",
-    );
+    await client.updateComment(filePath, id, trimmed);
   } catch (err) {
     console.error("Failed to edit comment:", err);
     setCommentsError(
@@ -204,11 +182,7 @@ async function deleteComment(filePath: string, id: string) {
 
   setCommentsError(null, filePath);
   try {
-    await fetchOrThrow(
-      apiUrl(`/api/comments/${id}?path=${encodeURIComponent(filePath)}`),
-      { method: "DELETE" },
-      "Failed to delete comment",
-    );
+    await client.deleteComment(filePath, id);
   } catch (err) {
     console.error("Failed to delete comment:", err);
     setCommentsError(
@@ -227,11 +201,7 @@ async function deleteAllComments(filePath: string) {
 
   setCommentsError(null, filePath);
   try {
-    await fetchOrThrow(
-      apiUrl(`/api/comments?path=${encodeURIComponent(filePath)}`),
-      { method: "DELETE" },
-      "Failed to delete all comments",
-    );
+    await client.deleteAllComments(filePath);
   } catch (err) {
     console.error("Failed to delete all comments:", err);
     setCommentsError(
@@ -269,21 +239,14 @@ async function reanchorComment(
 
   setCommentsError(null, filePath);
   try {
-    const response = await fetchOrThrow(
-      apiUrl(
-        `/api/comments/${id}/reanchor?path=${encodeURIComponent(filePath)}`,
-      ),
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selectedText, startOffset, endOffset }),
-      },
-      "Failed to re-anchor comment",
-    );
-    const data = await response.json();
+    const saved = await client.reanchor(filePath, id, {
+      selectedText,
+      startOffset,
+      endOffset,
+    });
     const current = app.documents.get(filePath)?.comments ?? [];
     setComments(
-      current.map((c) => (c.id === id ? data.comment : c)),
+      current.map((c) => (c.id === id ? saved : c)),
       filePath,
     );
   } catch (err) {
@@ -469,11 +432,9 @@ async function initialize() {
 
   // Fallback: fetch from API (e.g. if inline data was missing)
   try {
-    const res = await fetch(apiUrl("/api/documents"));
-    if (!res.ok) throw new Error(`Server error: ${res.status}`);
-    const data = await res.json();
+    const data = await client.getDocuments();
 
-    const clean = data.clean || false;
+    const clean = data.clean;
     if (data.workingDirectory) setWorkingDirectory(data.workingDirectory);
 
     for (const file of data.files) {
@@ -497,11 +458,13 @@ async function initialize() {
 }
 
 function setupDocumentStream() {
+  if (!client.capabilities.documentStream) return;
+
   let reconnectDelay = 1000;
   const MAX_RECONNECT_DELAY = 30000;
 
   function connect() {
-    documentStreamSource = new EventSource(apiUrl("/api/document/stream"));
+    documentStreamSource = client.documentStream();
 
     documentStreamSource.onopen = () => {
       reconnectDelay = 1000;
@@ -538,19 +501,19 @@ function setupDocumentStream() {
             return;
           }
 
-          const [docRes, commentsRes] = await Promise.all([
-            fetch(apiUrl(`/api/document?path=${encodeURIComponent(path)}`)),
-            fetch(apiUrl(`/api/comments?path=${encodeURIComponent(path)}`)),
+          // A failed refetch is not worth surfacing: the stream will push
+          // again on the next change.
+          const [doc, comments] = await Promise.all([
+            client.getDocument(path).catch(() => undefined),
+            client.listComments(path).catch(() => undefined),
           ]);
 
-          if (docRes.ok) {
-            const doc = await docRes.json();
+          if (doc) {
             setHeadings(doc.headings ?? [], path);
             updateDocumentHtml(doc.html, path);
           }
-          if (commentsRes.ok) {
-            const commentsData = await commentsRes.json();
-            setComments(commentsData.comments ?? [], path);
+          if (comments) {
+            setComments(comments, path);
           }
         }
       } catch (err) {
@@ -577,25 +540,18 @@ $effect(() => {
   const state = app.documents.get(path);
   if (!state || state.document.html) return;
 
-  const query = `?path=${encodeURIComponent(path)}`;
-  const isClean = state.document.clean;
+  // `--clean` discards stored comments; neither the delete nor a missing
+  // comment file should block the document from rendering.
+  const loadComments = state.document.clean
+    ? client
+        .deleteAllComments(path)
+        .catch(() => {})
+        .then(() => [] as Comment[])
+    : client.listComments(path).catch(() => [] as Comment[]);
 
-  const docFetch = fetch(apiUrl(`/api/document${query}`)).then((r) => {
-    if (!r.ok) throw new Error(`Server error: ${r.status}`);
-    return r.json();
-  });
-
-  const commentsFetch = isClean
-    ? fetch(apiUrl(`/api/comments${query}`), { method: "DELETE" }).then(
-        () => [] as unknown[],
-      )
-    : fetch(apiUrl(`/api/comments${query}`))
-        .then((r) => (r.ok ? r.json() : { comments: [] }))
-        .then((d) => d.comments || []);
-
-  Promise.all([docFetch, commentsFetch]).then(
+  Promise.all([client.getDocument(path), loadComments]).then(
     ([docData, comments]) => {
-      setComments(comments as Comment[], path);
+      setComments(comments, path);
       setHeadings(docData.headings ?? [], path);
       updateDocumentHtml(docData.html, path);
     },
@@ -609,21 +565,12 @@ async function reload() {
   const path = app.activeDocumentPath;
   if (!path) return;
   try {
-    const res = await fetch(
-      apiUrl(`/api/document?path=${encodeURIComponent(path)}`),
-    );
-    if (!res.ok) throw new Error(`Server error: ${res.status}`);
-    const data = await res.json();
+    const data = await client.getDocument(path);
     setHeadings(data.headings ?? [], path);
     updateDocumentHtml(data.html, path);
 
-    const commentsRes = await fetch(
-      apiUrl(`/api/comments?path=${encodeURIComponent(path)}`),
-    );
-    if (commentsRes.ok) {
-      const commentsData = await commentsRes.json();
-      setComments(commentsData.comments ?? [], path);
-    }
+    const comments = await client.listComments(path).catch(() => undefined);
+    if (comments) setComments(comments, path);
   } catch (err) {
     console.error("Failed to reload:", err);
   }
@@ -749,10 +696,8 @@ onMount(() => {
   initialize();
   purgeExpiredDrafts();
 
-  if (!app.hosted) {
-    startHeartbeat();
-    setupDocumentStream();
-  }
+  startHeartbeat();
+  setupDocumentStream();
 
   window.addEventListener("keydown", handleKeyDown);
   document.addEventListener("mousedown", handleClickOutside);
@@ -863,9 +808,9 @@ onDestroy(() => {
                   {filePath}
                   onTextSelect={(text, start, end, top) => onTextSelect(filePath, text, start, end, top)}
                   onHighlightClick={handleHighlightClick}
-                  onTaskToggle={app.hosted
-                    ? undefined
-                    : (index, checked) => toggleTask(filePath, index, checked)}
+                  onTaskToggle={client.capabilities.patchTask
+                    ? (index, checked) => toggleTask(filePath, index, checked)
+                    : undefined}
                   onClustersChanged={(clusters, indexById) => handleClustersChanged(filePath, clusters, indexById)}
                   registerHighlighter={(focused, scrollTo) => registerHighlighter(filePath, focused, scrollTo)}
                   unregisterHighlighter={() => unregisterHighlighter(filePath)}

@@ -1,6 +1,6 @@
 <script lang="ts">
 import { Copy } from "lucide-svelte";
-import { apiUrl } from "../lib/api";
+import { client } from "../lib/client";
 import { app } from "../stores/app.svelte";
 import { t } from "../stores/locale.svelte";
 import Button from "./ui/Button.svelte";
@@ -31,17 +31,8 @@ $effect(() => {
 
   modalState = { status: "loading" };
 
-  const query = app.activeDocumentPath
-    ? `?path=${encodeURIComponent(app.activeDocumentPath)}`
-    : "";
-
-  fetch(apiUrl(`/api/comments/raw${query}`))
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error("Failed to fetch raw comments");
-      }
-      return response.json();
-    })
+  client
+    .getRawComments(app.activeDocumentPath)
     .then((result) => {
       if (result.content === null) {
         modalState = { status: "empty", path: result.path };
