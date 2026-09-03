@@ -1451,7 +1451,7 @@ Create `scratch/img-test.md` containing a heading, a paragraph, and `![logo](./l
 Run: `bun dev share scratch/img-test.md`
 Expected: prints `link: http://localhost:8787/s/<id>`; the page shows the image; `~/.readit/shares.json` has the mapping
 
-Run: `bun dev share scratch/img-test.md --password hunter2`
+Run: `bun dev share scratch/img-test.md --password <any-test-password>`
 Expected: same URL; the page now asks for a password
 
 Run: `bun dev unshare scratch/img-test.md`
