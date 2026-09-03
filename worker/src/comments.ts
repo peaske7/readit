@@ -7,15 +7,16 @@ import {
   truncateSelection,
 } from "../../src/lib/comment-storage";
 import { resolveComments } from "../../src/lib/resolve-comments";
+import {
+  type ShareMeta,
+  type ShareSnapshot,
+  shareFilePath,
+  sharePath,
+} from "../../src/lib/share-snapshot";
 import { AnchorConfidences, type Comment } from "../../src/schema";
 import type { Env } from "./env";
 import { errorResponse, errorWithDetail, json } from "./http";
-import {
-  readSnapshot,
-  type ShareMeta,
-  type ShareSnapshot,
-  writeComments,
-} from "./store";
+import { readSnapshot, writeComments } from "./store";
 
 const COMMENT_ROUTE = /^\/comments\/([A-Za-z0-9-]+)(\/reanchor)?$/;
 
@@ -34,7 +35,7 @@ export async function handleShareComments(
   if (!snapshot) return errorResponse("Share has no content yet", 404);
 
   const method = request.method;
-  const filePath = `/s/${meta.id}/${meta.fileName}`;
+  const filePath = shareFilePath(meta.id, meta.fileName);
 
   try {
     if (route === "/document" && method === "GET") {
@@ -64,7 +65,7 @@ export async function handleShareComments(
     if (route === "/comments/raw" && method === "GET") {
       return json({
         content: snapshot.comments ?? null,
-        path: `/s/${meta.id}/comments.md`,
+        path: `${sharePath(meta.id)}/comments.md`,
       });
     }
     if (route === "/comments" && method === "POST") {

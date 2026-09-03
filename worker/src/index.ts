@@ -1,3 +1,4 @@
+import { SHARE_ROUTE, SHARES_API } from "../../src/lib/share-snapshot";
 import type { Env } from "./env";
 import { json } from "./http";
 import { handlePublish } from "./publish";
@@ -29,9 +30,6 @@ const LANDING = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// 22 base64url chars = 128 bits of share id.
-const SHARE_PATH = /^\/s\/([A-Za-z0-9_-]{22})(\/.*)?$/;
-
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -48,11 +46,11 @@ export default {
         headers: { "content-type": "text/html; charset=utf-8" },
       });
     }
-    if (pathname === "/api/shares" || pathname.startsWith("/api/shares/")) {
+    if (pathname === SHARES_API || pathname.startsWith(`${SHARES_API}/`)) {
       return handlePublish(request, env, url);
     }
 
-    const match = pathname.match(SHARE_PATH);
+    const match = pathname.match(SHARE_ROUTE);
     if (match) {
       return handleShare(request, env, url, match[1], match[2] ?? "");
     }

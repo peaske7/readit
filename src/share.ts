@@ -1,4 +1,3 @@
-import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import { basename, dirname, extname, resolve } from "node:path";
 import {
@@ -9,6 +8,18 @@ import {
 } from "./lib/comment-storage.js";
 import { renderMarkdown } from "./lib/markdown-renderer.js";
 import { mergeComments } from "./lib/merge-comments.js";
+import {
+  assetContentType,
+  assetName,
+  isAssetName,
+  SHARES_API,
+  shareApiPath,
+  shareAssetApiPath,
+  shareAssetPath,
+  shareCommentsApiPath,
+  shareFilePath,
+  shareUrl,
+} from "./lib/share-snapshot.js";
 import {
   loadRemote,
   loadShares,
@@ -28,19 +39,11 @@ export interface ShareOptions {
 }
 
 const IMG_SRC = /<img\b[^>]*?\bsrc="([^"]+)"/g;
-const MIME: Record<string, string> = {
-  png: "image/png",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  gif: "image/gif",
-  svg: "image/svg+xml",
-  webp: "image/webp",
-  avif: "image/avif",
-};
 
 /**
  * Render locally and push a snapshot. Re-sharing the same file reuses its id,
- * so the URL is stable across edits.
+ * so the URL is stable across edits. The shares registry is read once here and
+ * written once at the end.
  */
 export async function shareFile(
   file: string,
@@ -52,32 +55,11 @@ export async function shareFile(
   const source = await fs.readFile(absPath, "utf-8");
 
   const shares = await loadShares();
-  let record = shares[absPath];
-  if (!record) {
-    const res = await remoteFetch(remote, "/api/shares", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        fileName,
-        mode: options.mode,
-        password: options.password,
-      }),
-    });
-    const created = (await res.json()) as { id: string };
-    record = {
-      id: created.id,
-      // Built from the configured remote so a proxy or dev host never leaks in.
-      url: `${remote.url}/s/${created.id}`,
-      mode: options.mode,
-      publishedIds: [],
-    };
-  }
-
-  if (record.publishedIds.length > 0 || shares[absPath]) {
-    // Re-sharing replaces the remote comments file, so take web edits first.
-    const pulled = await pullComments(remote, absPath, record);
-    record = pulled.record;
-  }
+  const existing = shares[absPath];
+  // Re-sharing replaces the remote comments file, so take web edits first.
+  const record = existing
+    ? (await mergeRemoteComments(remote, absPath, existing)).record
+    : await createShare(remote, fileName, options);
 
   const rendered = await renderMarkdown(source);
   const html = await uploadImages(
@@ -93,7 +75,7 @@ export async function shareFile(
     source,
   );
 
-  await remoteFetch(remote, `/api/shares/${record.id}`, {
+  await remoteFetch(remote, shareApiPath(record.id), {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -108,14 +90,38 @@ export async function shareFile(
     }),
   });
 
-  record = {
+  const published: ShareRecord = {
     ...record,
     mode: options.mode,
     publishedIds: comments?.ids ?? [],
   };
-  shares[absPath] = record;
+  shares[absPath] = published;
   await saveShares(shares);
-  return record;
+  return published;
+}
+
+async function createShare(
+  remote: RemoteConfig,
+  fileName: string,
+  options: ShareOptions,
+): Promise<ShareRecord> {
+  const res = await remoteFetch(remote, SHARES_API, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      fileName,
+      mode: options.mode,
+      password: options.password,
+    }),
+  });
+  const created = (await res.json()) as { id: string };
+  return {
+    id: created.id,
+    // Built from the configured remote so a proxy or dev host never leaks in.
+    url: shareUrl(remote.url, created.id),
+    mode: options.mode,
+    publishedIds: [],
+  };
 }
 
 export async function unshareFile(
@@ -127,7 +133,7 @@ export async function unshareFile(
   const record = shares[absPath];
   if (!record) return undefined;
 
-  await remoteFetch(remote, `/api/shares/${record.id}`, { method: "DELETE" });
+  await remoteFetch(remote, shareApiPath(record.id), { method: "DELETE" });
   delete shares[absPath];
   await saveShares(shares);
   return record;
@@ -141,15 +147,29 @@ export interface PullResult {
 }
 
 /**
- * Merge the share's comments into the local .comments.md (see mergeComments
- * for the rule) and record the merged ids as published.
+ * Merge the share's comments into the local .comments.md and record the merged
+ * ids as published. `readit share` calls mergeRemoteComments directly so the
+ * registry is still written only once for the whole publish.
  */
 export async function pullComments(
   remote: RemoteConfig,
   absPath: string,
   record: ShareRecord,
 ): Promise<PullResult> {
-  const res = await remoteFetch(remote, `/api/shares/${record.id}/comments`);
+  const result = await mergeRemoteComments(remote, absPath, record);
+  const shares = await loadShares();
+  shares[absPath] = result.record;
+  await saveShares(shares);
+  return result;
+}
+
+/** The merge itself (see mergeComments for the rule); touches no registry. */
+async function mergeRemoteComments(
+  remote: RemoteConfig,
+  absPath: string,
+  record: ShareRecord,
+): Promise<PullResult> {
+  const res = await remoteFetch(remote, shareCommentsApiPath(record.id));
   const remoteText = await res.text();
   const remoteComments = remoteText
     ? parseCommentFile(remoteText).comments
@@ -183,14 +203,13 @@ export async function pullComments(
     );
   }
 
-  const updated = { ...record, publishedIds: merged.map((c) => c.id) };
-  const shares = await loadShares();
-  shares[absPath] = updated;
-  await saveShares(shares);
-
   const localIds = new Set(localComments.map((c) => c.id));
   const added = remoteComments.filter((c) => !localIds.has(c.id)).length;
-  return { record: updated, merged, added };
+  return {
+    record: { ...record, publishedIds: merged.map((c) => c.id) },
+    merged,
+    added,
+  };
 }
 
 /**
@@ -213,7 +232,7 @@ async function readLocalComments(
   if (file.comments.length === 0) return undefined;
 
   const text = serializeComments({
-    source: `/s/${shareId}/${fileName}`,
+    source: shareFilePath(shareId, fileName),
     hash: computeHash(source),
     version: 1,
     comments: file.comments,
@@ -246,11 +265,13 @@ async function uploadImages(
       continue;
     }
 
-    const ext = extname(localPath).slice(1).toLowerCase();
-    const digest = crypto.createHash("sha256").update(bytes).digest("hex");
-    const name = `${digest.slice(0, 16)}.${ext}`;
-    const assetPath = `/api/shares/${shareId}/assets/${name}`;
+    const name = await assetName(bytes, extname(localPath).slice(1));
+    if (!isAssetName(name)) {
+      console.warn(`warning: unsupported image extension, left as-is: ${src}`);
+      continue;
+    }
 
+    const assetPath = shareAssetApiPath(shareId, name);
     const exists = await remoteFetch(remote, assetPath, {
       method: "HEAD",
     }).then(
@@ -260,11 +281,11 @@ async function uploadImages(
     if (!exists) {
       await remoteFetch(remote, assetPath, {
         method: "PUT",
-        headers: { "content-type": MIME[ext] ?? "application/octet-stream" },
-        body: Bun.file(localPath),
+        headers: { "content-type": assetContentType(name) },
+        body: new Uint8Array(bytes),
       });
     }
-    replacements.set(src, `/s/${shareId}/assets/${name}`);
+    replacements.set(src, shareAssetPath(shareId, name));
   }
 
   let out = html;

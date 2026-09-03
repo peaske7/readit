@@ -1,37 +1,29 @@
+import {
+  assetContentType,
+  isAssetName,
+  MAX_ASSET_BYTES,
+  type PasswordRecord,
+  type ShareMeta,
+  shareUrl,
+} from "../../src/lib/share-snapshot";
+import { isShareMode, type ShareMode, ShareModes } from "../../src/schema";
 import { hashPassword, isPublisher } from "./auth";
 import type { Env } from "./env";
 import { errorResponse, errorWithDetail, json } from "./http";
 import {
   assetKey,
   deleteShare,
-  isShareMode,
   listShares,
   newShareId,
-  type PasswordRecord,
   readComments,
   readMeta,
-  type ShareMeta,
-  type ShareMode,
-  ShareModes,
   writeMeta,
   writeSnapshot,
 } from "./store";
 
-/** sha256 prefix + extension, as produced by the CLI's image upload. */
-const ASSET_NAME = /^[a-f0-9]{16}\.[a-z0-9]{1,5}$/;
-const MAX_ASSET_BYTES = 10 * 1024 * 1024;
-
 /**
- * Publisher API under /api/shares. Every route requires the bearer token.
- *
- *   GET    /api/shares                      list
- *   POST   /api/shares                      create   {fileName, mode?, password?}
- *   PUT    /api/shares/{id}                 replace snapshot
- *   PATCH  /api/shares/{id}                 change mode/password
- *   DELETE /api/shares/{id}                 delete everything under the id
- *   GET    /api/shares/{id}/comments        raw comments.md (for readit pull)
- *   HEAD   /api/shares/{id}/assets/{name}   exists?
- *   PUT    /api/shares/{id}/assets/{name}   upload image bytes
+ * Publisher API under /api/shares, the routes documented in share-snapshot.ts.
+ * Every route requires the bearer token.
  */
 export async function handlePublish(
   request: Request,
@@ -142,7 +134,7 @@ async function createShare(
     updatedAt: now,
   };
   await writeMeta(env.SHARES, meta);
-  return json({ id: meta.id, url: `${url.origin}/s/${meta.id}` }, 201);
+  return json({ id: meta.id, url: shareUrl(url.origin, meta.id) }, 201);
 }
 
 async function replaceSnapshot(
@@ -217,7 +209,7 @@ async function handleAsset(
   id: string,
   name: string,
 ): Promise<Response> {
-  if (!ASSET_NAME.test(name)) return errorResponse("Invalid asset name", 400);
+  if (!isAssetName(name)) return errorResponse("Invalid asset name", 400);
   const key = assetKey(id, name);
 
   if (request.method === "HEAD") {
@@ -234,7 +226,7 @@ async function handleAsset(
   await env.SHARES.put(key, request.body, {
     httpMetadata: {
       contentType:
-        request.headers.get("content-type") ?? "application/octet-stream",
+        request.headers.get("content-type") ?? assetContentType(name),
     },
   });
   return json({ success: true });
