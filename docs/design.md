@@ -432,15 +432,10 @@ readit export <file> --format prompt
 
 ### Server API
 
-The Express server provides endpoints for the browser UI:
-
-```
-GET  /api/comments           # Get comments for current file
-POST /api/comments           # Add a new comment
-PUT  /api/comments/:id       # Update a comment
-DELETE /api/comments/:id     # Delete a comment
-GET  /api/source             # Get source file info (path, hash)
-```
+Three servers (Bun, Go, Worker) serve the same API to the same frontend. The
+route table, request and response shapes, SSE events and per-server deviations
+live in [docs/api-contract.md](./api-contract.md), which `bun run test:contract`
+checks against each server.
 
 ---
 
