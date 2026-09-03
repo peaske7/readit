@@ -22,11 +22,45 @@ var (
 	anchorPrefixRe     = regexp.MustCompile(`<!--\s*anchor:([A-Za-z0-9+/=]+)\s*-->`)
 )
 
-func CommentPath(filePath string) (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("cannot determine home directory: %w", err)
+// Home is the readit home directory that owns every readit-managed file.
+// READIT_HOME overrides it, matching readitHome() in src/lib/readit-home.ts.
+func Home() string {
+	if override := os.Getenv("READIT_HOME"); override != "" {
+		if abs, err := filepath.Abs(override); err == nil {
+			return abs
+		}
+		return override
 	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ".readit"
+	}
+	return filepath.Join(home, ".readit")
+}
+
+func CommentsDir() string {
+	return filepath.Join(Home(), "comments")
+}
+
+func SettingsPath() string {
+	return filepath.Join(Home(), "settings.json")
+}
+
+func ServerInfoPath() string {
+	return filepath.Join(Home(), "server.json")
+}
+
+// CanonicalPath is the canonical key for a document: absolute path with
+// symlinks resolved, matching canonicalizePath() in src/lib/readit-home.ts.
+func CanonicalPath(filePath string) (string, error) {
+	abs, err := filepath.Abs(filePath)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve absolute path for %s: %w", filePath, err)
+	}
+	return filepath.EvalSymlinks(abs)
+}
+
+func CommentPath(filePath string) (string, error) {
 	abs, err := filepath.Abs(filePath)
 	if err != nil {
 		return "", fmt.Errorf("cannot resolve absolute path for %s: %w", filePath, err)
@@ -45,7 +79,7 @@ func CommentPath(filePath string) (string, error) {
 		stripped = stripped[:len(stripped)-len(ext)]
 	}
 
-	return filepath.Join(home, ".readit", "comments", stripped+".comments.md"), nil
+	return filepath.Join(CommentsDir(), stripped+".comments.md"), nil
 }
 
 func ComputeHash(content []byte) string {

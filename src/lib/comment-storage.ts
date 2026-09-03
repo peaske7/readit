@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
-import * as os from "node:os";
 import * as path from "node:path";
 import type { Comment, CommentFile } from "../schema";
+import { commentsDir } from "./readit-home.js";
 
 const FORMAT_VERSION = 1;
 const HASH_LENGTH = 16;
@@ -25,12 +25,7 @@ export function getCommentPath(sourcePath: string): string {
   const ext = path.extname(normalized);
   const withoutExt = normalized.slice(0, -ext.length || undefined);
 
-  return path.join(
-    os.homedir(),
-    ".readit",
-    "comments",
-    `${withoutExt}.comments.md`,
-  );
+  return path.join(commentsDir(), `${withoutExt}.comments.md`);
 }
 
 export function computeHash(content: string): string {

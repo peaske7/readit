@@ -1,6 +1,10 @@
 package server
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestComputeHash(t *testing.T) {
 	hash := ComputeHash([]byte("hello world"))
@@ -148,5 +152,62 @@ a comment body
 	}
 	if c.CreatedAt != "" {
 		t.Errorf("CreatedAt: got %q, want empty string", c.CreatedAt)
+	}
+}
+
+func TestHomeHonorsReaditHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("READIT_HOME", home)
+
+	if got := Home(); got != home {
+		t.Errorf("Home() = %q, want %q", got, home)
+	}
+	if got := CommentsDir(); got != filepath.Join(home, "comments") {
+		t.Errorf("CommentsDir() = %q", got)
+	}
+	if got := SettingsPath(); got != filepath.Join(home, "settings.json") {
+		t.Errorf("SettingsPath() = %q", got)
+	}
+	if got := ServerInfoPath(); got != filepath.Join(home, "server.json") {
+		t.Errorf("ServerInfoPath() = %q", got)
+	}
+
+	// Same layout as getCommentPath() in src/lib/comment-storage.ts.
+	got, err := CommentPath("/home/user/doc.md")
+	if err != nil {
+		t.Fatalf("CommentPath: %v", err)
+	}
+	want := filepath.Join(home, "comments", "home/user/doc.comments.md")
+	if got != want {
+		t.Errorf("CommentPath() = %q, want %q", got, want)
+	}
+}
+
+func TestCanonicalPathResolvesSymlinks(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "doc.md")
+	link := filepath.Join(dir, "link.md")
+
+	if err := os.WriteFile(target, []byte("# doc"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	got, err := CanonicalPath(link)
+	if err != nil {
+		t.Fatalf("CanonicalPath: %v", err)
+	}
+	want, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
+	if got != want {
+		t.Errorf("CanonicalPath(%q) = %q, want %q", link, got, want)
+	}
+
+	if _, err := CanonicalPath(filepath.Join(dir, "missing.md")); err == nil {
+		t.Error("CanonicalPath should fail for a missing file")
 	}
 }

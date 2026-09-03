@@ -1,11 +1,6 @@
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
-import { join } from "node:path";
 import * as readline from "node:readline";
-
-const READIT_DIR = join(os.homedir(), ".readit");
-const CONFIG_PATH = join(READIT_DIR, "config.json");
-const SHARES_PATH = join(READIT_DIR, "shares.json");
+import { ensureHome, remoteConfigPath, sharesPath } from "./lib/readit-home.js";
 
 export interface RemoteConfig {
   url: string;
@@ -29,7 +24,7 @@ export async function loadRemote(): Promise<RemoteConfig> {
   }
 
   try {
-    const raw = JSON.parse(await fs.readFile(CONFIG_PATH, "utf-8")) as {
+    const raw = JSON.parse(await fs.readFile(remoteConfigPath(), "utf-8")) as {
       remote?: RemoteConfig;
     };
     if (raw.remote?.url && raw.remote?.token) {
@@ -45,20 +40,20 @@ export async function loadRemote(): Promise<RemoteConfig> {
 }
 
 export async function saveRemote(remote: RemoteConfig): Promise<void> {
-  await fs.mkdir(READIT_DIR, { recursive: true });
+  await ensureHome();
   let existing: Record<string, unknown> = {};
   try {
-    existing = JSON.parse(await fs.readFile(CONFIG_PATH, "utf-8"));
+    existing = JSON.parse(await fs.readFile(remoteConfigPath(), "utf-8"));
   } catch {}
   // The file holds the publish token, so keep it owner-readable only.
   await fs.writeFile(
-    CONFIG_PATH,
+    remoteConfigPath(),
     JSON.stringify({ ...existing, remote }, null, 2),
     {
       mode: 0o600,
     },
   );
-  await fs.chmod(CONFIG_PATH, 0o600);
+  await fs.chmod(remoteConfigPath(), 0o600);
 }
 
 /**
@@ -112,7 +107,7 @@ export async function prompt(question: string): Promise<string> {
 
 export async function loadShares(): Promise<Record<string, ShareRecord>> {
   try {
-    return JSON.parse(await fs.readFile(SHARES_PATH, "utf-8"));
+    return JSON.parse(await fs.readFile(sharesPath(), "utf-8"));
   } catch {
     return {};
   }
@@ -121,8 +116,8 @@ export async function loadShares(): Promise<Record<string, ShareRecord>> {
 export async function saveShares(
   shares: Record<string, ShareRecord>,
 ): Promise<void> {
-  await fs.mkdir(READIT_DIR, { recursive: true });
-  await fs.writeFile(SHARES_PATH, JSON.stringify(shares, null, 2));
+  await ensureHome();
+  await fs.writeFile(sharesPath(), JSON.stringify(shares, null, 2));
 }
 
 /** Authenticated request to the Worker; throws with the body on non-2xx. */

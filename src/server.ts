@@ -1,7 +1,5 @@
 import { type FSWatcher, watch } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
-import * as path from "node:path";
 import { basename, dirname, join } from "node:path";
 import {
   computeHash,
@@ -19,6 +17,13 @@ import {
   toggleTaskInSource,
 } from "./lib/markdown-renderer.js";
 import { disposeMermaidWorker } from "./lib/mermaid-renderer.js";
+import {
+  canonicalizePath,
+  readSettings,
+  settingsPath,
+  writeServerInfo,
+  writeSettings,
+} from "./lib/readit-home.js";
 import { resolveComments } from "./lib/resolve-comments.js";
 import { ShortcutActions } from "./lib/shortcut-registry.js";
 import { isMarkdownFile } from "./lib/utils.js";
@@ -74,10 +79,6 @@ function invalidateResolvedComments(filePath: string): void {
 const withCommentLock = createKeyLock("comments");
 const withSourceLock = createKeyLock("source");
 const withSettingsLock = createKeyLock("settings");
-
-async function canonicalPath(filePath: string): Promise<string> {
-  return fs.realpath(path.resolve(filePath));
-}
 
 async function readCommentsFromFile(
   filePath: string,
@@ -159,34 +160,6 @@ async function deleteCommentFile(filePath: string): Promise<void> {
   invalidateResolvedComments(filePath);
 }
 
-const SETTINGS_PATH = path.join(os.homedir(), ".readit", "settings.json");
-
-const DEFAULT_SETTINGS: DocumentSettings = {
-  version: 1,
-  fontFamily: FontFamilies.SERIF,
-};
-
-async function readSettings(): Promise<DocumentSettings> {
-  try {
-    const content = await fs.readFile(SETTINGS_PATH, "utf-8");
-    return JSON.parse(content) as DocumentSettings;
-  } catch (err) {
-    if (isErrnoException(err) && err.code === "ENOENT") {
-      return DEFAULT_SETTINGS;
-    }
-    throw err;
-  }
-}
-
-async function writeSettings(settings: DocumentSettings): Promise<void> {
-  const settingsDir = dirname(SETTINGS_PATH);
-  await fs.mkdir(settingsDir, { recursive: true });
-
-  const tempPath = `${SETTINGS_PATH}.tmp`;
-  await fs.writeFile(tempPath, JSON.stringify(settings, null, 2), "utf-8");
-  await fs.rename(tempPath, SETTINGS_PATH);
-}
-
 function isValidFontFamily(value: unknown): value is FontFamily {
   return value === FontFamilies.SERIF || value === FontFamilies.SANS_SERIF;
 }
@@ -223,31 +196,6 @@ function isValidKeybindings(value: unknown): value is KeybindingOverride[] {
     }
   }
   return true;
-}
-
-export const SERVER_INFO_PATH = path.join(
-  os.homedir(),
-  ".readit",
-  "server.json",
-);
-
-async function writeServerInfo(port: number): Promise<void> {
-  await fs.mkdir(path.dirname(SERVER_INFO_PATH), { recursive: true });
-  await fs.writeFile(
-    SERVER_INFO_PATH,
-    JSON.stringify({ port, pid: process.pid }),
-    "utf-8",
-  );
-}
-
-export async function removeServerInfo(): Promise<void> {
-  try {
-    await fs.unlink(SERVER_INFO_PATH);
-  } catch (err) {
-    if (!isErrnoException(err) || err.code !== "ENOENT") {
-      console.error("Failed to remove server info:", err);
-    }
-  }
 }
 
 function json(data: unknown, status = 200): Response {
@@ -492,7 +440,7 @@ async function updateSettingsRoute(req: Request): Promise<Response> {
       return errorResponse("Invalid keybindings format", 400);
     }
 
-    const settings = await withSettingsLock(SETTINGS_PATH, async () => {
+    const settings = await withSettingsLock(settingsPath(), async () => {
       const current = await readSettings();
       const merged: DocumentSettings = {
         ...current,
@@ -1045,7 +993,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 
           let filePath: string;
           try {
-            filePath = await canonicalPath(requestedPath);
+            filePath = await canonicalizePath(requestedPath);
           } catch (err) {
             if (isErrnoException(err) && err.code === "ENOENT") {
               return errorResponse(`File not found: ${requestedPath}`, 404);
@@ -1115,7 +1063,7 @@ function createServer(options: ServerOptions): ServerWithWatchers {
 
           let filePath: string;
           try {
-            filePath = await canonicalPath(body.path);
+            filePath = await canonicalizePath(body.path);
           } catch {
             return errorResponse("file not loaded", 404);
           }
@@ -1339,7 +1287,11 @@ export async function startServer(
 
       const actualPort = server.port ?? port;
 
-      await writeServerInfo(actualPort);
+      await writeServerInfo({
+        port: actualPort,
+        pid: process.pid,
+        host: options.host,
+      });
 
       return {
         port: actualPort,
