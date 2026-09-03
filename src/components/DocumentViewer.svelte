@@ -18,11 +18,13 @@ import { settings } from "../stores/settings.svelte";
 import BodyMarkers from "./BodyMarkers.svelte";
 import CodeBlockEnhancer from "./CodeBlockEnhancer.svelte";
 import MermaidEnhancer from "./MermaidEnhancer.svelte";
+import TableEnhancer from "./TableEnhancer.svelte";
 
 let {
   content,
   comments,
   isActive,
+  filePath,
   onTextSelect,
   onHighlightClick,
   onTaskToggle,
@@ -34,6 +36,7 @@ let {
   content: string;
   comments: Comment[];
   isActive: boolean;
+  filePath: string;
   onTextSelect: (
     text: string,
     startOffset: number,
@@ -330,3 +333,15 @@ $effect(() => {
 />
 
 <CodeBlockEnhancer root={contentEl} {contentVersion} />
+
+<TableEnhancer
+  root={contentEl}
+  {contentVersion}
+  {isActive}
+  {filePath}
+  notifyLayoutChanged={() => {
+    if (isActive) {
+      requestAnimationFrame(() => rebuildClusters());
+    }
+  }}
+/>

@@ -132,3 +132,11 @@ export function isShareMode(value: unknown): value is ShareMode {
     value === ShareModes.PASSWORD
   );
 }
+
+export const TableModes = {
+  AUTO: "auto",
+  FIT: "fit",
+  WIDE: "wide",
+} as const;
+
+export type TableMode = (typeof TableModes)[keyof typeof TableModes];
