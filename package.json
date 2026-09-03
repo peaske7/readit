@@ -34,6 +34,7 @@
     "worker:deploy": "bun run build:worker && cd worker && wrangler deploy",
     "start": "bun run build && bun dist/index.js",
     "test": "vitest run",
+    "test:contract": "vitest run --config vitest.contract.config.ts",
     "bench": "vitest bench",
     "test:watch": "vitest",
     "test:e2e": "playwright test --project=chromium",

@@ -15,6 +15,7 @@ bun dev               # Start dev server (CLI with --watch)
 bun run dev:client    # Start Vite dev server only
 bun run build         # Build for production (Vite + CLI)
 bun run test          # Run unit tests (Vitest)
+bun run test:contract # Run the API contract suite (Bun/Go/Worker, docs/api-contract.md)
 bun run test:e2e      # Run e2e tests (Playwright)
 bun run test:perf     # Run performance tests
 bun run bench         # Run benchmarks

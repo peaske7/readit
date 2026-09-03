@@ -23,6 +23,20 @@ jobs:
       - run: bun run typecheck
       - run: bun run test
 
+  contract:
+    name: API contract (Bun server)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      # The Go and Worker adapters skip here: they need dist/readit and
+      # worker/public, which this job does not build. See docs/api-contract.md.
+      - run: bun run test:contract
+
   worker:
     name: Worker build and typecheck
     runs-on: ubuntu-latest
