@@ -14,7 +14,6 @@ import TabBar from "./components/TabBar.svelte";
 import TableOfContents from "./components/TableOfContents.svelte";
 import Toast from "./components/Toast.svelte";
 import { client } from "./lib/client";
-import type { Cluster } from "./lib/clustering";
 import { purgeExpiredDrafts } from "./lib/comment-drafts";
 import { extractContext, formatForLLM } from "./lib/context";
 import {
@@ -22,7 +21,10 @@ import {
   formatComment,
   generatePrompt,
 } from "./lib/export";
-import { Positions } from "./lib/positions";
+import { GeometryAttributes } from "./lib/geometry/attributes";
+import type { Cluster } from "./lib/geometry/clustering";
+import { MARGIN_COLUMN_PADDING_PX } from "./lib/geometry/constants";
+import { DocumentGeometry } from "./lib/geometry/document-geometry";
 import { matchesBinding, ShortcutActions } from "./lib/shortcut-registry";
 import { AnchorConfidences, type Comment } from "./schema";
 import {
@@ -49,7 +51,7 @@ import { setActiveCommentId, ui } from "./stores/ui.svelte";
 
 let isInitialized = $state(false);
 let error = $state<string | null>(null);
-const positionsMap = new Map<string, Positions>();
+const geometryMap = new Map<string, DocumentGeometry>();
 let activeClusters = $state<Cluster[]>([]);
 let activeIndexById = $state<Map<string, number>>(new Map());
 let currentIndex = $state(0);
@@ -68,13 +70,13 @@ function clearPendingHighlight() {
   }
 }
 
-function getPositions(filePath: string): Positions {
-  let pos = positionsMap.get(filePath);
-  if (!pos) {
-    pos = new Positions();
-    positionsMap.set(filePath, pos);
+function getGeometry(filePath: string): DocumentGeometry {
+  let geometry = geometryMap.get(filePath);
+  if (!geometry) {
+    geometry = new DocumentGeometry();
+    geometryMap.set(filePath, geometry);
   }
-  return pos;
+  return geometry;
 }
 
 // Tracks the last successful task PATCH per file so we can ignore the
@@ -318,21 +320,20 @@ function onTextSelect(
   setActiveCommentId(undefined);
   setSelection({ text, startOffset, endOffset }, filePath);
   setPendingSelectionTop(selectionTop, filePath);
-  const pos = positionsMap.get(filePath);
-  pos?.setPending(selectionTop);
+  geometryMap.get(filePath)?.setPendingSelection(selectionTop);
 }
 
 function clearSelection(filePath: string) {
   setSelection(null, filePath);
   setPendingSelectionTop(undefined, filePath);
-  positionsMap.get(filePath)?.setPending(undefined);
+  geometryMap.get(filePath)?.setPendingSelection(undefined);
   clearPendingHighlight();
   window.getSelection()?.removeAllRanges();
 }
 
 function handleClickOutside(e: MouseEvent) {
   const target = e.target as HTMLElement;
-  if (target.closest("[data-comment-input]")) return;
+  if (target.closest(`[${GeometryAttributes.COMMENT_INPUT}]`)) return;
 
   if (!app.activeDocumentPath) return;
   const docState = app.documents.get(app.activeDocumentPath);
@@ -340,7 +341,7 @@ function handleClickOutside(e: MouseEvent) {
 
   setSelection(null, app.activeDocumentPath);
   setPendingSelectionTop(undefined, app.activeDocumentPath);
-  positionsMap.get(app.activeDocumentPath)?.setPending(undefined);
+  geometryMap.get(app.activeDocumentPath)?.setPendingSelection(undefined);
   clearPendingHighlight();
   requestAnimationFrame(() => {
     const sel = window.getSelection();
@@ -709,8 +710,8 @@ onDestroy(() => {
   window.removeEventListener("keydown", handleKeyDown);
   document.removeEventListener("mousedown", handleClickOutside);
 
-  for (const pos of positionsMap.values()) {
-    pos.dispose();
+  for (const geometry of geometryMap.values()) {
+    geometry.dispose();
   }
 });
 </script>
@@ -814,11 +815,15 @@ onDestroy(() => {
                   onClustersChanged={(clusters, indexById) => handleClustersChanged(filePath, clusters, indexById)}
                   registerHighlighter={(focused, scrollTo) => registerHighlighter(filePath, focused, scrollTo)}
                   unregisterHighlighter={() => unregisterHighlighter(filePath)}
-                  positions={getPositions(filePath)}
+                  geometry={getGeometry(filePath)}
                 />
               </div>
 
-              <div data-margin-column class="w-72 flex-shrink-0 py-6 pr-4 relative hidden lg:block">
+              <div
+                {...{ [GeometryAttributes.MARGIN_COLUMN]: "" }}
+                class="w-72 flex-shrink-0 pr-4 relative hidden lg:block"
+                style={`padding-block: ${MARGIN_COLUMN_PADDING_PX}px`}
+              >
                 {#if selection && pendingSelectionTop !== undefined}
                   <div
                     class="absolute left-0 right-0 z-10 bg-white dark:bg-zinc-900"
@@ -845,7 +850,7 @@ onDestroy(() => {
 
                 <MarginNotesContainer
                   clusters={isActive ? activeClusters : []}
-                  positions={getPositions(filePath)}
+                  geometry={getGeometry(filePath)}
                 />
               </div>
             </div>

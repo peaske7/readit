@@ -1,18 +1,4 @@
-const BLOCK_ELEMENTS = new Set([
-  "p",
-  "div",
-  "h1",
-  "h2",
-  "h3",
-  "h4",
-  "h5",
-  "h6",
-  "pre",
-  "blockquote",
-  "li",
-  "tr",
-  "br",
-]);
+import { isBlockTag } from "./geometry/blocks";
 
 interface TextNode {
   text: string;
@@ -117,7 +103,7 @@ function collectTextNodesFromHtml(html: string): TextNode[] {
 function getBlockAncestorPath(stack: { tag: string; id: string }[]): string[] {
   const path: string[] = [];
   for (const entry of stack) {
-    if (BLOCK_ELEMENTS.has(entry.tag)) {
+    if (isBlockTag(entry.tag)) {
       path.push(entry.id);
     }
   }
