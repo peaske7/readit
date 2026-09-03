@@ -1,6 +1,13 @@
 package server
 
-import "testing"
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+)
 
 func TestComputeHash(t *testing.T) {
 	hash := ComputeHash([]byte("hello world"))
@@ -148,5 +155,81 @@ a comment body
 	}
 	if c.CreatedAt != "" {
 		t.Errorf("CreatedAt: got %q, want empty string", c.CreatedAt)
+	}
+}
+
+// goldenCommentFile mirrors the JSON shape of a parsed comment file, which is
+// the TypeScript CommentFile in src/schema.ts.
+type goldenCommentFile struct {
+	Source   string    `json:"source"`
+	Hash     string    `json:"hash"`
+	Version  int       `json:"version"`
+	Comments []Comment `json:"comments"`
+}
+
+// TestConformanceCorpus runs the shared fixtures in fixtures/comments, which
+// src/lib/comment-storage.test.ts runs too: a divergence between the two
+// codecs fails here.
+func TestConformanceCorpus(t *testing.T) {
+	dir := filepath.Join("..", "..", "..", "fixtures", "comments")
+	inputs, err := filepath.Glob(filepath.Join(dir, "*.comments.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inputs) == 0 {
+		t.Fatalf("no fixtures found in %s", dir)
+	}
+
+	for _, inputPath := range inputs {
+		name := strings.TrimSuffix(filepath.Base(inputPath), ".comments.md")
+		t.Run(name, func(t *testing.T) {
+			input, err := os.ReadFile(inputPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			goldenJSON, err := os.ReadFile(filepath.Join(dir, name+".json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var want goldenCommentFile
+			if err := json.Unmarshal(goldenJSON, &want); err != nil {
+				t.Fatal(err)
+			}
+
+			got, err := ParseCommentFile(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Source != want.Source || got.Hash != want.Hash || got.Version != want.Version {
+				t.Errorf("front matter: got %+v, want source=%q hash=%q version=%d",
+					got, want.Source, want.Hash, want.Version)
+			}
+			if len(got.Comments) != len(want.Comments) {
+				t.Fatalf("comments: got %d, want %d", len(got.Comments), len(want.Comments))
+			}
+			for i := range want.Comments {
+				if !reflect.DeepEqual(got.Comments[i], want.Comments[i]) {
+					t.Errorf("comment %d:\n got %+v\nwant %+v", i, got.Comments[i], want.Comments[i])
+				}
+			}
+
+			// The canonical form is what serializing the parse result must produce;
+			// without a *.canonical.md the fixture is itself canonical.
+			canonical := input
+			if data, err := os.ReadFile(filepath.Join(dir, name+".canonical.md")); err == nil {
+				canonical = data
+			}
+			if serialized := SerializeComments(got); string(serialized) != string(canonical) {
+				t.Errorf("serialize:\n got %q\nwant %q", serialized, canonical)
+			}
+			reparsed, err := ParseCommentFile(canonical)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if serialized := SerializeComments(reparsed); string(serialized) != string(canonical) {
+				t.Errorf("canonical is not a fixed point:\n got %q\nwant %q", serialized, canonical)
+			}
+		})
 	}
 }

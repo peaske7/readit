@@ -1,3 +1,5 @@
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { CommentFile } from "../schema";
 import { COMMENT_FILE_LARGE } from "./__fixtures__/bench-data";
@@ -691,4 +693,39 @@ describe("performance", () => {
     const elapsed = performance.now() - start;
     expect(elapsed).toBeLessThan(50);
   });
+});
+
+/**
+ * The shared `.comments.md` conformance corpus. `go/internal/server/storage_test.go`
+ * runs the same fixtures, so a divergence between the two codecs fails here.
+ */
+describe("conformance corpus", () => {
+  const corpusDir = resolve(import.meta.dirname, "../../fixtures/comments");
+  const names = readdirSync(corpusDir)
+    .filter((file) => file.endsWith(".comments.md"))
+    .map((file) => file.replace(/\.comments\.md$/, ""));
+
+  it("finds the fixtures", () => {
+    expect(names.length).toBeGreaterThan(0);
+  });
+
+  for (const name of names) {
+    const input = readFileSync(join(corpusDir, `${name}.comments.md`), "utf-8");
+    const canonicalPath = join(corpusDir, `${name}.canonical.md`);
+    const canonical = existsSync(canonicalPath)
+      ? readFileSync(canonicalPath, "utf-8")
+      : input;
+
+    it(`${name}: parses into the expected comment file`, () => {
+      const expected = JSON.parse(
+        readFileSync(join(corpusDir, `${name}.json`), "utf-8"),
+      );
+      expect(parseCommentFile(input)).toEqual(expected);
+    });
+
+    it(`${name}: serializes into the canonical file`, () => {
+      expect(serializeComments(parseCommentFile(input))).toBe(canonical);
+      expect(serializeComments(parseCommentFile(canonical))).toBe(canonical);
+    });
+  }
 });
