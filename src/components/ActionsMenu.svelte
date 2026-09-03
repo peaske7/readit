@@ -10,8 +10,9 @@ import {
   Share2,
 } from "lucide-svelte";
 import { client } from "../lib/client";
+import { exportCommentsAsJson, generatePrompt } from "../lib/export";
 import { ShortcutActions } from "../lib/shortcut-registry";
-import { app } from "../stores/app.svelte";
+import { app, reload } from "../stores/app.svelte";
 import { t } from "../stores/locale.svelte";
 import { showToast } from "../stores/toast.svelte";
 import RawModal from "./RawModal.svelte";
@@ -24,18 +25,31 @@ import DropdownMenuSeparator from "./ui/DropdownMenuSeparator.svelte";
 import Kbd from "./ui/Kbd.svelte";
 
 interface Props {
-  commentCount: number;
-  oncopyall: () => void;
-  onexportjson: () => void;
-  onreload: () => void;
+  filePath: string;
 }
 
-let { commentCount, oncopyall, onexportjson, onreload }: Props = $props();
+let { filePath }: Props = $props();
+
+let docState = $derived(app.documents.get(filePath));
+let commentCount = $derived(docState?.comments.length ?? 0);
 
 let menuOpen = $state(false);
 let rawModalOpen = $state(false);
 let settingsOpen = $state(false);
 let shareOpen = $state(false);
+
+function copyAll() {
+  if (!docState) return;
+  navigator.clipboard.writeText(
+    generatePrompt(docState.comments, docState.document.fileName),
+  );
+  showToast(t("toast.copiedAllComments"));
+}
+
+function exportJson() {
+  if (!docState) return;
+  exportCommentsAsJson(docState.comments, docState.document);
+}
 
 /** In hosted mode the page itself is the share; its URL is the API base. */
 async function copyShareLink() {
@@ -91,7 +105,7 @@ async function copyShareLink() {
   <DropdownMenuSeparator />
   <DropdownMenuItem
     onselect={() => {
-      onreload();
+      reload(filePath);
       menuOpen = false;
     }}
   >
@@ -101,7 +115,7 @@ async function copyShareLink() {
   {#if commentCount > 0}
     <DropdownMenuItem
       onselect={() => {
-        oncopyall();
+        copyAll();
         menuOpen = false;
       }}
     >
@@ -111,7 +125,7 @@ async function copyShareLink() {
     </DropdownMenuItem>
     <DropdownMenuItem
       onselect={() => {
-        onexportjson();
+        exportJson();
         menuOpen = false;
       }}
     >

@@ -2,7 +2,7 @@
 import { Copy, Trash2 } from "lucide-svelte";
 import { generatePrompt } from "../lib/export";
 import { formatBinding, ShortcutActions } from "../lib/shortcut-registry";
-import type { Comment } from "../schema";
+import { app, deleteAllComments } from "../stores/app.svelte";
 import { t } from "../stores/locale.svelte";
 import { shortcutState } from "../stores/shortcuts.svelte";
 import { showToast } from "../stores/toast.svelte";
@@ -14,28 +14,16 @@ const IS_MAC =
   typeof navigator !== "undefined" && navigator.platform.includes("Mac");
 
 interface Props {
-  comments: Comment[];
-  fileName: string;
+  filePath: string;
   onclose: () => void;
-  onedit: (id: string, newText: string) => void;
-  ondelete: (id: string) => void;
-  ondeleteall: () => void;
-  oncopy: (comment: Comment) => void;
   onnavigate: (id: string) => void;
-  onstartreanchor: (id: string) => void;
 }
 
-let {
-  comments,
-  fileName,
-  onclose,
-  onedit,
-  ondelete,
-  ondeleteall,
-  oncopy,
-  onnavigate,
-  onstartreanchor,
-}: Props = $props();
+let { filePath, onclose, onnavigate }: Props = $props();
+
+let docState = $derived(app.documents.get(filePath));
+let comments = $derived(docState?.comments ?? []);
+let fileName = $derived(docState?.document.fileName ?? "");
 
 let confirmingDelete = $state(false);
 
@@ -80,7 +68,7 @@ let copyAllTitle = $derived(
         size="sm"
         class="text-red-600 hover:text-red-700 h-auto p-0 text-xs"
         onclick={() => {
-          ondeleteall();
+          deleteAllComments(filePath);
           onclose();
         }}
       >
@@ -136,12 +124,9 @@ let copyAllTitle = $derived(
     {#each sortedComments as comment (comment.id)}
       <CommentListItem
         {comment}
+        {filePath}
         onaction={onclose}
-        {onedit}
-        {ondelete}
-        {oncopy}
         {onnavigate}
-        {onstartreanchor}
       />
     {/each}
   {/if}

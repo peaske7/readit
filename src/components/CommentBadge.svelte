@@ -1,34 +1,19 @@
 <script lang="ts">
 import { cn } from "../lib/utils";
-import type { Comment } from "../schema";
+import { app } from "../stores/app.svelte";
 import { t } from "../stores/locale.svelte";
 import CommentManager from "./CommentManager.svelte";
 import DropdownMenu from "./ui/DropdownMenu.svelte";
 
 interface Props {
-  comments: Comment[];
-  fileName: string;
-  onedit: (id: string, newText: string) => void;
-  ondelete: (id: string) => void;
-  ondeleteall: () => void;
-  oncopy: (comment: Comment) => void;
+  filePath: string;
   onnavigate: (id: string) => void;
-  onstartreanchor: (id: string) => void;
 }
 
-let {
-  comments,
-  fileName,
-  onedit,
-  ondelete,
-  ondeleteall,
-  oncopy,
-  onnavigate,
-  onstartreanchor,
-}: Props = $props();
+let { filePath, onnavigate }: Props = $props();
 
 let commentsOpen = $state(false);
-let commentCount = $derived(comments.length);
+let commentCount = $derived(app.documents.get(filePath)?.comments.length ?? 0);
 </script>
 
 {#if commentCount > 0}
@@ -56,15 +41,9 @@ let commentCount = $derived(comments.length);
     {/snippet}
 
     <CommentManager
-      {comments}
-      {fileName}
+      {filePath}
       onclose={() => (commentsOpen = false)}
-      {onedit}
-      {ondelete}
-      {ondeleteall}
-      {oncopy}
       {onnavigate}
-      {onstartreanchor}
     />
   </DropdownMenu>
 {/if}
