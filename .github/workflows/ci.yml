@@ -43,9 +43,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
       - uses: actions/setup-go@v5
         with:
           go-version-file: go/go.mod
+      # The server embeds the frontend (go:embed all:dist), so it needs a
+      # build in place before it compiles. Mirrors `make build-server`.
+      - run: bun install --frozen-lockfile
+      - run: bunx vite build
+      - run: mkdir -p go/internal/server/dist && cp -r dist/. go/internal/server/dist/
       - run: go test ./...
         working-directory: go
 
