@@ -1,45 +1,6 @@
-import type { Heading } from "../../src/lib/headings";
+import type { ShareMeta, ShareSnapshot } from "../../src/lib/share-snapshot";
 
-export const ShareModes = {
-  PUBLIC: "public",
-  LINK: "link",
-  PASSWORD: "password",
-} as const;
-export type ShareMode = (typeof ShareModes)[keyof typeof ShareModes];
-
-export interface PasswordRecord {
-  salt: string;
-  hash: string;
-  iterations: number;
-}
-
-/** `shares/{id}/meta.json` */
-export interface ShareMeta {
-  id: string;
-  fileName: string;
-  hash: string;
-  mode: ShareMode;
-  password?: PasswordRecord;
-  headings: Heading[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ShareSnapshot {
-  html: string;
-  source: string;
-  comments: string | undefined;
-}
-
-export function isShareMode(value: unknown): value is ShareMode {
-  return (
-    value === ShareModes.PUBLIC ||
-    value === ShareModes.LINK ||
-    value === ShareModes.PASSWORD
-  );
-}
-
-/** 128 random bits as 22 base64url characters. */
+/** 128 random bits as 22 base64url characters (see SHARE_ID). */
 export function newShareId(): string {
   return base64url(crypto.getRandomValues(new Uint8Array(16)));
 }

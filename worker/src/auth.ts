@@ -1,10 +1,6 @@
+import type { PasswordRecord, ShareMeta } from "../../src/lib/share-snapshot";
 import type { Env } from "./env";
-import {
-  base64url,
-  fromBase64url,
-  type PasswordRecord,
-  type ShareMeta,
-} from "./store";
+import { base64url, fromBase64url } from "./store";
 
 const encoder = new TextEncoder();
 const PBKDF2_ITERATIONS = 100_000;

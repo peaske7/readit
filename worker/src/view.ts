@@ -1,3 +1,5 @@
+import { type ShareMeta, sharePath } from "../../src/lib/share-snapshot";
+import { ShareModes } from "../../src/schema";
 import {
   hasValidUnlock,
   unlockCookieHeader,
@@ -8,13 +10,7 @@ import { handleShareComments } from "./comments";
 import type { Env } from "./env";
 import { errorResponse } from "./http";
 import { renderSharePage, renderUnlockPage } from "./page";
-import {
-  assetKey,
-  readMeta,
-  readSnapshot,
-  type ShareMeta,
-  ShareModes,
-} from "./store";
+import { assetKey, readMeta, readSnapshot } from "./store";
 
 const NO_STORE = "no-store";
 // Public pages may sit in Cloudflare's cache for a minute; browsers revalidate.
@@ -89,7 +85,7 @@ async function unlock(
   env: Env,
   meta: ShareMeta,
 ): Promise<Response> {
-  const pageUrl = new URL(`/s/${meta.id}`, request.url);
+  const pageUrl = new URL(sharePath(meta.id), request.url);
   if (meta.mode !== ShareModes.PASSWORD || !meta.password) {
     return Response.redirect(pageUrl.toString(), 303);
   }

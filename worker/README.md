@@ -87,6 +87,10 @@ COOKIE_SECRET=dev-cookie-secret
 R2 and the rate limiter are simulated locally; no account is needed until
 you deploy. `bun run typecheck:worker` typechecks the Worker after a build.
 
+`bun run test:worker` runs `worker/test/` in workerd against a simulated R2
+bucket (`@cloudflare/vitest-pool-workers`), covering the publisher API, the
+viewer routes, and password unlock. No build or account is needed.
+
 ## Layout
 
 ```
@@ -98,5 +102,10 @@ worker/
 ├── src/comments.ts   # viewer comments API, same shapes as the local server
 ├── src/page.ts       # renders the share page with the shared template
 ├── src/store.ts      # R2 layout: shares/{id}/{meta.json,document.md,document.html,comments.md,assets/*}
-└── src/auth.ts       # publisher token, PBKDF2 passwords, HMAC unlock cookie
+├── src/auth.ts       # publisher token, PBKDF2 passwords, HMAC unlock cookie
+└── test/             # workerd tests against a simulated R2 bucket
 ```
+
+The snapshot format itself — routes, asset naming, meta shape, the hosted
+inline data — lives in [`src/lib/share-snapshot.ts`](../src/lib/share-snapshot.ts),
+which both the CLI publisher and this Worker import.

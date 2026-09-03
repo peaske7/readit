@@ -1,9 +1,14 @@
 import { parseCommentFile } from "../../src/lib/comment-storage";
 import { resolveComments } from "../../src/lib/resolve-comments";
-import type { InlineData } from "../../src/schema";
+import {
+  HOSTED_FONT_FAMILY,
+  hostedInlineData,
+  type ShareMeta,
+  type ShareSnapshot,
+  sharePath,
+} from "../../src/lib/share-snapshot";
 import { renderTemplate } from "../../src/template";
 import manifest from "./manifest.json";
-import type { ShareMeta, ShareSnapshot } from "./store";
 
 const entry = (manifest as Record<string, { file: string; css?: string[] }>)[
   "index.html"
@@ -14,7 +19,6 @@ export function renderSharePage(
   meta: ShareMeta,
   snapshot: ShareSnapshot,
 ): string {
-  const filePath = `/s/${meta.id}/${meta.fileName}`;
   const comments = snapshot.comments
     ? resolveComments({
         comments: parseCommentFile(snapshot.comments).comments,
@@ -23,25 +27,14 @@ export function renderSharePage(
       })
     : [];
 
-  const inlineData: InlineData = {
-    files: [{ path: filePath, fileName: meta.fileName }],
-    activeFile: filePath,
-    clean: false,
-    workingDirectory: "",
-    documents: { [filePath]: { headings: meta.headings, comments } },
-    settings: { version: 1, fontFamily: "serif" },
-    hosted: true,
-    apiBase: `/s/${meta.id}`,
-  };
-
   return renderTemplate({
     title: meta.fileName,
     cssPath: entry.css?.[0] ? `/${entry.css[0]}` : "",
     jsPath: `/${entry.file}`,
     documentHtml: snapshot.html,
-    inlineData,
+    inlineData: hostedInlineData(meta, comments),
     isDev: false,
-    fontFamily: "serif",
+    fontFamily: HOSTED_FONT_FAMILY,
   });
 }
 
@@ -69,7 +62,7 @@ export function renderUnlockPage(id: string, failed: boolean): string {
   </style>
 </head>
 <body>
-  <form method="post" action="/s/${id}/unlock">
+  <form method="post" action="${sharePath(id)}/unlock">
     <h1>This document is password protected</h1>
     ${failed ? '<p class="err">Wrong password, try again.</p>' : ""}
     <input type="password" name="password" autofocus required autocomplete="current-password" placeholder="Password">
