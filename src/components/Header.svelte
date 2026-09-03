@@ -1,42 +1,21 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import type { Comment } from "../schema";
+import { app } from "../stores/app.svelte";
 import { t } from "../stores/locale.svelte";
 import ActionsMenu from "./ActionsMenu.svelte";
 import CommentBadge from "./CommentBadge.svelte";
 import Text from "./ui/Text.svelte";
 
 interface Props {
-  fileName: string;
-  comments: Comment[];
-  hasReanchorTarget: boolean;
-  oncopyall: () => void;
-  onexportjson: () => void;
-  onreload: () => void;
-  onedit: (id: string, newText: string) => void;
-  ondelete: (id: string) => void;
-  ondeleteall: () => void;
-  oncopy: (comment: Comment) => void;
+  filePath: string;
   onnavigate: (id: string) => void;
-  onstartreanchor: (id: string) => void;
 }
 
-let {
-  fileName,
-  comments,
-  hasReanchorTarget,
-  oncopyall,
-  onexportjson,
-  onreload,
-  onedit,
-  ondelete,
-  ondeleteall,
-  oncopy,
-  onnavigate,
-  onstartreanchor,
-}: Props = $props();
+let { filePath, onnavigate }: Props = $props();
 
-let commentCount = $derived(comments.length);
+let docState = $derived(app.documents.get(filePath));
+let fileName = $derived(docState?.document.fileName ?? "");
+let hasReanchorTarget = $derived(docState?.reanchorTarget != null);
 
 const HIDE_AFTER_PX = 64;
 let hidden = $state(false);
@@ -104,23 +83,9 @@ onMount(() => {
         </Text>
       {/if}
 
-      <CommentBadge
-        {comments}
-        {fileName}
-        {onedit}
-        {ondelete}
-        {ondeleteall}
-        {oncopy}
-        {onnavigate}
-        {onstartreanchor}
-      />
+      <CommentBadge {filePath} {onnavigate} />
 
-      <ActionsMenu
-        {commentCount}
-        {oncopyall}
-        {onexportjson}
-        {onreload}
-      />
+      <ActionsMenu {filePath} />
     </div>
   </div>
 </header>

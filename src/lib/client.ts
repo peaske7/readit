@@ -320,3 +320,8 @@ export let client = createClient();
 export function configureClient(config: ClientConfig): void {
   client = createClient(config);
 }
+
+/** Test-only: swap in a fake `Client` without going through `fetch`. */
+export function setClient(newClient: Client): void {
+  client = newClient;
+}
