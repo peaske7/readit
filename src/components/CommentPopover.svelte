@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onMount } from "svelte";
+import { GeometryAttributes } from "../lib/geometry/attributes";
 import { formatRelativeTime } from "../lib/relative-time";
 import { cn } from "../lib/utils";
 import { type Comment, FontFamilies } from "../schema";
@@ -37,7 +38,7 @@ let timeLabel = $derived(formatRelativeTime(comment.createdAt));
 
 function reposition() {
   const row = document.querySelector(
-    `[data-comment-id="${comment.id}"]`,
+    `[${GeometryAttributes.COMMENT_ID}="${comment.id}"]`,
   ) as HTMLElement | null;
   if (!row || !popoverEl) return;
 
@@ -72,7 +73,8 @@ function onDocClick(e: MouseEvent) {
   const target = e.target as HTMLElement | null;
   if (!target) return;
   if (popoverEl?.contains(target)) return;
-  if (target.closest(`[data-comment-id="${comment.id}"]`)) return;
+  if (target.closest(`[${GeometryAttributes.COMMENT_ID}="${comment.id}"]`))
+    return;
   dismiss();
 }
 

@@ -23,13 +23,10 @@ export interface Highlighter {
 
   setFocused(commentId: string | undefined): void;
   scrollToComment(commentId: string): void;
-  getPositions(containerRect: DOMRect): Map<string, number>;
   getRanges(commentId: string): Range[];
   getMarkerAnchors(
     containerRect: DOMRect,
   ): Map<string, { top: number; left: number }>;
-  getHighlightedIds(): string[];
-  isPointInHighlight(x: number, y: number): boolean;
 
   onCacheInvalidated(callback: CacheHandler): () => void;
 
@@ -194,10 +191,6 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
       registry.scrollToComment(commentId);
     },
 
-    getPositions(containerRect: DOMRect): Map<string, number> {
-      return registry.getPositions(containerRect);
-    },
-
     getRanges(commentId: string): Range[] {
       return registry.getRanges(commentId);
     },
@@ -206,14 +199,6 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
       containerRect: DOMRect,
     ): Map<string, { top: number; left: number }> {
       return registry.getMarkerAnchors(containerRect);
-    },
-
-    getHighlightedIds(): string[] {
-      return registry.getHighlightedIds();
-    },
-
-    isPointInHighlight(x: number, y: number): boolean {
-      return registry.isPointInHighlight(x, y);
     },
 
     onCacheInvalidated(callback: CacheHandler) {

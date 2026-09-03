@@ -1,5 +1,5 @@
 import { bench, describe } from "vitest";
-import { type ClusterInput, resolveClusterPositions } from "./margin-layout";
+import { type ClusterInput, resolveClusterPositions } from "./layout";
 
 function makeClusters(count: number, spacing: number): ClusterInput[] {
   return Array.from({ length: count }, (_, i) => ({

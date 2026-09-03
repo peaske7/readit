@@ -1,19 +1,9 @@
 <script lang="ts">
 import { onDestroy, onMount } from "svelte";
-import {
-  buildClusters,
-  type Cluster,
-  findBlockAncestor,
-  TierTypes,
-} from "../lib/clustering";
-import {
-  createHighlighter,
-  type Highlighter,
-} from "../lib/highlight/highlighter";
-import type { HighlightComment } from "../lib/highlight/types";
-import type { ClusterShape, Positions } from "../lib/positions";
+import type { Cluster } from "../lib/geometry/clustering";
+import { DocumentGeometry } from "../lib/geometry/document-geometry";
 import { cn } from "../lib/utils";
-import { AnchorConfidences, type Comment, FontFamilies } from "../schema";
+import { type Comment, FontFamilies } from "../schema";
 import { settings } from "../stores/settings.svelte";
 import BodyMarkers from "./BodyMarkers.svelte";
 import CodeBlockEnhancer from "./CodeBlockEnhancer.svelte";
@@ -31,7 +21,7 @@ let {
   onClustersChanged,
   registerHighlighter,
   unregisterHighlighter,
-  positions,
+  geometry,
 }: {
   content: string;
   comments: Comment[];
@@ -54,52 +44,16 @@ let {
     scrollToComment: (id: string) => void,
   ) => void;
   unregisterHighlighter?: () => void;
-  positions: Positions;
+  geometry: DocumentGeometry;
 } = $props();
 
 let contentEl: HTMLElement | undefined = $state();
 let containerEl: HTMLDivElement | undefined = $state();
-let adapter: Highlighter | null = null;
-let renderedContent = "";
+let attached = $state(false);
 let contentVersion = $state(0);
 let sortedIds = $state<string[]>([]);
 let indexById = $state(new Map<string, number>());
-
-function rebuildClusters() {
-  if (!adapter) return;
-
-  const sorted = comments
-    .filter((c) => c.anchorConfidence !== AnchorConfidences.UNRESOLVED)
-    .sort((a, b) => a.startOffset - b.startOffset);
-
-  const ids = sorted.map((c) => c.id);
-  const index = new Map<string, number>();
-  for (let i = 0; i < sorted.length; i++) {
-    index.set(sorted[i].id, i);
-  }
-  sortedIds = ids;
-  indexById = index;
-
-  const paragraphOf = (id: string): Element | null => {
-    if (!adapter) return null;
-    const ranges = adapter.getRanges(id);
-    if (ranges.length === 0) return null;
-    return findBlockAncestor(ranges[0].startContainer);
-  };
-
-  const built = buildClusters(sorted, paragraphOf);
-
-  const shapes: ClusterShape[] = built.map((c) => ({
-    id: c.id,
-    commentIds: c.comments.map((cm) => cm.id),
-    entryHeight: c.tier.height,
-    entryCount: c.tier.type === TierTypes.GROUP ? 1 : c.comments.length,
-  }));
-  positions.setClusters(shapes);
-  positions.cache();
-
-  onClustersChanged?.(built, index);
-}
+let unsubscribe: (() => void) | undefined;
 
 let proseClass = $derived(
   settings.fontFamily === FontFamilies.SANS_SERIF
@@ -137,7 +91,7 @@ async function hydrateMermaid(root: HTMLElement) {
         } catch {}
       }
       contentVersion++;
-      if (isActive) requestAnimationFrame(() => positions.cache());
+      geometry.remeasure();
     } catch {}
   });
 }
@@ -162,32 +116,26 @@ onMount(() => {
     contentEl = article;
   }
 
-  adapter = createHighlighter({
+  geometry.attach({
     root: contentEl!,
     container: containerEl,
+    html: content,
     onSelect: onTextSelect,
+    onHighlightClick,
+  });
+  attached = true;
+
+  registerHighlighter(
+    (id) => geometry.focus(id),
+    (id) => geometry.scrollTo(id),
+  );
+
+  unsubscribe = geometry.subscribe((snapshot) => {
+    sortedIds = snapshot.commentIds;
+    indexById = snapshot.indexById;
+    onClustersChanged?.(snapshot.clusters, snapshot.indexById);
   });
 
-  registerHighlighter(adapter.setFocused, adapter.scrollToComment);
-
-  if (onHighlightClick) {
-    adapter.onHighlightClick(onHighlightClick);
-  }
-
-  if (isActive && comments.length > 0) {
-    const hc: HighlightComment[] = comments
-      .filter((c) => c.anchorConfidence !== AnchorConfidences.UNRESOLVED)
-      .map((c) => ({
-        id: c.id,
-        selectedText: c.selectedText,
-        startOffset: c.startOffset,
-        endOffset: c.endOffset,
-      }));
-    adapter.applyHighlights(hc);
-    requestAnimationFrame(() => rebuildClusters());
-  }
-
-  renderedContent = content;
   contentVersion++;
 
   void hydrateMermaid(contentEl!);
@@ -255,61 +203,26 @@ onMount(() => {
 });
 
 onDestroy(() => {
-  positions.detach();
-  adapter?.dispose();
-  adapter = null;
+  unsubscribe?.();
+  unsubscribe = undefined;
+  geometry.detach();
+  attached = false;
   unregisterHighlighter?.();
 });
 
-// Intentionally capture initial value — skip first $effect when already active.
-// svelte-ignore state_referenced_locally
-let initialHighlightsDone = !isActive;
 $effect(() => {
-  if (!isActive || !adapter) return;
-
-  const _comments = comments;
-  void content;
-
-  if (!initialHighlightsDone) {
-    initialHighlightsDone = true;
-    return;
-  }
-
-  if (_comments.length === 0) {
-    adapter.clearHighlights();
-    rebuildClusters();
-    return;
-  }
-
-  const hc: HighlightComment[] = _comments
-    .filter((c) => c.anchorConfidence !== AnchorConfidences.UNRESOLVED)
-    .map((c) => ({
-      id: c.id,
-      selectedText: c.selectedText,
-      startOffset: c.startOffset,
-      endOffset: c.endOffset,
-    }));
-  adapter.applyHighlights(hc);
-  requestAnimationFrame(() => rebuildClusters());
+  if (attached) geometry.setActive(isActive);
 });
 
 $effect(() => {
-  if (!contentEl || !containerEl || !adapter) return;
-
-  if (isActive) {
-    positions.attach(contentEl, containerEl, adapter);
-    rebuildClusters();
-    return () => positions.detach();
-  }
+  if (attached) geometry.setComments(comments);
 });
 
 $effect(() => {
-  if (!contentEl) return;
+  if (!contentEl || !attached) return;
   contentEl.className = cn("prose", proseClass);
 
-  if (renderedContent !== content) {
-    contentEl.innerHTML = content; // eslint-disable-line -- trusted server content
-    renderedContent = content;
+  if (geometry.setDocumentHtml(content)) {
     contentVersion++;
     void hydrateMermaid(contentEl);
   }
@@ -318,18 +231,14 @@ $effect(() => {
 
 <div bind:this={containerEl} class="flex-1 min-w-0 relative">
   {#if isActive}
-    <BodyMarkers commentIds={sortedIds} {indexById} {positions} />
+    <BodyMarkers commentIds={sortedIds} {indexById} {geometry} />
   {/if}
 </div>
 
 <MermaidEnhancer
   root={contentEl}
   {contentVersion}
-  notifyContentChanged={() => {
-    if (isActive) {
-      requestAnimationFrame(() => rebuildClusters());
-    }
-  }}
+  notifyContentChanged={() => geometry.remeasure()}
 />
 
 <CodeBlockEnhancer root={contentEl} {contentVersion} />
@@ -339,9 +248,5 @@ $effect(() => {
   {contentVersion}
   {isActive}
   {filePath}
-  notifyLayoutChanged={() => {
-    if (isActive) {
-      requestAnimationFrame(() => rebuildClusters());
-    }
-  }}
+  notifyLayoutChanged={() => geometry.remeasure()}
 />

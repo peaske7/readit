@@ -1,5 +1,6 @@
 <script lang="ts">
-import { type TierSpec, TierTypes } from "../lib/clustering";
+import { GeometryAttributes } from "../lib/geometry/attributes";
+import { type TierSpec, TierTypes } from "../lib/geometry/clustering";
 import { formatRelativeTime } from "../lib/relative-time";
 import { cn } from "../lib/utils";
 import { type Comment, FontFamilies } from "../schema";
@@ -64,18 +65,16 @@ function onKey(e: KeyboardEvent) {
   class={cn(
     "relative w-full px-3 cursor-pointer overflow-hidden transition-opacity",
     "border-t border-zinc-100 dark:border-zinc-800 first:border-t-0",
-    tier.type === TierTypes.TIER_1 && "py-2",
-    tier.type === TierTypes.TIER_2 && "py-1.5",
-    tier.type === TierTypes.TIER_3 && "py-1",
-    tier.type === TierTypes.GROUP && "py-2",
     unresolved && "opacity-60",
     isOverflowing &&
       "[mask-image:linear-gradient(to_bottom,black_calc(100%_-_14px),transparent)]",
   )}
-  style={canGrow
-    ? `min-height: ${tier.height}px; max-height: var(--margin-avail-height, ${tier.height}px)`
-    : `height: ${tier.height}px`}
-  data-comment-id={comment.id}
+  style={`padding-block: ${tier.paddingY}px; ${
+    canGrow
+      ? `min-height: ${tier.height}px; max-height: var(--margin-avail-height, ${tier.height}px)`
+      : `height: ${tier.height}px`
+  }`}
+  {...{ [GeometryAttributes.COMMENT_ID]: comment.id }}
   data-active={isActive}
   onclick={activate}
   onkeydown={onKey}

@@ -1,6 +1,8 @@
-const CLUSTER_GAP_PX = 16;
-const COMMENT_INPUT_HEIGHT_PX = 160;
-const ENTRY_PADDING_PX = 12;
+import {
+  CLUSTER_GAP_PX,
+  COMMENT_INPUT_HEIGHT_PX,
+  ENTRY_PADDING_PX,
+} from "./constants";
 
 export interface ClusterInput {
   id: string;

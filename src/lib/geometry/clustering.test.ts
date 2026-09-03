@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Comment } from "../schema";
+import type { Comment } from "../../schema";
 import { buildClusters, selectTier, TierTypes } from "./clustering";
 
 function mkComment(id: string, start: number): Comment {
@@ -14,23 +14,55 @@ function mkComment(id: string, start: number): Comment {
 
 describe("selectTier", () => {
   it("1-3 comments → tier 1 (50px, 3 lines)", () => {
-    expect(selectTier(1)).toEqual({ type: TierTypes.TIER_1, height: 50 });
-    expect(selectTier(3)).toEqual({ type: TierTypes.TIER_1, height: 50 });
+    expect(selectTier(1)).toEqual({
+      type: TierTypes.TIER_1,
+      height: 50,
+      paddingY: 8,
+    });
+    expect(selectTier(3)).toEqual({
+      type: TierTypes.TIER_1,
+      height: 50,
+      paddingY: 8,
+    });
   });
 
   it("4-6 comments → tier 2 (38px, 2 lines)", () => {
-    expect(selectTier(4)).toEqual({ type: TierTypes.TIER_2, height: 38 });
-    expect(selectTier(6)).toEqual({ type: TierTypes.TIER_2, height: 38 });
+    expect(selectTier(4)).toEqual({
+      type: TierTypes.TIER_2,
+      height: 38,
+      paddingY: 6,
+    });
+    expect(selectTier(6)).toEqual({
+      type: TierTypes.TIER_2,
+      height: 38,
+      paddingY: 6,
+    });
   });
 
   it("7-12 comments → tier 3 (24px, 1 line)", () => {
-    expect(selectTier(7)).toEqual({ type: TierTypes.TIER_3, height: 24 });
-    expect(selectTier(12)).toEqual({ type: TierTypes.TIER_3, height: 24 });
+    expect(selectTier(7)).toEqual({
+      type: TierTypes.TIER_3,
+      height: 24,
+      paddingY: 4,
+    });
+    expect(selectTier(12)).toEqual({
+      type: TierTypes.TIER_3,
+      height: 24,
+      paddingY: 4,
+    });
   });
 
   it("13+ comments → group (50px, aggregated)", () => {
-    expect(selectTier(13)).toEqual({ type: TierTypes.GROUP, height: 50 });
-    expect(selectTier(50)).toEqual({ type: TierTypes.GROUP, height: 50 });
+    expect(selectTier(13)).toEqual({
+      type: TierTypes.GROUP,
+      height: 50,
+      paddingY: 8,
+    });
+    expect(selectTier(50)).toEqual({
+      type: TierTypes.GROUP,
+      height: 50,
+      paddingY: 8,
+    });
   });
 });
 

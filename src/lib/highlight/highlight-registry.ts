@@ -7,18 +7,7 @@ interface CommentEntry {
 
 export class HighlightRegistry {
   private comments = new Map<string, CommentEntry>();
-  private pendingRanges: Range[] = [];
   private focusedId: string | undefined;
-
-  setHighlights(
-    entries: Map<string, { ranges: Range[]; colorIndex: number }>,
-  ): void {
-    this.comments.clear();
-    for (const [id, entry] of entries) {
-      this.comments.set(id, entry);
-    }
-    this.syncCommentHighlights();
-  }
 
   updateComment(commentId: string, ranges: Range[], colorIndex: number): void {
     this.comments.set(commentId, { ranges, colorIndex });
@@ -46,7 +35,6 @@ export class HighlightRegistry {
   }
 
   setPending(ranges: Range[]): void {
-    this.pendingRanges = ranges;
     if (ranges.length > 0) {
       CSS.highlights.set("pending-selection", new Highlight(...ranges));
     } else {
@@ -54,34 +42,13 @@ export class HighlightRegistry {
     }
   }
 
-  clearPending(): void {
-    this.pendingRanges = [];
-    CSS.highlights.delete("pending-selection");
-  }
-
   setFocused(commentId: string | undefined): void {
     this.focusedId = commentId;
     this.syncFocused();
   }
 
-  getBoundingRect(commentId: string): DOMRect | null {
-    const entry = this.comments.get(commentId);
-    if (!entry || entry.ranges.length === 0) return null;
-    return entry.ranges[0].getBoundingClientRect();
-  }
-
   getRanges(commentId: string): Range[] {
     return this.comments.get(commentId)?.ranges ?? [];
-  }
-
-  getPositions(containerRect: DOMRect): Map<string, number> {
-    const positions = new Map<string, number>();
-    for (const [id, entry] of this.comments) {
-      if (entry.ranges.length === 0) continue;
-      const rect = entry.ranges[0].getBoundingClientRect();
-      positions.set(id, rect.top - containerRect.top);
-    }
-    return positions;
   }
 
   getMarkerAnchors(
@@ -126,30 +93,9 @@ export class HighlightRegistry {
     return undefined;
   }
 
-  isPointInHighlight(x: number, y: number): boolean {
-    const pos = caretPositionFromPointCompat(x, y);
-    if (!pos) return false;
-
-    for (const range of this.pendingRanges) {
-      if (rangeContainsPosition(range, pos.node, pos.offset)) return true;
-    }
-
-    for (const [, entry] of this.comments) {
-      for (const range of entry.ranges) {
-        if (rangeContainsPosition(range, pos.node, pos.offset)) return true;
-      }
-    }
-
-    return false;
-  }
-
-  getHighlightedIds(): string[] {
-    return [...this.comments.keys()];
-  }
-
   dispose(): void {
     this.clearAll();
-    this.clearPending();
+    this.setPending([]);
   }
 
   private syncCommentHighlights(): void {
@@ -194,7 +140,7 @@ export class HighlightRegistry {
   private exposeIds(): void {
     if (typeof window !== "undefined") {
       (window as unknown as Record<string, unknown>).__readitHighlights = {
-        commentIds: this.getHighlightedIds(),
+        commentIds: [...this.comments.keys()],
       };
     }
   }
