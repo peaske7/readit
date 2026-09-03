@@ -670,24 +670,29 @@ remote
     "Store the Worker URL and publish token in ~/.readit/config.json",
   )
   .action(async () => {
-    const [url, token] = await ask([
-      "Worker URL (e.g. https://md.peas.ke): ",
-      "Publish token: ",
-    ]);
+    const [url, token] = (
+      await ask(["Worker URL (e.g. https://md.peas.ke): ", "Publish token: "])
+    ).map((answer) => answer.trim());
     if (!url || !token) {
       console.error("error: both URL and token are required.");
       process.exit(1);
     }
-    await saveRemote({ url: url.replace(/\/$/, ""), token });
+    const remote = { url: url.replace(/\/$/, ""), token };
+    await saveRemote(remote);
 
-    const reachable = await fetch(`${url.replace(/\/$/, "")}/api/health`)
-      .then((r) => r.ok)
-      .catch(() => false);
-    console.log(
-      reachable
-        ? "Saved. Remote is reachable."
-        : "Saved, but the remote did not answer /api/health.",
-    );
+    // An authenticated call, so a token that doesn't match the Worker's
+    // PUBLISH_TOKEN surfaces here instead of at the first `readit share`.
+    try {
+      await remoteFetch(remote, "/api/shares");
+      console.log("Saved. Remote accepted the token.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`Saved, but the remote rejected the check: ${message}`);
+      console.error(
+        "If it is a 401, re-run `wrangler secret put PUBLISH_TOKEN` with this token.",
+      );
+      process.exit(1);
+    }
   });
 
 remote
