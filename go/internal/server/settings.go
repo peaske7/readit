@@ -14,16 +14,8 @@ func DefaultSettings() Settings {
 	}
 }
 
-func settingsPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return ".readit/settings.json"
-	}
-	return filepath.Join(home, ".readit", "settings.json")
-}
-
 func ReadSettings() (Settings, error) {
-	data, err := os.ReadFile(settingsPath())
+	data, err := os.ReadFile(SettingsPath())
 	if err != nil {
 		return DefaultSettings(), err
 	}
@@ -35,7 +27,7 @@ func ReadSettings() (Settings, error) {
 }
 
 func WriteSettings(s Settings) error {
-	path := settingsPath()
+	path := SettingsPath()
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}

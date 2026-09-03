@@ -21,6 +21,9 @@ import (
 
 const version = "0.3.0"
 
+// serverInfo is ~/.readit/server.json. Keep it in sync with the ServerInfo
+// interface in src/lib/readit-home.ts; src/lib/__fixtures__/server-info.json
+// is the shape both test suites assert against.
 type serverInfo struct {
 	Port int    `json:"port"`
 	PID  int    `json:"pid"`
@@ -149,10 +152,7 @@ func cmdServe() {
 }
 
 func cmdList() {
-	home, _ := os.UserHomeDir()
-	commentsDir := filepath.Join(home, ".readit", "comments")
-
-	_ = filepath.Walk(commentsDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(server.CommentsDir(), func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
@@ -181,10 +181,14 @@ func cmdShow() {
 		os.Exit(1)
 	}
 
-	filePath, err := filepath.Abs(os.Args[2])
+	filePath, err := server.CanonicalPath(os.Args[2])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		// The source file may be gone; its comments outlive it.
+		filePath, err = filepath.Abs(os.Args[2])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	commentPath, err := server.CommentPath(filePath)
@@ -301,32 +305,30 @@ func resolveFiles(args []string) ([]server.FileEntry, error) {
 	return files, nil
 }
 
-func serverInfoPath() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".readit", "server.json")
-}
-
 func writeServerInfo(port int, host string) {
 	info := serverInfo{Port: port, PID: os.Getpid(), Host: host}
 	data, _ := json.Marshal(info)
-	path := serverInfoPath()
+	path := server.ServerInfoPath()
 	_ = os.MkdirAll(filepath.Dir(path), 0755)
 	_ = os.WriteFile(path, data, 0644)
 }
 
 func removeServerInfo() {
-	_ = os.Remove(serverInfoPath())
+	_ = os.Remove(server.ServerInfoPath())
 }
 
+// resolvedHost is the host a client dials to reach the server that wrote this
+// file; mirrors serverHost() in src/lib/readit-home.ts.
 func (si *serverInfo) resolvedHost() string {
-	if si.Host != "" {
-		return si.Host
+	switch si.Host {
+	case "", "0.0.0.0", "::", "[::]":
+		return "127.0.0.1"
 	}
-	return "127.0.0.1"
+	return si.Host
 }
 
 func discoverServer() (*serverInfo, error) {
-	data, err := os.ReadFile(serverInfoPath())
+	data, err := os.ReadFile(server.ServerInfoPath())
 	if err != nil {
 		return nil, err
 	}
