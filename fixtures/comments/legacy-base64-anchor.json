@@ -1,0 +1,17 @@
+{
+  "source": "/home/user/docs/design.md",
+  "hash": "0123456789abcdef",
+  "version": 1,
+  "comments": [
+    {
+      "id": "33333333",
+      "selectedText": "The quick brown fox\n...\nthe lazy dog.",
+      "comment": "Written by a readit that base64-encoded the anchor prefix.",
+      "lineHint": "L12",
+      "createdAt": "2026-01-02T03:04:05.000Z",
+      "anchorPrefix": "The quick brown fox jumps over the lazy dog.",
+      "startOffset": 0,
+      "endOffset": 0
+    }
+  ]
+}

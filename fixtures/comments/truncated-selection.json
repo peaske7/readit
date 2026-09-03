@@ -1,0 +1,17 @@
+{
+  "source": "/home/user/docs/design.md",
+  "hash": "0123456789abcdef",
+  "version": 1,
+  "comments": [
+    {
+      "id": "44444444",
+      "selectedText": "Character offsets are fragile. When the source document changes\n...\nso the anchor is re-resolved on every read.",
+      "comment": "The blockquote holds the truncated selection; the anchor holds the untruncated prefix.",
+      "lineHint": "L100-L140",
+      "createdAt": "2026-01-02T03:04:05.000Z",
+      "anchorPrefix": "Character offsets are fragile. When the source document changes",
+      "startOffset": 0,
+      "endOffset": 0
+    }
+  ]
+}
