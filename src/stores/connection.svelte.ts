@@ -1,4 +1,4 @@
-import { apiUrl } from "../lib/api";
+import { client } from "../lib/client";
 
 export const ConnectionStates = {
   CONNECTED: "connected",
@@ -18,7 +18,7 @@ let reconnectDelayMs = 1000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 
 function connect(): void {
-  source = new EventSource(apiUrl("/api/heartbeat"));
+  source = client.heartbeat();
 
   source.onopen = () => {
     connection.state = ConnectionStates.CONNECTED;
@@ -38,7 +38,7 @@ function connect(): void {
 }
 
 export function startHeartbeat(): void {
-  if (source) return;
+  if (source || !client.capabilities.heartbeat) return;
   connect();
 }
 

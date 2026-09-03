@@ -9,7 +9,7 @@ import {
   Settings,
   Share2,
 } from "lucide-svelte";
-import { apiUrl } from "../lib/api";
+import { client } from "../lib/client";
 import { ShortcutActions } from "../lib/shortcut-registry";
 import { app } from "../stores/app.svelte";
 import { t } from "../stores/locale.svelte";
@@ -40,7 +40,7 @@ let shareOpen = $state(false);
 /** In hosted mode the page itself is the share; its URL is the API base. */
 async function copyShareLink() {
   try {
-    await navigator.clipboard.writeText(`${location.origin}${apiUrl("")}`);
+    await navigator.clipboard.writeText(`${location.origin}${client.basePath}`);
     showToast(t("toast.copiedLink"));
   } catch {}
 }
@@ -67,7 +67,7 @@ async function copyShareLink() {
     <Settings />
     {t("actions.settings")}
   </DropdownMenuItem>
-  {#if app.canShare}
+  {#if client.capabilities.share}
     <DropdownMenuItem
       onselect={() => {
         shareOpen = true;

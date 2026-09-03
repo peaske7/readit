@@ -1,4 +1,4 @@
-import { apiUrl } from "../lib/api";
+import { client } from "../lib/client";
 import {
   bindingsEqual,
   DEFAULT_SHORTCUTS,
@@ -6,7 +6,6 @@ import {
   type ShortcutDefinition,
 } from "../lib/shortcut-registry";
 import type { KeybindingOverride, ShortcutBinding } from "../schema";
-import { app } from "./app.svelte";
 
 const KEYBINDINGS_STORAGE_KEY = "readit:keybindings";
 
@@ -16,7 +15,7 @@ export const shortcutState = $state({
 
 export function initShortcuts(overrides: KeybindingOverride[]): void {
   shortcutState.shortcuts = resolveShortcuts(
-    app.hosted ? readStoredOverrides() : overrides,
+    client.capabilities.putSettings ? overrides : readStoredOverrides(),
   );
 }
 
@@ -103,7 +102,8 @@ function toOverrides(shortcuts: ShortcutDefinition[]): KeybindingOverride[] {
 async function persistOverrides(
   shortcuts: ShortcutDefinition[],
 ): Promise<void> {
-  if (app.hosted) {
+  // Hosted snapshots have no settings endpoint; keep overrides per browser.
+  if (!client.capabilities.putSettings) {
     try {
       localStorage.setItem(
         KEYBINDINGS_STORAGE_KEY,
@@ -114,14 +114,7 @@ async function persistOverrides(
   }
 
   try {
-    const response = await fetch(apiUrl("/api/settings"), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keybindings: toOverrides(shortcuts) }),
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to save keybindings: ${response.status}`);
-    }
+    await client.putSettings({ keybindings: toOverrides(shortcuts) });
   } catch (err) {
     console.error("Failed to save keybindings:", err);
   }
