@@ -131,7 +131,10 @@ function decodeAnchorPrefix(raw: string): string {
     try {
       const binary = atob(raw);
       const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
-      const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      const decoded = new TextDecoder("utf-8", {
+        fatal: true,
+        ignoreBOM: false,
+      }).decode(bytes);
       if (decoded.length > 0 && !hasControlChars(decoded)) return decoded;
     } catch {
       // Not base64, or not UTF-8: fall through and read the value as raw text.
