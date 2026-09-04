@@ -45,7 +45,7 @@ function handleWindowKeydown(e: KeyboardEvent) {
 ></button>
 
 <div
-  class="fixed bottom-16 left-4 right-4 z-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg p-4 lg:hidden"
+  class="fixed bottom-16 left-4 right-4 z-50 max-h-[60dvh] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg p-4 lg:hidden"
 >
   <div class={cn(fontClass, "text-sm italic text-zinc-500 dark:text-zinc-400 mb-2 line-clamp-2")}>
     <button

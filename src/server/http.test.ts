@@ -280,6 +280,33 @@ describe("settings", () => {
     expect((await res.json()).fontFamily).toBe("sans-serif");
   });
 
+  it("persists the theme and table modes", async () => {
+    const res = await fetchHandler(
+      req("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify({ themeMode: "light", tableMode: "wide" }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.themeMode).toBe("light");
+    expect(body.tableMode).toBe("wide");
+
+    const read = await (await fetchHandler(req("/api/settings"))).json();
+    expect(read.themeMode).toBe("light");
+    expect(read.tableMode).toBe("wide");
+  });
+
+  it("rejects an unknown theme mode", async () => {
+    const res = await fetchHandler(
+      req("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify({ themeMode: "sepia" }),
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("rejects an invalid font family", async () => {
     const res = await fetchHandler(
       req("/api/settings", {
@@ -310,6 +337,32 @@ describe("share", () => {
 
   it("502s unsharing without a configured remote", async () => {
     const res = await fetchHandler(req("/api/share", { method: "DELETE" }));
+    expect(res.status).toBe(502);
+  });
+
+  it("rejects cross-origin publish and unshare requests", async () => {
+    const headers = { origin: "https://evil.example" };
+    const post = await fetchHandler(
+      req("/api/share", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ mode: "link" }),
+      }),
+    );
+    expect(post.status).toBe(403);
+    const del = await fetchHandler(
+      req("/api/share", { method: "DELETE", headers }),
+    );
+    expect(del.status).toBe(403);
+  });
+
+  it("accepts a same-origin unshare request", async () => {
+    const res = await fetchHandler(
+      req("/api/share", {
+        method: "DELETE",
+        headers: { origin: "http://localhost" },
+      }),
+    );
     expect(res.status).toBe(502);
   });
 });

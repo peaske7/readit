@@ -40,7 +40,7 @@ declared in the adapters (`test/contract/adapters.ts`), never discovered.
 | GET | `/api/comments/raw` | `?path=` | `{ content: string \| null, path: string }` |
 | GET | `/api/health` | — | `{ status: "ok" }` |
 | GET | `/api/settings` | — | `DocumentSettings` |
-| PUT | `/api/settings` | `{ fontFamily?, keybindings? }` | the merged `DocumentSettings` |
+| PUT | `/api/settings` | `{ fontFamily?, themeMode?, tableMode?, keybindings? }` | the merged `DocumentSettings` |
 | GET | `/api/document/stream` | — | SSE, see below |
 | GET | `/api/heartbeat` | — | SSE, see below |
 | GET | `/api/share` | `?path=` | `{ configured: boolean, share?: ShareRecord }` |

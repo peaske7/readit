@@ -65,7 +65,7 @@ async function copyShareLink() {
     <Button
       variant="ghost"
       size="icon"
-      class="size-7"
+      class="size-7 no-hover:size-9"
       title={t("actions.ariaLabel")}
     >
       <MoreHorizontal class="w-4 h-4" />

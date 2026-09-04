@@ -39,6 +39,9 @@ export interface HighlighterOptions {
   onSelect: SelectionHandler;
 }
 
+/** How long a selection must sit still before it counts as finished. */
+const SELECTION_SETTLE_MS = 300;
+
 export function createHighlighter(options: HighlighterOptions): Highlighter {
   const { root, container, onSelect } = options;
 
@@ -50,9 +53,20 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
 
   const registry = new HighlightRegistry();
 
-  const handleMouseUp = () => {
+  // Touch selection (long-press, then dragging the handles) never fires
+  // `mouseup`, so `selectionchange` is the only signal on phones. It also
+  // fires on every mouse-drag step, so it is debounced, held back while a
+  // mouse button is down, and deduplicated against the last emitted range.
+  let lastEmitted: { start: number; end: number } | undefined;
+  let mouseButtonDown = false;
+  let selectionTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const captureSelection = (force: boolean) => {
     const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) return;
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+      return;
+    }
+    if (!root.contains(selection.anchorNode)) return;
 
     const text = selection
       .toString()
@@ -78,6 +92,14 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
       range.startOffset,
     );
     const endOffset = getTextOffset(root, range.endContainer, range.endOffset);
+    if (
+      !force &&
+      lastEmitted?.start === startOffset &&
+      lastEmitted.end === endOffset
+    ) {
+      return;
+    }
+    lastEmitted = { start: startOffset, end: endOffset };
 
     const rangeRect = range.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
@@ -93,6 +115,40 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
       );
       registry.setPending(pendingRanges);
     });
+  };
+
+  const cancelSettle = () => {
+    if (selectionTimer) clearTimeout(selectionTimer);
+    selectionTimer = undefined;
+  };
+
+  const handleMouseUp = () => {
+    cancelSettle();
+    captureSelection(true);
+  };
+
+  const handleSelectionChange = () => {
+    if (window.getSelection()?.isCollapsed !== false) {
+      // Collapsing (a click, or focusing an input) ends the gesture, so the
+      // same text may be selected again afterwards.
+      lastEmitted = undefined;
+      cancelSettle();
+      return;
+    }
+    if (mouseButtonDown) return;
+    cancelSettle();
+    selectionTimer = setTimeout(() => {
+      selectionTimer = undefined;
+      captureSelection(false);
+    }, SELECTION_SETTLE_MS);
+  };
+
+  const handlePointerDown = (e: PointerEvent) => {
+    if (e.pointerType === "mouse") mouseButtonDown = true;
+  };
+
+  const handlePointerUp = (e: PointerEvent) => {
+    if (e.pointerType === "mouse") mouseButtonDown = false;
   };
 
   const handleClick = (e: MouseEvent) => {
@@ -137,6 +193,10 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
 
   root.addEventListener("mouseup", handleMouseUp);
   root.addEventListener("click", handleClick);
+  document.addEventListener("selectionchange", handleSelectionChange);
+  document.addEventListener("pointerdown", handlePointerDown);
+  document.addEventListener("pointerup", handlePointerUp);
+  document.addEventListener("pointercancel", handlePointerUp);
 
   return {
     applyHighlights(comments: HighlightComment[]) {
@@ -210,8 +270,13 @@ export function createHighlighter(options: HighlighterOptions): Highlighter {
 
     dispose() {
       registry.dispose();
+      cancelSettle();
       root.removeEventListener("mouseup", handleMouseUp);
       root.removeEventListener("click", handleClick);
+      document.removeEventListener("selectionchange", handleSelectionChange);
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("pointerup", handlePointerUp);
+      document.removeEventListener("pointercancel", handlePointerUp);
       clickCallback = undefined;
       cacheCallback = undefined;
     },

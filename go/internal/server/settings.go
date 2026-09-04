@@ -7,6 +7,14 @@ import (
 	"path/filepath"
 )
 
+func isThemeMode(v string) bool {
+	return v == "system" || v == "light" || v == "dark"
+}
+
+func isTableMode(v string) bool {
+	return v == "auto" || v == "fit" || v == "wide"
+}
+
 func DefaultSettings() Settings {
 	return Settings{
 		Version:    1,
@@ -52,6 +60,8 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		FontFamily  string       `json:"fontFamily"`
+		ThemeMode   string       `json:"themeMode"`
+		TableMode   string       `json:"tableMode"`
 		Keybindings []Keybinding `json:"keybindings"`
 	}
 	if err := readJSON(r, &body); err != nil {
@@ -64,6 +74,15 @@ func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "fontFamily must be 'serif' or 'sans-serif'")
 			return
 		}
+	}
+
+	if body.ThemeMode != "" && !isThemeMode(body.ThemeMode) {
+		writeError(w, http.StatusBadRequest, "themeMode must be 'system', 'light' or 'dark'")
+		return
+	}
+	if body.TableMode != "" && !isTableMode(body.TableMode) {
+		writeError(w, http.StatusBadRequest, "tableMode must be 'auto', 'fit' or 'wide'")
+		return
 	}
 
 	for _, kb := range body.Keybindings {
@@ -83,6 +102,12 @@ func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 
 	if body.FontFamily != "" {
 		newSettings.FontFamily = body.FontFamily
+	}
+	if body.ThemeMode != "" {
+		newSettings.ThemeMode = body.ThemeMode
+	}
+	if body.TableMode != "" {
+		newSettings.TableMode = body.TableMode
 	}
 	if body.Keybindings != nil {
 		newSettings.Keybindings = body.Keybindings

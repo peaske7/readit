@@ -11,6 +11,10 @@ import {
   type FontFamily,
   type KeybindingOverride,
   type ShortcutBinding,
+  type TableMode,
+  TableModes,
+  type ThemeMode,
+  ThemeModes,
 } from "../schema.js";
 
 const withSettingsLock = createKeyLock("settings");
@@ -21,6 +25,14 @@ const KNOWN_SHORTCUT_IDS: ReadonlySet<string> = new Set(
 
 export function isValidFontFamily(value: unknown): value is FontFamily {
   return value === FontFamilies.SERIF || value === FontFamilies.SANS_SERIF;
+}
+
+export function isValidThemeMode(value: unknown): value is ThemeMode {
+  return Object.values<string>(ThemeModes).includes(value as string);
+}
+
+export function isValidTableMode(value: unknown): value is TableMode {
+  return Object.values<string>(TableModes).includes(value as string);
 }
 
 function isOptionalBool(value: unknown): boolean {
@@ -57,6 +69,8 @@ export function isValidKeybindings(
 
 export interface SettingsPatch {
   fontFamily?: FontFamily;
+  themeMode?: ThemeMode;
+  tableMode?: TableMode;
   keybindings?: KeybindingOverride[];
 }
 
@@ -69,6 +83,8 @@ export async function updateSettings(
     const merged: DocumentSettings = {
       ...current,
       ...(patch.fontFamily !== undefined && { fontFamily: patch.fontFamily }),
+      ...(patch.themeMode !== undefined && { themeMode: patch.themeMode }),
+      ...(patch.tableMode !== undefined && { tableMode: patch.tableMode }),
       ...(patch.keybindings !== undefined && {
         keybindings: patch.keybindings,
       }),

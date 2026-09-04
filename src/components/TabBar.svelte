@@ -35,7 +35,7 @@ import { app, closeDocument, setActiveDocument } from "../stores/app.svelte";
           <button
             type="button"
             aria-label="Close tab"
-            class="ml-1 rounded p-0.5 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+            class="ml-1 rounded p-0.5 no-hover:p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-700"
             onclick={(e) => {
               e.stopPropagation();
               closeDocument(filePath);

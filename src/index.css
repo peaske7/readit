@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
+/* Touch-first devices: no hover states, no hardware keyboard to hint at. */
+@custom-variant no-hover (@media (hover: none));
 
 /* Font family system */
 .font-serif {
@@ -323,6 +325,17 @@ html {
   user-select: text;
   -webkit-user-select: text;
   letter-spacing: -0.011em;
+  overflow-wrap: break-word;
+}
+
+/* Phones: tighter display sizes so headings do not wrap every word. */
+@media (max-width: 640px) {
+  .prose h1 {
+    font-size: 1.75em;
+  }
+  .prose h2 {
+    font-size: 1.35em;
+  }
 }
 
 /* Headings */
@@ -896,6 +909,97 @@ html {
     margin-left: -1rem;
     margin-right: -1rem;
   }
+}
+
+/*
+ * Diagrams are rendered once with the light palette (on the server, or in a
+ * snapshot), so dark mode recolours the SVG instead of re-rendering it.
+ * Mermaid writes fills as inline styles and id-scoped rules, hence !important.
+ */
+.dark .mermaid-container {
+  --mermaid-ink: #e4e4e7;
+  --mermaid-line: #a1a1aa;
+  --mermaid-fill: rgba(202, 168, 74, 0.22);
+  --mermaid-stroke: #c9a84a;
+  --mermaid-fill-alt: rgba(91, 127, 168, 0.28);
+  --mermaid-stroke-alt: #7da3c8;
+  --mermaid-surface: #27272a;
+  --mermaid-surface-border: #52525b;
+  --mermaid-page: #18181b;
+}
+
+.dark .mermaid-container svg text,
+.dark .mermaid-container svg tspan {
+  fill: var(--mermaid-ink) !important;
+}
+
+.dark .mermaid-container .nodeLabel,
+.dark .mermaid-container .edgeLabel,
+.dark .mermaid-container .label,
+.dark .mermaid-container .cluster-label,
+.dark .mermaid-container foreignObject div,
+.dark .mermaid-container foreignObject span {
+  color: var(--mermaid-ink) !important;
+}
+
+.dark .mermaid-container .node rect,
+.dark .mermaid-container .node circle,
+.dark .mermaid-container .node ellipse,
+.dark .mermaid-container .node polygon,
+.dark .mermaid-container .node path,
+.dark .mermaid-container .note,
+.dark .mermaid-container .state-note,
+.dark .mermaid-container .classGroup rect,
+.dark .mermaid-container .classGroup .title,
+.dark .mermaid-container .stateGroup rect,
+.dark .mermaid-container .er.entityBox {
+  fill: var(--mermaid-fill) !important;
+  stroke: var(--mermaid-stroke) !important;
+}
+
+/* Sequence actors are the blue family in the light palette; keep the hue. */
+.dark .mermaid-container rect.actor,
+.dark .mermaid-container .actor-top,
+.dark .mermaid-container .actor-bottom,
+.dark .mermaid-container .activation0,
+.dark .mermaid-container .activation1,
+.dark .mermaid-container .activation2 {
+  fill: var(--mermaid-fill-alt) !important;
+  stroke: var(--mermaid-stroke-alt) !important;
+}
+
+.dark .mermaid-container .cluster rect,
+.dark .mermaid-container .labelBox {
+  fill: var(--mermaid-surface) !important;
+  stroke: var(--mermaid-surface-border) !important;
+}
+
+.dark .mermaid-container .edgeLabel,
+.dark .mermaid-container .edgeLabel span,
+.dark .mermaid-container .labelBkg {
+  background-color: var(--mermaid-page) !important;
+}
+
+.dark .mermaid-container .edgeLabel rect {
+  fill: var(--mermaid-page) !important;
+}
+
+.dark .mermaid-container .edgePath .path,
+.dark .mermaid-container .flowchart-link,
+.dark .mermaid-container .messageLine0,
+.dark .mermaid-container .messageLine1,
+.dark .mermaid-container .actor-line,
+.dark .mermaid-container .loopLine,
+.dark .mermaid-container .relation,
+.dark .mermaid-container .transition,
+.dark .mermaid-container .er.relationshipLine {
+  stroke: var(--mermaid-line) !important;
+}
+
+.dark .mermaid-container .marker,
+.dark .mermaid-container marker path {
+  fill: var(--mermaid-line) !important;
+  stroke: var(--mermaid-line) !important;
 }
 
 @media (min-width: 1280px) {

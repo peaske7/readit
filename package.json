@@ -1,6 +1,6 @@
 {
   "name": "@peaske7/readit",
-  "version": "0.4.0-rc.1",
+  "version": "0.4.0-rc.2",
   "description": "A CLI tool to review Markdown documents with inline comments",
   "author": "Jay Shimada <peaske@pm.me>",
   "license": "MIT",
@@ -38,7 +38,7 @@
     "test:contract": "vitest run --config vitest.contract.config.ts",
     "bench": "vitest bench",
     "test:watch": "vitest",
-    "test:e2e": "playwright test --project=chromium",
+    "test:e2e": "playwright test --project=chromium --project=mobile",
     "test:e2e:ui": "playwright test --project=chromium --ui",
     "test:perf": "PERF_SETUP=1 playwright test --project=perf",
     "check": "biome check .",

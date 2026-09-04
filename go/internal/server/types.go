@@ -44,6 +44,8 @@ type Keybinding struct {
 type Settings struct {
 	Version     int          `json:"version"`
 	FontFamily  string       `json:"fontFamily"`
+	ThemeMode   string       `json:"themeMode,omitempty"`
+	TableMode   string       `json:"tableMode,omitempty"`
 	Keybindings []Keybinding `json:"keybindings,omitempty"`
 }
 

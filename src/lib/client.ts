@@ -4,6 +4,8 @@ import type {
   FontFamily,
   KeybindingOverride,
   ShareMode,
+  TableMode,
+  ThemeMode,
 } from "../schema";
 import type { Heading } from "./headings";
 
@@ -70,6 +72,8 @@ export interface AnchorInput {
 
 export interface SettingsUpdate {
   fontFamily?: FontFamily;
+  themeMode?: ThemeMode;
+  tableMode?: TableMode;
   keybindings?: KeybindingOverride[];
 }
 

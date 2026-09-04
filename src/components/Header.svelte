@@ -65,20 +65,20 @@ onMount(() => {
   onmouseenter={() => (headerHover = true)}
   onmouseleave={() => (headerHover = false)}
 >
-  <div class="px-6 py-3 flex items-center justify-between max-w-7xl mx-auto">
-    <div class="flex items-center gap-3">
+  <div class="px-4 sm:px-6 py-3 flex items-center justify-between gap-3 max-w-7xl mx-auto">
+    <div class="flex items-center gap-3 min-w-0">
       <Text variant="title" as="h1">
         readit
       </Text>
       <span class="text-zinc-200 dark:text-zinc-700 font-light">&mdash;</span>
-      <Text variant="caption" as="span" class="truncate max-w-[200px]">
+      <Text variant="caption" as="span" class="truncate max-w-[200px] min-w-0">
         {fileName}
       </Text>
     </div>
 
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-3 shrink-0">
       {#if hasReanchorTarget}
-        <Text variant="caption" as="span" class="italic">
+        <Text variant="caption" as="span" class="italic hidden sm:inline">
           {t("header.selectTextToReanchor")}
         </Text>
       {/if}
