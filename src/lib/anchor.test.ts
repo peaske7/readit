@@ -495,6 +495,10 @@ line five the`;
   });
 });
 
+// Shared CI runners are several times slower than a laptop; the tight budget
+// stays local as a regression guard.
+const TIMING_BUDGET_MS = process.env.CI ? 250 : 50;
+
 describe("performance", () => {
   const exactText = "The conclusion of section 8 summarizes the key findings";
   const fuzzyText = "- Item 1 in section 1x"; // 1-char typo
@@ -509,7 +513,7 @@ describe("performance", () => {
       });
     }
     const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(50);
+    expect(elapsed).toBeLessThan(TIMING_BUDGET_MS);
   });
 
   it("findAnchorWithFallback fuzzy fallback completes within 50ms (10 iterations)", () => {
@@ -522,6 +526,6 @@ describe("performance", () => {
       });
     }
     const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(50);
+    expect(elapsed).toBeLessThan(TIMING_BUDGET_MS);
   });
 });
