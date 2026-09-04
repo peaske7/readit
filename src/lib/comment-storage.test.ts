@@ -684,6 +684,10 @@ version: 99
   });
 });
 
+// Shared CI runners are several times slower than a laptop; the tight budget
+// stays local as a regression guard.
+const TIMING_BUDGET_MS = process.env.CI ? 250 : 50;
+
 describe("performance", () => {
   it("parseCommentFile with 50 comments completes within 50ms (100 iterations)", () => {
     const start = performance.now();
@@ -691,7 +695,7 @@ describe("performance", () => {
       parseCommentFile(COMMENT_FILE_LARGE);
     }
     const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(50);
+    expect(elapsed).toBeLessThan(TIMING_BUDGET_MS);
   });
 });
 
