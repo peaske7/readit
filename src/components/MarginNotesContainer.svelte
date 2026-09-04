@@ -1,14 +1,14 @@
 <script lang="ts">
-import type { Cluster } from "../lib/clustering";
-import type { Positions } from "../lib/positions";
+import type { Cluster } from "../lib/geometry/clustering";
+import type { DocumentGeometry } from "../lib/geometry/document-geometry";
 import MarginCluster from "./MarginCluster.svelte";
 
 interface Props {
   clusters: Cluster[];
-  positions: Positions;
+  geometry: DocumentGeometry;
 }
 
-let { clusters, positions }: Props = $props();
+let { clusters, geometry }: Props = $props();
 
 function startIndexFor(idx: number): number {
   let n = 0;
@@ -23,7 +23,7 @@ function startIndexFor(idx: number): number {
       <MarginCluster
         {cluster}
         startIndex={startIndexFor(i)}
-        {positions}
+        {geometry}
       />
     {/each}
   </div>

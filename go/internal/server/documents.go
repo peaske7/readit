@@ -216,4 +216,3 @@ func atomicWriteFile(path string, data []byte) error {
 	}
 	return nil
 }
-

@@ -1,4 +1,4 @@
-import type { Comment } from "../schema";
+import type { Comment } from "../../schema";
 
 export const TierTypes = {
   TIER_1: "tier-1",
@@ -11,13 +11,16 @@ export type TierType = (typeof TierTypes)[keyof typeof TierTypes];
 
 export interface TierSpec {
   type: TierType;
+  /** Entry height in px — the layout resolver and the entry both use it. */
   height: number;
+  /** Entry padding-block in px, applied inline for the same reason. */
+  paddingY: number;
 }
 
-const TIER_1: TierSpec = { type: TierTypes.TIER_1, height: 50 };
-const TIER_2: TierSpec = { type: TierTypes.TIER_2, height: 38 };
-const TIER_3: TierSpec = { type: TierTypes.TIER_3, height: 24 };
-const GROUP: TierSpec = { type: TierTypes.GROUP, height: 50 };
+const TIER_1: TierSpec = { type: TierTypes.TIER_1, height: 50, paddingY: 8 };
+const TIER_2: TierSpec = { type: TierTypes.TIER_2, height: 38, paddingY: 6 };
+const TIER_3: TierSpec = { type: TierTypes.TIER_3, height: 24, paddingY: 4 };
+const GROUP: TierSpec = { type: TierTypes.GROUP, height: 50, paddingY: 8 };
 
 export function selectTier(count: number): TierSpec {
   if (count >= 13) return GROUP;
@@ -30,34 +33,6 @@ export interface Cluster {
   id: string;
   comments: Comment[];
   tier: TierSpec;
-}
-
-const BLOCK_TAGS = new Set([
-  "P",
-  "DIV",
-  "H1",
-  "H2",
-  "H3",
-  "H4",
-  "H5",
-  "H6",
-  "PRE",
-  "BLOCKQUOTE",
-  "LI",
-  "TR",
-  "TD",
-  "TH",
-]);
-
-export function findBlockAncestor(node: Node): Element | null {
-  let el: Element | null =
-    node.nodeType === Node.ELEMENT_NODE
-      ? (node as Element)
-      : node.parentElement;
-  while (el && !BLOCK_TAGS.has(el.tagName)) {
-    el = el.parentElement;
-  }
-  return el;
 }
 
 export function buildClusters(

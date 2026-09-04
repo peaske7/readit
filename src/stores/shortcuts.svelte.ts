@@ -1,3 +1,4 @@
+import { client } from "../lib/client";
 import {
   bindingsEqual,
   DEFAULT_SHORTCUTS,
@@ -6,12 +7,26 @@ import {
 } from "../lib/shortcut-registry";
 import type { KeybindingOverride, ShortcutBinding } from "../schema";
 
+const KEYBINDINGS_STORAGE_KEY = "readit:keybindings";
+
 export const shortcutState = $state({
   shortcuts: DEFAULT_SHORTCUTS as ShortcutDefinition[],
 });
 
 export function initShortcuts(overrides: KeybindingOverride[]): void {
-  shortcutState.shortcuts = resolveShortcuts(overrides);
+  shortcutState.shortcuts = resolveShortcuts(
+    client.capabilities.putSettings ? overrides : readStoredOverrides(),
+  );
+}
+
+function readStoredOverrides(): KeybindingOverride[] {
+  try {
+    const raw = localStorage.getItem(KEYBINDINGS_STORAGE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as KeybindingOverride[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function updateBinding(
@@ -87,15 +102,19 @@ function toOverrides(shortcuts: ShortcutDefinition[]): KeybindingOverride[] {
 async function persistOverrides(
   shortcuts: ShortcutDefinition[],
 ): Promise<void> {
+  // Hosted snapshots have no settings endpoint; keep overrides per browser.
+  if (!client.capabilities.putSettings) {
+    try {
+      localStorage.setItem(
+        KEYBINDINGS_STORAGE_KEY,
+        JSON.stringify(toOverrides(shortcuts)),
+      );
+    } catch {}
+    return;
+  }
+
   try {
-    const response = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keybindings: toOverrides(shortcuts) }),
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to save keybindings: ${response.status}`);
-    }
+    await client.putSettings({ keybindings: toOverrides(shortcuts) });
   } catch (err) {
     console.error("Failed to save keybindings:", err);
   }

@@ -1,6 +1,8 @@
 <script lang="ts">
 import { onMount } from "svelte";
 import { clearDraft, loadDraft, saveDraft } from "../lib/comment-drafts";
+import { GeometryAttributes } from "../lib/geometry/attributes";
+import { COMMENT_INPUT_HEIGHT_PX } from "../lib/geometry/constants";
 import { formatBinding } from "../lib/shortcut-registry";
 import { cn } from "../lib/utils";
 import { FontFamilies } from "../schema";
@@ -118,8 +120,9 @@ function dismissDraftNotice() {
 
 {#if selectedText}
   <div
-    data-comment-input
+    {...{ [GeometryAttributes.COMMENT_INPUT]: "" }}
     class="border-t border-zinc-200 dark:border-zinc-700 pt-3 pb-2"
+    style={`min-height: ${COMMENT_INPUT_HEIGHT_PX}px`}
   >
     <Text variant="caption" as="div" class="italic mb-2 line-clamp-2">
       "{selectedText}"

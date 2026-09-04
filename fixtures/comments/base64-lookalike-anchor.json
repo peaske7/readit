@@ -1,0 +1,17 @@
+{
+  "source": "/home/user/docs/design.md",
+  "hash": "0123456789abcdef",
+  "version": 1,
+  "comments": [
+    {
+      "id": "77777777",
+      "selectedText": "Introduction\n...\nto the format",
+      "comment": "Raw text can look like base64; it is only read as base64 when it also decodes to printable UTF-8.",
+      "lineHint": "L20",
+      "createdAt": "2026-01-02T03:04:05.000Z",
+      "anchorPrefix": "Introduction",
+      "startOffset": 0,
+      "endOffset": 0
+    }
+  ]
+}

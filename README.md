@@ -44,6 +44,10 @@ readit show <file>            # Show comments for a file
 readit open <files...>        # Add files to running server
 readit zed-open <file>        # Open from a Zed task or extension
 readit completion zsh         # Output shell integration script
+
+readit share <file>           # Publish to your Cloudflare Worker (see Sharing)
+readit pull <file>            # Merge web comments back into local comments
+readit unshare <file>         # Delete the share
 ```
 
 Select text to add comments. Comments appear as margin notes. Copy all comments formatted for AI with a single click.
@@ -164,6 +168,24 @@ Then add a keybinding in `~/.config/zed/keymap.json`:
 
 Run `readit zed-open README.md` manually if the task fails. Check that `readit` is on `PATH`, Bun is installed, and `~/.readit/server.json` points to a healthy server process.
 
+## Sharing
+
+Publish a document so others can read and comment on it, or so you can read it on your phone, without running readit on your laptop. Shares live on a Cloudflare Worker you deploy once; everything fits in the free tier. Setup is in [worker/README.md](worker/README.md).
+
+```bash
+readit remote setup                  # Store the Worker URL and publish token
+readit share doc.md                  # Unguessable link, not indexed
+readit share doc.md --public         # Anyone, cacheable
+readit share doc.md --password       # Prompts for a password; 5 attempts/min
+readit pull doc.md                   # Merge comments made on the web
+readit unshare doc.md                # Remove it
+readit remote list                   # What is currently shared
+```
+
+The same actions live in the browser: the `⋯` menu has **Share…**, which publishes the open document, shows the link with a copy button, and lets you switch between link, public, and password modes or unshare. On a published page the menu shows **Copy link** instead.
+
+A share is a snapshot: re-run `readit share` (or **Update** in the dialog) after editing and the URL stays the same. Viewers get the full readit UI and their comments are merged back with `readit pull` (for comments you already published the web copy wins; anything you added locally since is kept). Relative images are uploaded with the document.
+
 ## Live Reload
 
 readit watches open documents for changes and automatically refreshes the browser. This works with any editor:
@@ -186,7 +208,10 @@ bun dev           # Start dev server
 bun run build     # Build for production
 bun run test      # Run tests
 bun run check     # Lint and format (Biome)
+bun run worker:dev    # Share Worker on :8787 with simulated R2
 ```
+
+CI runs lint, typecheck, unit, Go, Playwright, and a Worker dry-run deploy on every pull request. Pushes to `main` deploy the Worker; `v*` tags publish to npm (see `.github/workflows/`).
 
 ## License
 

@@ -1,23 +1,23 @@
 <script lang="ts">
-import type { Cluster } from "../lib/clustering";
-import { TierTypes } from "../lib/clustering";
-import type { Positions } from "../lib/positions";
+import { GeometryAttributes } from "../lib/geometry/attributes";
+import { type Cluster, TierTypes } from "../lib/geometry/clustering";
+import type { DocumentGeometry } from "../lib/geometry/document-geometry";
 import MarginEntry from "./MarginEntry.svelte";
 import MarginGroupEntry from "./MarginGroupEntry.svelte";
 
 interface Props {
   cluster: Cluster;
   startIndex: number;
-  positions: Positions;
+  geometry: DocumentGeometry;
 }
 
-let { cluster, startIndex, positions }: Props = $props();
+let { cluster, startIndex, geometry }: Props = $props();
 
 let blockEl: HTMLElement | undefined = $state();
 
 $effect(() => {
-  if (blockEl) positions.registerCluster(cluster.id, blockEl);
-  return () => positions.unregisterCluster(cluster.id);
+  if (blockEl) geometry.registerCluster(cluster.id, blockEl);
+  return () => geometry.unregisterCluster(cluster.id);
 });
 </script>
 
@@ -25,10 +25,14 @@ $effect(() => {
   bind:this={blockEl}
   class="absolute left-0 right-0 bg-white dark:bg-zinc-900"
   style="visibility: hidden"
-  data-cluster-id={cluster.id}
+  {...{ [GeometryAttributes.CLUSTER_ID]: cluster.id }}
 >
   {#if cluster.tier.type === TierTypes.GROUP}
-    <MarginGroupEntry comments={cluster.comments} {startIndex} />
+    <MarginGroupEntry
+      comments={cluster.comments}
+      {startIndex}
+      tier={cluster.tier}
+    />
   {:else}
     {#each cluster.comments as comment, i (comment.id)}
       <MarginEntry

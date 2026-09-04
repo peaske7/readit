@@ -1,22 +1,11 @@
 import { existsSync, rmSync } from "node:fs";
-import * as os from "node:os";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
+import { getCommentPath } from "../src/lib/comment-storage";
 import { spawnCli } from "./utils/cli";
 import { addComment, selectTextInArticle } from "./utils/selection";
 
 const FIXTURES_DIR = resolve(import.meta.dirname, "fixtures");
-
-/**
- * Get the expected comment file path for a source file.
- */
-function getCommentPath(sourcePath: string): string {
-  const absolute = resolve(sourcePath);
-  const normalized = absolute.replace(/^\//, "").replace(/^[A-Z]:[\\/]/, "");
-  const ext = normalized.lastIndexOf(".");
-  const withoutExt = ext > 0 ? normalized.slice(0, ext) : normalized;
-  return join(os.homedir(), ".readit", "comments", `${withoutExt}.comments.md`);
-}
 
 /**
  * Clean up comment file for a source file.

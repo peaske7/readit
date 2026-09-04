@@ -92,6 +92,47 @@ export interface DocumentSettings {
   keybindings?: KeybindingOverride[];
 }
 
+export interface InlineDocData {
+  html?: string;
+  headings: { id: string; text: string; level: number }[];
+  comments: Comment[];
+}
+
+/** JSON embedded in the page as `#__readit`, produced by every readit server. */
+export interface InlineData {
+  files: { path: string; fileName: string }[];
+  activeFile: string;
+  clean: boolean;
+  workingDirectory: string;
+  documents: Record<string, InlineDocData>;
+  settings: {
+    version: number;
+    fontFamily: string;
+    keybindings?: KeybindingOverride[];
+  };
+  /** True when served as a published snapshot with no live server behind it. */
+  hosted?: boolean;
+  /** True when this server can publish the document to a share remote. */
+  canShare?: boolean;
+  /** Prefix for every `/api/...` request, e.g. `/s/{id}`. */
+  apiBase?: string;
+}
+
+export const ShareModes = {
+  PUBLIC: "public",
+  LINK: "link",
+  PASSWORD: "password",
+} as const;
+export type ShareMode = (typeof ShareModes)[keyof typeof ShareModes];
+
+export function isShareMode(value: unknown): value is ShareMode {
+  return (
+    value === ShareModes.PUBLIC ||
+    value === ShareModes.LINK ||
+    value === ShareModes.PASSWORD
+  );
+}
+
 export const TableModes = {
   AUTO: "auto",
   FIT: "fit",

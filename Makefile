@@ -1,4 +1,4 @@
-.PHONY: dev build build-client build-server test test-client test-e2e clean
+.PHONY: dev build build-client build-server test test-client test-e2e clean deploy-worker
 
 # Development: Go server manages Vite child process
 dev:
@@ -30,3 +30,7 @@ clean:
 	rm -rf dist go/internal/server/dist
 	mkdir -p go/internal/server/dist
 	touch go/internal/server/dist/.gitkeep
+
+# Cloudflare share Worker (see worker/README.md)
+deploy-worker:
+	bun run worker:deploy

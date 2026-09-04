@@ -176,12 +176,19 @@
 **I want to** share review sessions with teammates  
 **So that** we can collaborate on document feedback  
 
+**Status:** Partially implemented (v0.8.0). `readit share` publishes a snapshot
+to a self-hosted Cloudflare Worker with link, public, or password access;
+viewers comment in the same UI; `readit pull` merges their comments back.
+The browser's `⋯` menu has a Share dialog (publish, copy link, change mode,
+unshare) and a Copy link item on published pages. Real-time sync and author
+attribution are not implemented.
+
 **Acceptance Criteria:**
 
-- Generate shareable link
-- Real-time sync of comments
-- Author attribution on comments
-- Conflict resolution for simultaneous edits
+- Generate shareable link ✅
+- Real-time sync of comments (not implemented; snapshot + pull instead)
+- Author attribution on comments (not implemented)
+- Conflict resolution for simultaneous edits (merge rule on pull: remote wins for published ids)
 
 **Status:** Not implemented (future consideration)
 

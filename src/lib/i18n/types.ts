@@ -20,6 +20,27 @@ export interface Translations {
   "actions.copyAll": string;
   "actions.exportJson": string;
   "actions.viewRaw": string;
+  "actions.share": string;
+  "actions.copyLink": string;
+
+  "share.title": string;
+  "share.notConfigured": string;
+  "share.mode.link": string;
+  "share.mode.link.hint": string;
+  "share.mode.public": string;
+  "share.mode.public.hint": string;
+  "share.mode.password": string;
+  "share.mode.password.hint": string;
+  "share.passwordPlaceholder": string;
+  "share.passwordKeep": string;
+  "share.passwordRequired": string;
+  "share.publish": string;
+  "share.update": string;
+  "share.publishing": string;
+  "share.copy": string;
+  "share.unshare": string;
+  "share.unshareConfirm": string;
+  "share.unshareCancel": string;
 
   "settings.title": string;
   "settings.theme": string;
@@ -87,6 +108,7 @@ export interface Translations {
   "toast.copied": string;
   "toast.copiedAllComments": string;
   "toast.copiedComment": string;
+  "toast.copiedLink": string;
 
   "commentBadge.title": string;
   "commentBadge.titlePlural": string;

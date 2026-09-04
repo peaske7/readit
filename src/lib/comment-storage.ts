@@ -1,13 +1,46 @@
+/**
+ * Codec for the `.comments.md` on-disk format.
+ *
+ * The format is the interface between this module and the Go server
+ * (`go/internal/server/storage.go`): both must parse the same files into the
+ * same comments and serialize the same comments into byte-identical output.
+ * `fixtures/comments/` is the shared conformance corpus that pins that down.
+ *
+ * Caller-facing invariants:
+ *
+ * - **Offsets are not stored.** `startOffset`/`endOffset` are always `0` on a
+ *   parsed comment. They only become meaningful after anchor resolution
+ *   (`findAnchorWithFallback`), which matches `anchorPrefix ?? selectedText`.
+ * - **`lineHint` is a hint, not a location.** Serialization writes `L0` when a
+ *   comment has none; resolution treats a missing hint as `L1`. Never derive a
+ *   position from it without resolving.
+ * - **`hash` is written but never verified.** It records the source content the
+ *   comments were last written against; a stale hash does not invalidate a file.
+ * - **`id` is opaque**, 8 hex chars in practice, and must not contain `|` (it is
+ *   delimited by `|` inside the marker comment).
+ * - **Order is identity.** Parsing preserves file order and serialization writes
+ *   it back unchanged. Merge and dedupe by `id`, never by position.
+ * - **Serialization is pure.** Nothing is invented for missing fields: a comment
+ *   without `createdAt` is written as a two-field marker, not stamped with now.
+ * - **A comment body ending in `---` is not round-trippable**, because a bare
+ *   `---` line is the comment separator.
+ */
 import * as crypto from "node:crypto";
-import * as os from "node:os";
 import * as path from "node:path";
 import type { Comment, CommentFile } from "../schema";
+import { commentsDir } from "./readit-home.js";
 
 const FORMAT_VERSION = 1;
 const HASH_LENGTH = 16;
 const MAX_SELECTION_LENGTH = 1000;
 const TRUNCATION_MARKER = "\n...\n";
 const ANCHOR_PREFIX_LENGTH = 200;
+
+const MARKER_RE = /<!--\s*c:([^|]+)\|([^|>\s]+)(?:\|([^>]*))?\s*-->/;
+const MARKER_GLOBAL_RE = new RegExp(MARKER_RE.source, "g");
+const ANCHOR_RE = /<!--\s*anchor:(.*?)\s*-->/;
+const TRAILING_SEPARATOR_RE = /\n+---\s*$/;
+const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
 
 export function truncateSelection(text: string): string {
   if (text.length <= MAX_SELECTION_LENGTH) {
@@ -25,12 +58,7 @@ export function getCommentPath(sourcePath: string): string {
   const ext = path.extname(normalized);
   const withoutExt = normalized.slice(0, -ext.length || undefined);
 
-  return path.join(
-    os.homedir(),
-    ".readit",
-    "comments",
-    `${withoutExt}.comments.md`,
-  );
+  return path.join(commentsDir(), `${withoutExt}.comments.md`);
 }
 
 export function computeHash(content: string): string {
@@ -57,6 +85,64 @@ export function getLineHint(
   return startLine === endLine ? `L${startLine}` : `L${startLine}-L${endLine}`;
 }
 
+/**
+ * The anchor prefix is stored as readable text on one line, so newlines,
+ * backslashes and a literal `-->` are backslash-escaped.
+ */
+function escapeAnchorPrefix(text: string): string {
+  return text
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/-->/g, "--\\>");
+}
+
+const ANCHOR_UNESCAPES: Record<string, string> = {
+  "\\": "\\",
+  n: "\n",
+  r: "\r",
+  ">": ">",
+};
+
+function unescapeAnchorPrefix(text: string): string {
+  return text.replace(
+    /\\([\s\S])/g,
+    (match, ch: string) => ANCHOR_UNESCAPES[ch] ?? match,
+  );
+}
+
+/** Mirrors Go's unicode.IsControl, minus the whitespace the format allows. */
+function hasControlChars(text: string): boolean {
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    const isControl = code < 0x20 || (code >= 0x7f && code <= 0x9f);
+    if (isControl && ch !== "\t" && ch !== "\n" && ch !== "\r") return true;
+  }
+  return false;
+}
+
+/**
+ * readit <= 0.4 (Go server only) base64-encoded the anchor prefix. Raw text is
+ * only ambiguous with base64 when it is pure base64 alphabet, correctly padded,
+ * and decodes to printable UTF-8 — so that combination is read as legacy.
+ */
+function decodeAnchorPrefix(raw: string): string {
+  if (raw.length % 4 === 0 && BASE64_RE.test(raw)) {
+    try {
+      const binary = atob(raw);
+      const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+      const decoded = new TextDecoder("utf-8", {
+        fatal: true,
+        ignoreBOM: false,
+      }).decode(bytes);
+      if (decoded.length > 0 && !hasControlChars(decoded)) return decoded;
+    } catch {
+      // Not base64, or not UTF-8: fall through and read the value as raw text.
+    }
+  }
+  return unescapeAnchorPrefix(raw);
+}
+
 export function parseCommentFile(content: string): CommentFile {
   const result: CommentFile = {
     source: "",
@@ -72,9 +158,9 @@ export function parseCommentFile(content: string): CommentFile {
   const frontMatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
   if (frontMatterMatch) {
     const frontMatter = frontMatterMatch[1];
-    const sourceMatch = frontMatter.match(/^source:\s*(.+)$/m);
-    const hashMatch = frontMatter.match(/^hash:\s*(.+)$/m);
-    const versionMatch = frontMatter.match(/^version:\s*(\d+)$/m);
+    const sourceMatch = frontMatter.match(/^source:[ \t]*(.+)$/m);
+    const hashMatch = frontMatter.match(/^hash:[ \t]*(.+)$/m);
+    const versionMatch = frontMatter.match(/^version:[ \t]*(\d+)$/m);
 
     if (sourceMatch) result.source = sourceMatch[1].trim();
     if (hashMatch) result.hash = hashMatch[1].trim();
@@ -90,9 +176,8 @@ export function parseCommentFile(content: string): CommentFile {
 
   const bodyContent = content.replace(/^---\n[\s\S]*?\n---\n*/, "");
 
-  const markerRe = /<!--\s*c:[^|]+\|[^|>\s]+(?:\|[^>]*)?\s*-->/g;
   const markerStarts: number[] = [];
-  for (const m of bodyContent.matchAll(markerRe)) {
+  for (const m of bodyContent.matchAll(MARKER_GLOBAL_RE)) {
     if (m.index !== undefined) markerStarts.push(m.index);
   }
 
@@ -100,12 +185,7 @@ export function parseCommentFile(content: string): CommentFile {
     const start = markerStarts[i];
     const end =
       i + 1 < markerStarts.length ? markerStarts[i + 1] : bodyContent.length;
-    const block = bodyContent
-      .slice(start, end)
-      .replace(/\n+---\s*$/, "")
-      .trim();
-    if (!block) continue;
-    const comment = parseCommentBlock(block);
+    const comment = parseCommentBlock(bodyContent.slice(start, end));
     if (comment) {
       result.comments.push(comment);
     }
@@ -114,86 +194,89 @@ export function parseCommentFile(content: string): CommentFile {
   return result;
 }
 
-function parseCommentBlock(block: string): Comment | undefined {
-  const metadataMatch = block.match(
-    /<!--\s*c:([^|]+)\|([^|>\s]+)(?:\|([^>]*))?\s*-->/,
-  );
+function parseCommentBlock(rawBlock: string): Comment | undefined {
+  const block = rawBlock.trim().replace(TRAILING_SEPARATOR_RE, "").trim();
+  const metadataMatch = block.match(MARKER_RE);
   if (!metadataMatch) {
     return undefined;
   }
 
   const [, id, lineHint, createdAtRaw] = metadataMatch;
-  const createdAt = createdAtRaw?.trim() || undefined;
+  const anchorMatch = block.match(ANCHOR_RE);
 
-  const anchorMatch = block.match(/<!--\s*anchor:(.+?)\s*-->/);
-  const anchorPrefix = anchorMatch ? anchorMatch[1] : undefined;
+  const lines = block.split("\n");
+  let i = 0;
+  while (
+    i < lines.length &&
+    (MARKER_RE.test(lines[i]) || ANCHOR_RE.test(lines[i]))
+  ) {
+    i++;
+  }
 
-  const blockquoteMatch = block.match(/^>\s*(.+(?:\n>\s*.+)*)$/m);
-  if (!blockquoteMatch) {
+  const selectedLines: string[] = [];
+  while (i < lines.length) {
+    if (lines[i] === ">") {
+      selectedLines.push("");
+    } else if (lines[i].startsWith("> ")) {
+      selectedLines.push(lines[i].slice(2));
+    } else {
+      break;
+    }
+    i++;
+  }
+  if (selectedLines.length === 0) {
     return undefined;
   }
 
-  const selectedText = blockquoteMatch[1]
-    .split("\n")
-    .map((line) => line.replace(/^>\s*/, ""))
-    .join("\n");
-
-  const afterBlockquote = block.slice(
-    block.indexOf(blockquoteMatch[0]) + blockquoteMatch[0].length,
-  );
-  const commentBody = afterBlockquote.trim();
-
   return {
-    id,
-    selectedText,
-    comment: commentBody,
-    lineHint,
-    createdAt,
-    anchorPrefix,
+    id: id.trim(),
+    selectedText: selectedLines.join("\n"),
+    comment: lines.slice(i).join("\n").trim(),
+    lineHint: lineHint.trim(),
+    createdAt: createdAtRaw?.trim() || undefined,
+    anchorPrefix: anchorMatch ? decodeAnchorPrefix(anchorMatch[1]) : undefined,
     startOffset: 0,
     endOffset: 0,
   };
 }
 
-export function serializeComments(file: CommentFile): string {
-  const lines: string[] = [];
-
-  lines.push("---");
-  lines.push(`source: ${file.source}`);
-  lines.push(`hash: ${file.hash}`);
-  lines.push(`version: ${file.version}`);
-  lines.push("---");
-  lines.push("");
-
-  for (const comment of file.comments) {
-    lines.push(serializeComment(comment));
-    lines.push("");
-    lines.push("---");
-    lines.push("");
-  }
-
-  return lines.join("\n");
+/** Never leaves a trailing space behind an empty value. */
+function frontMatterLine(key: string, value: string): string {
+  return value ? `${key}: ${value}` : `${key}:`;
 }
 
-function serializeComment(comment: Comment): string {
-  const lines: string[] = [];
+export function serializeComments(file: CommentFile): string {
+  const lines: string[] = [
+    "---",
+    frontMatterLine("source", file.source),
+    frontMatterLine("hash", file.hash),
+    `version: ${file.version}`,
+    "---",
+    "",
+  ];
 
-  const lineHint = comment.lineHint || "L0";
-  const createdAt = comment.createdAt || new Date().toISOString();
-  lines.push(`<!-- c:${comment.id}|${lineHint}|${createdAt} -->`);
+  for (const comment of file.comments) {
+    const lineHint = comment.lineHint || "L0";
+    lines.push(
+      comment.createdAt
+        ? `<!-- c:${comment.id}|${lineHint}|${comment.createdAt} -->`
+        : `<!-- c:${comment.id}|${lineHint} -->`,
+    );
 
-  if (comment.anchorPrefix) {
-    lines.push(`<!-- anchor:${comment.anchorPrefix} -->`);
-  }
+    if (comment.anchorPrefix) {
+      lines.push(`<!-- anchor:${escapeAnchorPrefix(comment.anchorPrefix)} -->`);
+    }
 
-  const quotedLines = comment.selectedText
-    .split("\n")
-    .map((line) => `> ${line}`);
-  lines.push(...quotedLines);
+    for (const line of comment.selectedText.split("\n")) {
+      lines.push(line ? `> ${line}` : ">");
+    }
 
-  if (comment.comment) {
-    lines.push("");
-    lines.push(comment.comment);
+    const body = comment.comment.trim();
+    if (body) {
+      lines.push("", body);
+    }
+
+    lines.push("", "---", "");
   }
 
   return lines.join("\n");

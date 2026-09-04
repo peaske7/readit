@@ -13,46 +13,43 @@ import ReanchorConfirm from "./components/ReanchorConfirm.svelte";
 import TabBar from "./components/TabBar.svelte";
 import TableOfContents from "./components/TableOfContents.svelte";
 import Toast from "./components/Toast.svelte";
-import type { Cluster } from "./lib/clustering";
+import { client } from "./lib/client";
 import { purgeExpiredDrafts } from "./lib/comment-drafts";
 import { extractContext, formatForLLM } from "./lib/context";
-import {
-  exportCommentsAsJson,
-  formatComment,
-  generatePrompt,
-} from "./lib/export";
-import { fetchOrThrow } from "./lib/fetch-or-throw";
-import { Positions } from "./lib/positions";
+import { formatComment, generatePrompt } from "./lib/export";
+import { GeometryAttributes } from "./lib/geometry/attributes";
+import type { Cluster } from "./lib/geometry/clustering";
+import { MARGIN_COLUMN_PADDING_PX } from "./lib/geometry/constants";
 import { matchesBinding, ShortcutActions } from "./lib/shortcut-registry";
-import { AnchorConfidences, type Comment } from "./schema";
+import type { Comment } from "./schema";
 import {
+  addComment,
   app,
+  bootstrap,
+  deleteComment,
   getActiveDocumentState,
-  openDocument,
+  reanchorComment,
   setActiveDocument,
-  setComments,
   setCommentsError,
-  setHeadings,
   setPendingSelectionTop,
   setReanchorTarget,
-  setScrollY,
   setSelection,
-  setWorkingDirectory,
-  updateDocumentHtml,
+  startDocumentStream,
+  stopDocumentStream,
+  toggleTask,
+  updateComment,
 } from "./stores/app.svelte";
 import { startHeartbeat, stopHeartbeat } from "./stores/connection.svelte";
 import { t } from "./stores/locale.svelte";
-import { initSettings } from "./stores/settings.svelte";
-import { initShortcuts, shortcutState } from "./stores/shortcuts.svelte";
+import { shortcutState } from "./stores/shortcuts.svelte";
 import { showToast } from "./stores/toast.svelte";
 import { setActiveCommentId, ui } from "./stores/ui.svelte";
 
-let isInitialized = $state(false);
-let error = $state<string | null>(null);
-const positionsMap = new Map<string, Positions>();
 let activeClusters = $state<Cluster[]>([]);
 let activeIndexById = $state<Map<string, number>>(new Map());
 let currentIndex = $state(0);
+// Live DOM callbacks registered by each DocumentViewer, not document state:
+// they die with the component, so they stay here rather than in the store.
 const highlighterMap = new Map<
   string,
   {
@@ -60,236 +57,10 @@ const highlighterMap = new Map<
     scrollTo: (id: string) => void;
   }
 >();
-const prevActiveMap = new Map<string, boolean>();
 
 function clearPendingHighlight() {
   if (typeof CSS !== "undefined" && CSS.highlights) {
     CSS.highlights.delete("pending-selection");
-  }
-}
-
-function getPositions(filePath: string): Positions {
-  let pos = positionsMap.get(filePath);
-  if (!pos) {
-    pos = new Positions();
-    positionsMap.set(filePath, pos);
-  }
-  return pos;
-}
-
-// Tracks the last successful task PATCH per file so we can ignore the
-// matching SSE round-trip — the optimistic DOM update is already correct,
-// and a full innerHTML swap would clobber it (visible as a "revert" flicker).
-const recentTaskPatches = new Map<string, number>();
-const TASK_PATCH_SSE_DEBOUNCE_MS = 800;
-
-async function toggleTask(
-  filePath: string,
-  index: number,
-  checked: boolean,
-): Promise<boolean> {
-  try {
-    const res = await fetch("/api/document/task", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: filePath, index, checked }),
-    });
-    if (res.ok) {
-      recentTaskPatches.set(filePath, Date.now());
-    }
-    return res.ok;
-  } catch (err) {
-    console.error("Failed to toggle task:", err);
-    return false;
-  }
-}
-
-async function addComment(
-  filePath: string,
-  selectedText: string,
-  commentText: string,
-  startOffset: number,
-  endOffset: number,
-): Promise<boolean> {
-  const tempId = `temp-${crypto.randomUUID()}`;
-  const optimisticComment: Comment = {
-    id: tempId,
-    selectedText,
-    comment: commentText.trim(),
-    startOffset,
-    endOffset,
-  };
-
-  const docState = app.documents.get(filePath);
-  const previousComments = [...(docState?.comments ?? [])];
-
-  setComments([...previousComments, optimisticComment], filePath);
-  setCommentsError(null, filePath);
-
-  try {
-    const response = await fetchOrThrow(
-      `/api/comments?path=${encodeURIComponent(filePath)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          selectedText,
-          comment: commentText.trim(),
-          startOffset,
-          endOffset,
-        }),
-      },
-      "Failed to add comment",
-    );
-    const data = await response.json();
-    const current = app.documents.get(filePath)?.comments ?? [];
-    setComments(
-      current.map((c) => (c.id === tempId ? data.comment : c)),
-      filePath,
-    );
-    return true;
-  } catch (err) {
-    console.error("Failed to add comment:", err);
-    setCommentsError(
-      err instanceof Error ? err.message : "Failed to add comment",
-      filePath,
-    );
-    setComments(previousComments, filePath);
-    return false;
-  }
-}
-
-async function editComment(filePath: string, id: string, newText: string) {
-  const trimmed = newText.trim();
-  if (!trimmed) return;
-
-  const docState = app.documents.get(filePath);
-  const previousComments = [...(docState?.comments ?? [])];
-
-  setComments(
-    previousComments.map((c) => (c.id === id ? { ...c, comment: trimmed } : c)),
-    filePath,
-  );
-
-  setCommentsError(null, filePath);
-  try {
-    await fetchOrThrow(
-      `/api/comments/${id}?path=${encodeURIComponent(filePath)}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment: trimmed }),
-      },
-      "Failed to update comment",
-    );
-  } catch (err) {
-    console.error("Failed to edit comment:", err);
-    setCommentsError(
-      err instanceof Error ? err.message : "Failed to update comment",
-      filePath,
-    );
-    setComments(previousComments, filePath);
-  }
-}
-
-async function deleteComment(filePath: string, id: string) {
-  const docState = app.documents.get(filePath);
-  const previousComments = [...(docState?.comments ?? [])];
-
-  setComments(
-    previousComments.filter((c) => c.id !== id),
-    filePath,
-  );
-
-  setCommentsError(null, filePath);
-  try {
-    await fetchOrThrow(
-      `/api/comments/${id}?path=${encodeURIComponent(filePath)}`,
-      { method: "DELETE" },
-      "Failed to delete comment",
-    );
-  } catch (err) {
-    console.error("Failed to delete comment:", err);
-    setCommentsError(
-      err instanceof Error ? err.message : "Failed to delete comment",
-      filePath,
-    );
-    setComments(previousComments, filePath);
-  }
-}
-
-async function deleteAllComments(filePath: string) {
-  const docState = app.documents.get(filePath);
-  const previousComments = [...(docState?.comments ?? [])];
-
-  setComments([], filePath);
-
-  setCommentsError(null, filePath);
-  try {
-    await fetchOrThrow(
-      `/api/comments?path=${encodeURIComponent(filePath)}`,
-      { method: "DELETE" },
-      "Failed to delete all comments",
-    );
-  } catch (err) {
-    console.error("Failed to delete all comments:", err);
-    setCommentsError(
-      err instanceof Error ? err.message : "Failed to delete all comments",
-      filePath,
-    );
-    setComments(previousComments, filePath);
-  }
-}
-
-async function reanchorComment(
-  filePath: string,
-  id: string,
-  selectedText: string,
-  startOffset: number,
-  endOffset: number,
-) {
-  const docState = app.documents.get(filePath);
-  const previousComments = [...(docState?.comments ?? [])];
-
-  setComments(
-    previousComments.map((c) =>
-      c.id === id
-        ? {
-            ...c,
-            selectedText,
-            startOffset,
-            endOffset,
-            anchorConfidence: AnchorConfidences.EXACT,
-          }
-        : c,
-    ),
-    filePath,
-  );
-
-  setCommentsError(null, filePath);
-  try {
-    const response = await fetchOrThrow(
-      `/api/comments/${id}/reanchor?path=${encodeURIComponent(filePath)}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selectedText, startOffset, endOffset }),
-      },
-      "Failed to re-anchor comment",
-    );
-    const data = await response.json();
-    const current = app.documents.get(filePath)?.comments ?? [];
-    setComments(
-      current.map((c) => (c.id === id ? data.comment : c)),
-      filePath,
-    );
-  } catch (err) {
-    console.error("Failed to re-anchor comment:", err);
-    setCommentsError(
-      err instanceof Error ? err.message : "Failed to re-anchor comment",
-      filePath,
-    );
-    setComments(previousComments, filePath);
   }
 }
 
@@ -352,30 +123,26 @@ function onTextSelect(
   setActiveCommentId(undefined);
   setSelection({ text, startOffset, endOffset }, filePath);
   setPendingSelectionTop(selectionTop, filePath);
-  const pos = positionsMap.get(filePath);
-  pos?.setPending(selectionTop);
+  app.documents.get(filePath)?.geometry.setPendingSelection(selectionTop);
 }
 
 function clearSelection(filePath: string) {
   setSelection(null, filePath);
   setPendingSelectionTop(undefined, filePath);
-  positionsMap.get(filePath)?.setPending(undefined);
+  app.documents.get(filePath)?.geometry.setPendingSelection(undefined);
   clearPendingHighlight();
   window.getSelection()?.removeAllRanges();
 }
 
 function handleClickOutside(e: MouseEvent) {
   const target = e.target as HTMLElement;
-  if (target.closest("[data-comment-input]")) return;
+  if (target.closest(`[${GeometryAttributes.COMMENT_INPUT}]`)) return;
 
   if (!app.activeDocumentPath) return;
   const docState = app.documents.get(app.activeDocumentPath);
   if (!docState?.selection) return;
 
-  setSelection(null, app.activeDocumentPath);
-  setPendingSelectionTop(undefined, app.activeDocumentPath);
-  positionsMap.get(app.activeDocumentPath)?.setPending(undefined);
-  clearPendingHighlight();
+  clearSelection(app.activeDocumentPath);
   requestAnimationFrame(() => {
     const sel = window.getSelection();
     if (sel?.isCollapsed) {
@@ -391,12 +158,6 @@ function handleCopyAll(filePath: string) {
     generatePrompt(docState.comments, docState.document.fileName),
   );
   showToast(t("toast.copiedAllComments"));
-}
-
-function handleExportJson(filePath: string) {
-  const docState = app.documents.get(filePath);
-  if (!docState) return;
-  exportCommentsAsJson(docState.comments, docState.document);
 }
 
 async function handleAddComment(
@@ -449,179 +210,6 @@ function scrollToHeading(id: string) {
   const elementTop = window.scrollY + rect.top;
   const scrollTarget = Math.max(0, elementTop - window.innerHeight * 0.25);
   window.scrollTo({ top: scrollTarget, behavior: "smooth" });
-}
-
-function startReanchor(filePath: string, commentId: string) {
-  setReanchorTarget({ commentId }, filePath);
-}
-
-let documentStreamSource: EventSource | undefined;
-
-async function initialize() {
-  // If already hydrated by main.ts from inline data, skip
-  if (app.documentOrder.length > 0) {
-    isInitialized = true;
-    return;
-  }
-
-  // Fallback: fetch from API (e.g. if inline data was missing)
-  try {
-    const res = await fetch("/api/documents");
-    if (!res.ok) throw new Error(`Server error: ${res.status}`);
-    const data = await res.json();
-
-    const clean = data.clean || false;
-    if (data.workingDirectory) setWorkingDirectory(data.workingDirectory);
-
-    for (const file of data.files) {
-      openDocument(
-        { html: "", filePath: file.path, fileName: file.fileName, clean },
-        { active: false },
-      );
-    }
-
-    if (data.files.length > 0) {
-      setActiveDocument(data.files[0].path);
-    }
-
-    initSettings();
-    initShortcuts(data.settings?.keybindings ?? []);
-  } catch (err) {
-    error = err instanceof Error ? err.message : "Failed to load documents";
-  } finally {
-    isInitialized = true;
-  }
-}
-
-function setupDocumentStream() {
-  let reconnectDelay = 1000;
-  const MAX_RECONNECT_DELAY = 30000;
-
-  function connect() {
-    documentStreamSource = new EventSource("/api/document/stream");
-
-    documentStreamSource.onopen = () => {
-      reconnectDelay = 1000;
-    };
-
-    documentStreamSource.onmessage = async (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.type === "document-added" && data.path) {
-          openDocument(
-            {
-              html: "",
-              filePath: data.path,
-              fileName: data.fileName,
-              clean: false,
-            },
-            { active: false },
-          );
-          return;
-        }
-        if (data.type === "document-updated" && data.path) {
-          const path = data.path;
-          const state = app.documents.get(path);
-          if (!state?.document.html) return;
-
-          // Skip if we just initiated a task PATCH — the optimistic update is
-          // authoritative for our own click; refetching would flicker.
-          const lastPatch = recentTaskPatches.get(path);
-          if (
-            lastPatch !== undefined &&
-            Date.now() - lastPatch < TASK_PATCH_SSE_DEBOUNCE_MS
-          ) {
-            recentTaskPatches.delete(path);
-            return;
-          }
-
-          const [docRes, commentsRes] = await Promise.all([
-            fetch(`/api/document?path=${encodeURIComponent(path)}`),
-            fetch(`/api/comments?path=${encodeURIComponent(path)}`),
-          ]);
-
-          if (docRes.ok) {
-            const doc = await docRes.json();
-            setHeadings(doc.headings ?? [], path);
-            updateDocumentHtml(doc.html, path);
-          }
-          if (commentsRes.ok) {
-            const commentsData = await commentsRes.json();
-            setComments(commentsData.comments ?? [], path);
-          }
-        }
-      } catch (err) {
-        // SSE message parse failure — non-critical, stream will continue
-        console.warn("Failed to parse document stream message:", err);
-      }
-    };
-
-    documentStreamSource.onerror = () => {
-      documentStreamSource?.close();
-      setTimeout(() => {
-        reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
-        connect();
-      }, reconnectDelay);
-    };
-  }
-
-  connect();
-}
-
-$effect(() => {
-  const path = app.activeDocumentPath;
-  if (!path) return;
-  const state = app.documents.get(path);
-  if (!state || state.document.html) return;
-
-  const query = `?path=${encodeURIComponent(path)}`;
-  const isClean = state.document.clean;
-
-  const docFetch = fetch(`/api/document${query}`).then((r) => {
-    if (!r.ok) throw new Error(`Server error: ${r.status}`);
-    return r.json();
-  });
-
-  const commentsFetch = isClean
-    ? fetch(`/api/comments${query}`, { method: "DELETE" }).then(
-        () => [] as unknown[],
-      )
-    : fetch(`/api/comments${query}`)
-        .then((r) => (r.ok ? r.json() : { comments: [] }))
-        .then((d) => d.comments || []);
-
-  Promise.all([docFetch, commentsFetch]).then(
-    ([docData, comments]) => {
-      setComments(comments as Comment[], path);
-      setHeadings(docData.headings ?? [], path);
-      updateDocumentHtml(docData.html, path);
-    },
-    (err) => {
-      error = err instanceof Error ? err.message : "Failed to load document";
-    },
-  );
-});
-
-async function reload() {
-  const path = app.activeDocumentPath;
-  if (!path) return;
-  try {
-    const res = await fetch(`/api/document?path=${encodeURIComponent(path)}`);
-    if (!res.ok) throw new Error(`Server error: ${res.status}`);
-    const data = await res.json();
-    setHeadings(data.headings ?? [], path);
-    updateDocumentHtml(data.html, path);
-
-    const commentsRes = await fetch(
-      `/api/comments?path=${encodeURIComponent(path)}`,
-    );
-    if (commentsRes.ok) {
-      const commentsData = await commentsRes.json();
-      setComments(commentsData.comments ?? [], path);
-    }
-  } catch (err) {
-    console.error("Failed to reload:", err);
-  }
 }
 
 function handleKeyDown(event: KeyboardEvent) {
@@ -710,28 +298,6 @@ function handleKeyDown(event: KeyboardEvent) {
 }
 
 $effect(() => {
-  for (const filePath of app.documentOrder) {
-    const isActive = filePath === app.activeDocumentPath;
-    const wasActive = prevActiveMap.get(filePath) ?? false;
-
-    if (wasActive && !isActive) {
-      untrack(() => setScrollY(window.scrollY, filePath));
-    }
-
-    if (!wasActive && isActive) {
-      const savedY = app.documents.get(filePath)?.scrollY ?? 0;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.scrollTo(0, savedY);
-        });
-      });
-    }
-
-    prevActiveMap.set(filePath, isActive);
-  }
-});
-
-$effect(() => {
   const docState = getActiveDocumentState();
   if (!docState) return;
   const max = docState.sortedComments.length - 1;
@@ -741,11 +307,11 @@ $effect(() => {
 });
 
 onMount(() => {
-  initialize();
+  bootstrap();
   purgeExpiredDrafts();
 
   startHeartbeat();
-  setupDocumentStream();
+  startDocumentStream();
 
   window.addEventListener("keydown", handleKeyDown);
   document.addEventListener("mousedown", handleClickOutside);
@@ -753,21 +319,21 @@ onMount(() => {
 
 onDestroy(() => {
   stopHeartbeat();
-  documentStreamSource?.close();
+  stopDocumentStream();
   window.removeEventListener("keydown", handleKeyDown);
   document.removeEventListener("mousedown", handleClickOutside);
 
-  for (const pos of positionsMap.values()) {
-    pos.dispose();
+  for (const docState of app.documents.values()) {
+    docState.geometry.dispose();
   }
 });
 </script>
 
-{#if error}
+{#if app.loadError}
   <div class="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
-    <div class="text-red-600">{error}</div>
+    <div class="text-red-600">{app.loadError}</div>
   </div>
-{:else if !isInitialized}
+{:else if !app.initialized}
   <div class="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex items-center justify-center">
     <div class="text-zinc-500 dark:text-zinc-400">
       {t("app.loading")}
@@ -816,20 +382,7 @@ onDestroy(() => {
           {@const reanchorTarget = docState.reanchorTarget}
 
           <div class="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col">
-            <Header
-              fileName={docState.document.fileName}
-              {comments}
-              hasReanchorTarget={reanchorTarget !== null}
-              oncopyall={() => handleCopyAll(filePath)}
-              onexportjson={() => handleExportJson(filePath)}
-              onreload={reload}
-              onedit={(id, text) => editComment(filePath, id, text)}
-              ondelete={(id) => deleteComment(filePath, id)}
-              ondeleteall={() => deleteAllComments(filePath)}
-              oncopy={copyComment}
-              onnavigate={navigateToComment}
-              onstartreanchor={(id) => startReanchor(filePath, id)}
-            />
+            <Header {filePath} onnavigate={navigateToComment} />
 
             <CommentErrorBanner
               error={docState.commentsError}
@@ -856,15 +409,21 @@ onDestroy(() => {
                   {filePath}
                   onTextSelect={(text, start, end, top) => onTextSelect(filePath, text, start, end, top)}
                   onHighlightClick={handleHighlightClick}
-                  onTaskToggle={(index, checked) => toggleTask(filePath, index, checked)}
+                  onTaskToggle={client.capabilities.patchTask
+                    ? (index, checked) => toggleTask(filePath, index, checked)
+                    : undefined}
                   onClustersChanged={(clusters, indexById) => handleClustersChanged(filePath, clusters, indexById)}
                   registerHighlighter={(focused, scrollTo) => registerHighlighter(filePath, focused, scrollTo)}
                   unregisterHighlighter={() => unregisterHighlighter(filePath)}
-                  positions={getPositions(filePath)}
+                  geometry={docState.geometry}
                 />
               </div>
 
-              <div data-margin-column class="w-72 flex-shrink-0 py-6 pr-4 relative hidden lg:block">
+              <div
+                {...{ [GeometryAttributes.MARGIN_COLUMN]: "" }}
+                class="w-72 flex-shrink-0 pr-4 relative hidden lg:block"
+                style={`padding-block: ${MARGIN_COLUMN_PADDING_PX}px`}
+              >
                 {#if selection && pendingSelectionTop !== undefined}
                   <div
                     class="absolute left-0 right-0 z-10 bg-white dark:bg-zinc-900"
@@ -891,7 +450,7 @@ onDestroy(() => {
 
                 <MarginNotesContainer
                   clusters={isActive ? activeClusters : []}
-                  positions={getPositions(filePath)}
+                  geometry={docState.geometry}
                 />
               </div>
             </div>
@@ -903,7 +462,7 @@ onDestroy(() => {
                 <CommentPopover
                   comment={activeComment}
                   index={idx}
-                  onedit={(id, text) => editComment(filePath, id, text)}
+                  onedit={(id, text) => updateComment(filePath, id, text)}
                   ondelete={(id) => deleteComment(filePath, id)}
                   oncopy={copyComment}
                 />
@@ -936,7 +495,7 @@ onDestroy(() => {
               {#if activeComment}
                 <FloatingComment
                   comment={activeComment}
-                  onedit={(id, text) => editComment(filePath, id, text)}
+                  onedit={(id, text) => updateComment(filePath, id, text)}
                   ondelete={(id) => deleteComment(filePath, id)}
                   oncopy={copyComment}
                   onnavigate={navigateToComment}
@@ -963,4 +522,3 @@ onDestroy(() => {
 
 <ConnectionBanner />
 <Toast />
-

@@ -10,15 +10,44 @@ import {
   statSync,
 } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import { join, resolve } from "node:path";
 import { Command } from "commander";
 import open from "open";
 import pkg from "../package.json" with { type: "json" };
 import { getCommentPath, parseCommentFile } from "./lib/comment-storage.js";
+import { disposeMermaidWorker } from "./lib/mermaid-renderer.js";
+import {
+  canonicalizePath,
+  commentsDir,
+  DEFAULT_SETTINGS,
+  ensureHome,
+  readServerInfo,
+  readSettings,
+  removeServerInfo,
+  type ServerInfo,
+  serverLockPath,
+  serverUrl,
+  welcomePath,
+  writeSettings,
+} from "./lib/readit-home.js";
 import { isMarkdownFile } from "./lib/utils.js";
+import {
+  ask,
+  loadRemote,
+  loadShares,
+  prompt,
+  remoteFetch,
+  saveRemote,
+} from "./remote.js";
 import type { FileEntry } from "./server.js";
-import { removeServerInfo, startServer } from "./server.js";
+import { startServer } from "./server.js";
+import {
+  pullComments,
+  type ShareMode,
+  ShareModes,
+  shareFile,
+  unshareFile,
+} from "./share.js";
 import { startZedLspServer } from "./zed-lsp.js";
 
 const program = new Command();
@@ -31,21 +60,13 @@ function isPermissionError(err: unknown): boolean {
   );
 }
 
-interface ServerInfo {
-  port: number;
-  pid: number;
-}
-
 interface ServerTarget {
   kind: "existing" | "started";
-  port: number;
+  info: ServerInfo;
   url: string;
   server?: { stop(): void };
 }
 
-const READIT_DIR = join(os.homedir(), ".readit");
-const SERVER_INFO_PATH = join(READIT_DIR, "server.json");
-const SERVER_LOCK_PATH = join(READIT_DIR, "server.lock");
 const SERVER_LOCK_MAX_AGE_MS = 30_000;
 const SERVER_LOCK_TIMEOUT_MS = 10_000;
 const SERVER_LOCK_WAIT_MS = 100;
@@ -136,8 +157,8 @@ function resolveMarkdownFile(arg: string): string {
 async function clearStaleServerLock(): Promise<void> {
   try {
     const [stats, content] = await Promise.all([
-      fs.stat(SERVER_LOCK_PATH),
-      fs.readFile(SERVER_LOCK_PATH, "utf-8").catch(() => ""),
+      fs.stat(serverLockPath()),
+      fs.readFile(serverLockPath(), "utf-8").catch(() => ""),
     ]);
 
     const age = Date.now() - stats.mtimeMs;
@@ -151,7 +172,7 @@ async function clearStaleServerLock(): Promise<void> {
     }
 
     if (age > SERVER_LOCK_MAX_AGE_MS || (pid !== undefined && !isAlive(pid))) {
-      await fs.unlink(SERVER_LOCK_PATH).catch(() => {});
+      await fs.unlink(serverLockPath()).catch(() => {});
     }
   } catch (err) {
     if (getErrnoCode(err) !== "ENOENT") throw err;
@@ -159,14 +180,14 @@ async function clearStaleServerLock(): Promise<void> {
 }
 
 async function withServerLock<T>(run: () => Promise<T>): Promise<T> {
-  await fs.mkdir(READIT_DIR, { recursive: true });
+  await ensureHome();
   const start = Date.now();
 
   while (true) {
     let handle: fs.FileHandle | undefined;
 
     try {
-      handle = await fs.open(SERVER_LOCK_PATH, "wx");
+      handle = await fs.open(serverLockPath(), "wx");
       await handle.writeFile(
         JSON.stringify({ pid: process.pid, createdAt: Date.now() }),
         "utf-8",
@@ -176,7 +197,7 @@ async function withServerLock<T>(run: () => Promise<T>): Promise<T> {
         return await run();
       } finally {
         await handle.close().catch(() => {});
-        await fs.unlink(SERVER_LOCK_PATH).catch(() => {});
+        await fs.unlink(serverLockPath()).catch(() => {});
       }
     } catch (err) {
       if (handle) {
@@ -199,25 +220,20 @@ async function withServerLock<T>(run: () => Promise<T>): Promise<T> {
 }
 
 async function discoverServer(): Promise<ServerInfo | null> {
+  const info = await readServerInfo();
+
+  if (!info || !isAlive(info.pid)) {
+    return null;
+  }
+
   try {
-    const content = readFileSync(SERVER_INFO_PATH, "utf-8");
-    const info: ServerInfo = JSON.parse(content);
-
-    if (!isAlive(info.pid)) {
-      return null;
-    }
-
-    try {
-      const res = await fetch(`http://127.0.0.1:${info.port}/api/health`);
-      if (!res.ok) return null;
-    } catch {
-      return null;
-    }
-
-    return info;
+    const res = await fetch(`${serverUrl(info)}/api/health`);
+    if (!res.ok) return null;
   } catch {
     return null;
   }
+
+  return info;
 }
 
 interface AttachedDocument {
@@ -230,7 +246,7 @@ async function addDocumentToServer(
   server: ServerInfo,
   file: { path: string },
 ): Promise<AttachedDocument> {
-  const res = await fetch(`http://127.0.0.1:${server.port}/api/documents`, {
+  const res = await fetch(`${serverUrl(server)}/api/documents`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: file.path }),
@@ -272,8 +288,8 @@ async function attachFiles(
   }
 }
 
-function readitUrlForFile(port: number, filePath: string): string {
-  return `http://127.0.0.1:${port}/?path=${encodeURIComponent(filePath)}`;
+function readitUrlForFile(server: ServerInfo, filePath: string): string {
+  return `${serverUrl(server)}/?path=${encodeURIComponent(filePath)}`;
 }
 
 function getCurrentCliInvocation(args: string[]): {
@@ -346,17 +362,13 @@ async function getServerTarget(
   return withServerLock(async () => {
     const server = await discoverServer();
     if (server) {
-      return {
-        kind: "existing",
-        port: server.port,
-        url: `http://127.0.0.1:${server.port}`,
-      };
+      return { kind: "existing", info: server, url: serverUrl(server) };
     }
 
     const started = await startServer({ files, port, host });
     return {
       kind: "started",
-      port: started.port,
+      info: { port: started.port, pid: process.pid, host },
       url: started.url,
       server: started.server,
     };
@@ -459,12 +471,9 @@ function resolveFiles(args: string[]): FileEntry[] {
   return files;
 }
 
-const SETTINGS_PATH = join(os.homedir(), ".readit", "settings.json");
-
-function isOnboarded(): boolean {
+async function isOnboarded(): Promise<boolean> {
   try {
-    const content = readFileSync(SETTINGS_PATH, "utf-8");
-    const settings = JSON.parse(content);
+    const settings = await readSettings();
     return settings.onboarded === true;
   } catch {
     return false;
@@ -472,15 +481,8 @@ function isOnboarded(): boolean {
 }
 
 async function markOnboarded(): Promise<void> {
-  let settings: Record<string, unknown> = {};
-  try {
-    const content = readFileSync(SETTINGS_PATH, "utf-8");
-    settings = JSON.parse(content);
-  } catch {}
-  settings.onboarded = true;
-  const dir = join(os.homedir(), ".readit");
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(SETTINGS_PATH, JSON.stringify(settings, null, 2), "utf-8");
+  const settings = await readSettings().catch(() => undefined);
+  await writeSettings({ ...DEFAULT_SETTINGS, ...settings, onboarded: true });
 }
 
 const WELCOME_CONTENT = `# Welcome to readit
@@ -559,8 +561,6 @@ readit document.md --clean
 Go ahead and add a few comments to this document. When you're done, export them and see the output. That's the entire workflow — simple, transparent, and designed for reviewing AI-generated content.
 `;
 
-const WELCOME_PATH = join(os.homedir(), ".readit", "welcome.md");
-
 program
   .name("readit")
   .description("Review Markdown documents with inline comments")
@@ -570,14 +570,14 @@ program
   .command("list")
   .description("List all files with comments")
   .action(async () => {
-    const readitDir = join(os.homedir(), ".readit", "comments");
+    const dir = commentsDir();
 
-    if (!existsSync(readitDir)) {
+    if (!existsSync(dir)) {
       console.log("No comments found.");
       return;
     }
 
-    const commentFiles = findCommentFiles(readitDir);
+    const commentFiles = findCommentFiles(dir);
 
     if (commentFiles.length === 0) {
       console.log("No comments found.");
@@ -606,7 +606,8 @@ program
   .command("show <file>")
   .description("Show comments for a file")
   .action(async (file: string) => {
-    const filePath = resolve(process.cwd(), file);
+    const requested = resolve(process.cwd(), file);
+    const filePath = await canonicalizePath(requested).catch(() => requested);
     const commentPath = getCommentPath(filePath);
 
     if (!existsSync(commentPath)) {
@@ -644,6 +645,147 @@ program
     }
   });
 
+const remote = program
+  .command("remote")
+  .description("Configure and inspect the share remote (Cloudflare Worker)");
+
+remote
+  .command("setup")
+  .description(
+    "Store the Worker URL and publish token in ~/.readit/config.json",
+  )
+  .action(async () => {
+    const [url, token] = (
+      await ask(["Worker URL (e.g. https://md.peas.ke): ", "Publish token: "])
+    ).map((answer) => answer.trim());
+    if (!url || !token) {
+      console.error("error: both URL and token are required.");
+      process.exit(1);
+    }
+    const remote = { url: url.replace(/\/$/, ""), token };
+    await saveRemote(remote);
+
+    // An authenticated call, so a token that doesn't match the Worker's
+    // PUBLISH_TOKEN surfaces here instead of at the first `readit share`.
+    try {
+      await remoteFetch(remote, "/api/shares");
+      console.log("Saved. Remote accepted the token.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`Saved, but the remote rejected the check: ${message}`);
+      console.error(
+        "If it is a 401, re-run `wrangler secret put PUBLISH_TOKEN` with this token.",
+      );
+      process.exit(1);
+    }
+  });
+
+remote
+  .command("list")
+  .description("List shares on the remote")
+  .action(async () => {
+    try {
+      const config = await loadRemote();
+      const res = await remoteFetch(config, "/api/shares");
+      const { shares } = (await res.json()) as {
+        shares: {
+          id: string;
+          fileName: string;
+          mode: string;
+          updatedAt: string;
+        }[];
+      };
+      if (shares.length === 0) {
+        console.log("No shares.");
+        return;
+      }
+      for (const s of shares) {
+        console.log(
+          `${s.mode.padEnd(8)} ${config.url}/s/${s.id}  ${s.fileName}  (${s.updatedAt})`,
+        );
+      }
+    } catch (err) {
+      console.error("error:", err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("share <file>")
+  .description("Publish a Markdown file to the configured share remote")
+  .option(
+    "--public",
+    "Anyone with the link can view (default: unguessable link)",
+  )
+  .option("--password [password]", "Require a password (prompted when omitted)")
+  .action(
+    async (
+      file: string,
+      opts: { public?: boolean; password?: string | boolean },
+    ) => {
+      let mode: ShareMode = ShareModes.LINK;
+      let password: string | undefined;
+      if (opts.public) mode = ShareModes.PUBLIC;
+      if (opts.password !== undefined) {
+        mode = ShareModes.PASSWORD;
+        password =
+          typeof opts.password === "string"
+            ? opts.password
+            : await prompt("Password: ");
+        if (!password) {
+          console.error("error: password cannot be empty.");
+          process.exit(1);
+        }
+      }
+
+      try {
+        const filePath = resolveMarkdownFile(file);
+        const record = await shareFile(filePath, { mode, password });
+        // The mermaid worker thread would otherwise keep the CLI alive.
+        disposeMermaidWorker();
+        console.log(`${mode}: ${record.url}`);
+      } catch (err) {
+        console.error("error:", err instanceof Error ? err.message : err);
+        process.exit(1);
+      }
+    },
+  );
+
+program
+  .command("unshare <file>")
+  .description("Remove a published share")
+  .action(async (file: string) => {
+    try {
+      const record = await unshareFile(resolveMarkdownFile(file));
+      console.log(record ? `Removed ${record.url}` : "Not shared.");
+    } catch (err) {
+      console.error("error:", err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("pull <file>")
+  .description("Merge comments made on the share back into the local comments")
+  .action(async (file: string) => {
+    try {
+      const remote = await loadRemote();
+      const absPath = await fs.realpath(resolveMarkdownFile(file));
+      const record = (await loadShares())[absPath];
+      if (!record) {
+        console.error("error: not shared. Run `readit share` first.");
+        process.exit(1);
+      }
+      const { merged, added } = await pullComments(remote, absPath, record);
+      console.log(
+        `Merged ${merged.length} comments (${added} new from the web).`,
+      );
+    } catch (err) {
+      console.error("error:", err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  });
+
 program
   .argument("[files...]", "Markdown files/directories to review")
   .option("-p, --port <number>", "Port to run server on", "4567")
@@ -663,13 +805,13 @@ program
       let files: FileEntry[];
 
       if (fileArgs.length === 0) {
-        if (isOnboarded()) {
+        if (await isOnboarded()) {
           files = [];
         } else {
           files = [
             {
               content: WELCOME_CONTENT,
-              filePath: WELCOME_PATH,
+              filePath: welcomePath(),
             },
           ];
         }
@@ -693,13 +835,9 @@ program
         process.exit(1);
       }
 
-      let previousPort: number | undefined;
-      try {
-        const info = JSON.parse(readFileSync(SERVER_INFO_PATH, "utf-8"));
-        if (!isAlive(info.pid)) {
-          previousPort = info.port;
-        }
-      } catch {}
+      const previous = await readServerInfo();
+      const previousPort =
+        previous && !isAlive(previous.pid) ? previous.port : undefined;
 
       try {
         const { url, server } = await startServer({
@@ -800,7 +938,7 @@ program
 
         await attachFiles(server, [file], { quiet: true });
 
-        const url = readitUrlForFile(server.port, filePath);
+        const url = readitUrlForFile(server, filePath);
         if (shouldOpen) {
           await open(url);
         }
@@ -859,10 +997,7 @@ program
         );
 
         if (target.kind === "existing") {
-          await attachFiles(
-            { port: target.port, pid: process.pid },
-            resolvedFiles,
-          );
+          await attachFiles(target.info, resolvedFiles);
           console.log(`\nServer: ${target.url}`);
           return;
         }

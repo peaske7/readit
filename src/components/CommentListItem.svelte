@@ -1,30 +1,26 @@
 <script lang="ts">
+import { formatComment } from "../lib/export";
 import { cn } from "../lib/utils";
 import type { Comment } from "../schema";
+import {
+  deleteComment,
+  setReanchorTarget,
+  updateComment,
+} from "../stores/app.svelte";
 import { t } from "../stores/locale.svelte";
+import { showToast } from "../stores/toast.svelte";
 import InlineEditor from "./InlineEditor.svelte";
 import ActionLink from "./ui/ActionLink.svelte";
 import Text from "./ui/Text.svelte";
 
 interface Props {
   comment: Comment;
+  filePath: string;
   onaction?: () => void;
-  onedit: (id: string, newText: string) => void;
-  ondelete: (id: string) => void;
-  oncopy: (comment: Comment) => void;
   onnavigate: (id: string) => void;
-  onstartreanchor: (id: string) => void;
 }
 
-let {
-  comment,
-  onaction,
-  onedit,
-  ondelete,
-  oncopy,
-  onnavigate,
-  onstartreanchor,
-}: Props = $props();
+let { comment, filePath, onaction, onnavigate }: Props = $props();
 
 let isEditing = $state(false);
 
@@ -36,8 +32,13 @@ function handleGoTo() {
   onaction?.();
 }
 
+function handleCopy() {
+  navigator.clipboard.writeText(formatComment(comment));
+  showToast(t("toast.copiedComment"));
+}
+
 function handleReanchor() {
-  onstartreanchor(comment.id);
+  setReanchorTarget({ commentId: comment.id }, filePath);
   onaction?.();
 }
 </script>
@@ -63,7 +64,7 @@ function handleReanchor() {
     <InlineEditor
       initialText={comment.comment}
       onsave={(text) => {
-        onedit(comment.id, text);
+        updateComment(filePath, comment.id, text);
         isEditing = false;
       }}
       oncancel={() => (isEditing = false)}
@@ -79,10 +80,10 @@ function handleReanchor() {
       <ActionLink onclick={() => (isEditing = true)}>
         {t("commentList.edit")}
       </ActionLink>
-      <ActionLink onclick={() => ondelete(comment.id)}>
+      <ActionLink onclick={() => deleteComment(filePath, comment.id)}>
         {t("commentList.delete")}
       </ActionLink>
-      <ActionLink onclick={() => oncopy(comment)}>
+      <ActionLink onclick={handleCopy}>
         {t("commentList.copy")}
       </ActionLink>
       {#if canGoTo}

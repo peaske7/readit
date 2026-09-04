@@ -1,26 +1,30 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import type { MarkerAnchor, Positions } from "../lib/positions";
+import { GeometryAttributes } from "../lib/geometry/attributes";
+import type {
+  DocumentGeometry,
+  MarkerAnchor,
+} from "../lib/geometry/document-geometry";
 import { setActiveCommentId, ui } from "../stores/ui.svelte";
 
 interface Props {
   commentIds: string[];
   indexById: Map<string, number>;
-  positions: Positions;
+  geometry: DocumentGeometry;
 }
 
-let { commentIds, indexById, positions }: Props = $props();
+let { commentIds, indexById, geometry }: Props = $props();
 
 let anchors = $state<ReadonlyMap<string, MarkerAnchor>>(new Map());
 let unsub: (() => void) | undefined;
 
 function refresh() {
-  anchors = new Map(positions.getMarkerAnchors());
+  anchors = geometry.snapshot().markerAnchors;
 }
 
 onMount(() => {
   refresh();
-  unsub = positions.subscribe(refresh);
+  unsub = geometry.subscribe(refresh);
   return () => unsub?.();
 });
 
@@ -46,7 +50,7 @@ function activate(e: MouseEvent, id: string) {
         class="absolute pointer-events-auto cursor-pointer text-[10px] font-bold tabular-nums leading-none px-1 -translate-y-1"
         class:active={ui.activeCommentId === id}
         style="top: {anchor.top}px; left: {anchor.left}px;"
-        data-marker-for={id}
+        {...{ [GeometryAttributes.MARKER_FOR]: id }}
         onclick={(e) => activate(e, id)}
       >
         {idx + 1}

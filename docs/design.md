@@ -186,13 +186,30 @@ version: 1                             # Format version for future compatibility
 | `line-hint` | Line number(s) in source | `L42` or `L42-45` |
 | `timestamp` | ISO 8601 with timezone | `2025-12-24T10:30:00+09:00` |
 
+The timestamp is optional: a comment without one is written as `c:{id}|{line-hint}`,
+and both readers accept either shape.
+
 **Why HTML comment?**
 
 - Invisible when rendered in markdown viewers
 - Single line = clean git diffs
 - Grep-friendly for tooling
 
-#### 3. Selected Text (Blockquote)
+#### 3. Anchor Prefix (Optional HTML Comment)
+
+```html
+<!-- anchor:the first 200 characters of the original selection -->
+```
+
+Present only when the selection was long enough to be truncated in the
+blockquote below it. It holds the untruncated prefix, which is what anchor
+resolution matches against.
+
+**Stored as readable text**, per the hackability goal: newlines are written as
+`\n`, a backslash as `\\`, and a literal `-->` as `--\>`. Files written by
+older versions base64-encoded this value; both readers still accept that.
+
+#### 4. Selected Text (Blockquote)
 
 ```markdown
 > the exact selected text from the document
@@ -208,7 +225,7 @@ version: 1                             # Format version for future compatibility
 > third line of selection
 ```
 
-#### 4. Comment Body (Plain Text)
+#### 5. Comment Body (Plain Text)
 
 ```markdown
 My review comment here. Full markdown supported.
@@ -219,13 +236,26 @@ Can span multiple paragraphs.
 - `code` works
 ```
 
-#### 5. Separator
+#### 6. Separator
 
 ```markdown
 ---
 ```
 
 **Purpose**: Visual separation between comments, easy parsing boundary.
+
+Written after **every** comment, including the last one. A file that ends
+without the final separator still parses; rewriting it adds one back.
+
+### Conformance
+
+`fixtures/comments/` is the shared corpus for the two implementations of this
+format — `src/lib/comment-storage.ts` and `go/internal/server/storage.go`. Each
+fixture is an input file, the comment file it parses into (`*.json`), and the
+canonical output serializing it must produce (`*.canonical.md`, when the input
+is not already canonical). Both test suites run the corpus, so a format change
+has to land in both codecs at once. `src/lib/comment-storage.ts` documents the
+caller-facing invariants (offsets, line hints, hash, ordering).
 
 ---
 
@@ -432,15 +462,10 @@ readit export <file> --format prompt
 
 ### Server API
 
-The Express server provides endpoints for the browser UI:
-
-```
-GET  /api/comments           # Get comments for current file
-POST /api/comments           # Add a new comment
-PUT  /api/comments/:id       # Update a comment
-DELETE /api/comments/:id     # Delete a comment
-GET  /api/source             # Get source file info (path, hash)
-```
+Three servers (Bun, Go, Worker) serve the same API to the same frontend. The
+route table, request and response shapes, SSE events and per-server deviations
+live in [docs/api-contract.md](./api-contract.md), which `bun run test:contract`
+checks against each server.
 
 ---
 

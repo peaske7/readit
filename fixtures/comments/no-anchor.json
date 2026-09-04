@@ -1,0 +1,16 @@
+{
+  "source": "/home/user/docs/design.md",
+  "hash": "0123456789abcdef",
+  "version": 1,
+  "comments": [
+    {
+      "id": "11111111",
+      "selectedText": "the exact selected text",
+      "comment": "Looks good to me.",
+      "lineHint": "L42",
+      "createdAt": "2026-01-02T03:04:05.000Z",
+      "startOffset": 0,
+      "endOffset": 0
+    }
+  ]
+}

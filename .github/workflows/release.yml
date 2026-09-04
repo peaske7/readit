@@ -1,0 +1,49 @@
+name: Release to npm
+
+# Publishes @peaske7/readit when a v* tag is pushed, using npm trusted
+# publishing (OIDC): no NPM_TOKEN secret. The package's Trusted Publisher on
+# npmjs.com must point at this repo and this workflow file (release.yml).
+# Tags containing "-" (rc, beta) publish under the "rc" dist-tag; plain tags
+# publish as "latest". Provenance attestations are generated automatically.
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # bun publish has no OIDC support yet; npm >= 11.5.1 is required for
+      # trusted publishing, so publish with the npm CLI.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run build
+      - name: Check tag matches package.json version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(bun -e 'console.log(require("./package.json").version)')"
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag v$tag does not match package.json version $pkg" >&2
+            exit 1
+          fi
+      - name: Publish
+        run: |
+          case "$GITHUB_REF_NAME" in
+            *-*) npm publish --access public --tag rc ;;
+            *)   npm publish --access public ;;
+          esac

@@ -1,35 +1,8 @@
-import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
-import { getDOMTextContent } from "./highlight/dom";
 import { extractTextFromHtml } from "./html-text";
-import { renderMarkdown } from "./markdown-renderer";
 
-const DOM_GLOBALS = ["document", "NodeFilter"] as const;
-
-function browserExtract(html: string): string {
-  const dom = new JSDOM(
-    `<!DOCTYPE html><body><article>${html}</article></body>`,
-  );
-  const saved = Object.fromEntries(
-    DOM_GLOBALS.map((k) => [k, (globalThis as Record<string, unknown>)[k]]),
-  );
-  try {
-    for (const k of DOM_GLOBALS) {
-      (globalThis as Record<string, unknown>)[k] = dom.window[k];
-    }
-    const container = dom.window.document.querySelector("article")!;
-    return getDOMTextContent(container);
-  } finally {
-    for (const k of DOM_GLOBALS) {
-      if (saved[k] !== undefined) {
-        (globalThis as Record<string, unknown>)[k] = saved[k];
-      } else {
-        delete (globalThis as Record<string, unknown>)[k];
-      }
-    }
-  }
-}
-
+// Cross-model conformance lives in `geometry/blocks.test.ts`, where all three
+// text models walk the same fixture.
 describe("extractTextFromHtml", () => {
   it("extracts plain text from paragraphs", () => {
     const html = "<p>Hello world</p><p>Second paragraph</p>";
@@ -67,96 +40,5 @@ describe("extractTextFromHtml", () => {
     const html =
       '<pre><code>function hello() {\n  return "world";\n}</code></pre>';
     expect(extractTextFromHtml(html)).toContain("function hello()");
-  });
-});
-
-describe("extractTextFromHtml conformance with getDOMTextContent", () => {
-  it("matches browser extraction for simple markdown", async () => {
-    const md = `# Hello
-
-This is a paragraph.
-
-## Section
-
-Another paragraph here.
-`;
-    const { html } = await renderMarkdown(md);
-    const serverText = extractTextFromHtml(html);
-    const browserText = browserExtract(html);
-    expect(serverText).toBe(browserText);
-  });
-
-  it("matches browser extraction for lists", async () => {
-    const md = `- Item 1
-- Item 2
-- Item 3
-`;
-    const { html } = await renderMarkdown(md);
-    const serverText = extractTextFromHtml(html);
-    const browserText = browserExtract(html);
-    expect(serverText).toBe(browserText);
-  });
-
-  it("matches browser extraction for code blocks", async () => {
-    const md = `# Code
-
-\`\`\`typescript
-function hello() {
-  return "world";
-}
-\`\`\`
-
-After code.
-`;
-    const { html } = await renderMarkdown(md);
-    const serverText = extractTextFromHtml(html);
-    const browserText = browserExtract(html);
-    expect(serverText).toBe(browserText);
-  });
-
-  it("matches browser extraction for tables", async () => {
-    const md = `| A | B |
-|---|---|
-| 1 | 2 |
-| 3 | 4 |
-`;
-    const { html } = await renderMarkdown(md);
-    const serverText = extractTextFromHtml(html);
-    const browserText = browserExtract(html);
-    expect(serverText).toBe(browserText);
-  });
-
-  it("matches browser extraction for complex document", async () => {
-    const md = `# Performance Test Document
-
-This section covers topic 1 in detail. It contains various formatting including **bold**, *italic*, and \`inline code\`.
-
-## Section 2
-
-- Item 1 in section 2
-- Item 2 in section 2
-- Item 3 in section 2
-
-\`\`\`typescript
-function section2() {
-  const value = 2 * 42;
-  return "result from section 2: " + value;
-}
-\`\`\`
-
-The conclusion of section 2 summarizes the key findings.
-
-| Column A | Column B | Column C |
-|----------|----------|----------|
-| Cell 1 | Cell 2 | Cell 3 |
-
-> A blockquote with some text.
-
-Final paragraph.
-`;
-    const { html } = await renderMarkdown(md);
-    const serverText = extractTextFromHtml(html);
-    const browserText = browserExtract(html);
-    expect(serverText).toBe(browserText);
   });
 });

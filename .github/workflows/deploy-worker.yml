@@ -1,0 +1,45 @@
+name: Deploy share Worker
+
+# Deploys worker/ to Cloudflare whenever the Worker or the frontend it serves
+# changes on main. Needs two repository secrets (see worker/README.md):
+#   CLOUDFLARE_API_TOKEN   token with "Workers Scripts:Edit" + "Workers R2 Storage:Edit"
+#   CLOUDFLARE_ACCOUNT_ID  from the Cloudflare dashboard sidebar
+# PUBLISH_TOKEN and COOKIE_SECRET are Worker secrets set once with `wrangler secret put`;
+# deploys do not touch them.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - "src/**"
+      - "package.json"
+      - "bun.lock"
+      - "vite.config.ts"
+      - ".github/workflows/deploy-worker.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: cloudflare
+      url: ${{ steps.deploy.outputs.deployment-url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run build:worker
+      - id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          command: deploy

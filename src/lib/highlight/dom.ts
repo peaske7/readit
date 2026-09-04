@@ -1,20 +1,5 @@
+import { isBlockTag } from "../geometry/blocks";
 import type { TextNodeInfo } from "./types";
-
-const BLOCK_ELEMENTS = new Set([
-  "P",
-  "DIV",
-  "H1",
-  "H2",
-  "H3",
-  "H4",
-  "H5",
-  "H6",
-  "PRE",
-  "BLOCKQUOTE",
-  "LI",
-  "TR",
-  "BR",
-]);
 
 /** Marks chrome injected into the article (toolbars, handles) that carries no document text. */
 export const UI_CHROME_ATTR = "data-readit-ui";
@@ -36,12 +21,19 @@ function createTextWalker(root: Node): TreeWalker {
   );
 }
 
-function findBlockParent(node: Node): Element | null {
-  let parent = node.parentElement;
-  while (parent && !BLOCK_ELEMENTS.has(parent.tagName)) {
-    parent = parent.parentElement;
+/**
+ * The block element a node sits in — the unit both the text walk and cluster
+ * anchoring segment documents by.
+ */
+export function findBlockAncestor(node: Node): Element | null {
+  let el =
+    node.nodeType === Node.ELEMENT_NODE
+      ? (node as Element)
+      : node.parentElement;
+  while (el && !isBlockTag(el.tagName)) {
+    el = el.parentElement;
   }
-  return parent;
+  return el;
 }
 
 export function getTextOffset(
@@ -55,7 +47,7 @@ export function getTextOffset(
 
   let node = walker.nextNode();
   while (node) {
-    const blockParent = findBlockParent(node);
+    const blockParent = findBlockAncestor(node);
 
     if (lastBlockParent && blockParent && lastBlockParent !== blockParent) {
       if (
@@ -84,7 +76,7 @@ export function getDOMTextContent(root: Node): string {
   let node = walker.nextNode();
 
   while (node) {
-    const blockParent = findBlockParent(node);
+    const blockParent = findBlockAncestor(node);
 
     if (lastBlockParent && blockParent && lastBlockParent !== blockParent) {
       if (
@@ -112,7 +104,7 @@ export function collectTextNodes(root: Node): TextNodeInfo[] {
   let node = walker.nextNode();
 
   while (node) {
-    const blockParent = findBlockParent(node);
+    const blockParent = findBlockAncestor(node);
 
     if (lastBlockParent && blockParent && lastBlockParent !== blockParent) {
       if (
@@ -150,7 +142,7 @@ export function collectTextNodesWithContent(root: Node): {
   let node = walker.nextNode();
 
   while (node) {
-    const blockParent = findBlockParent(node);
+    const blockParent = findBlockAncestor(node);
 
     if (lastBlockParent && blockParent && lastBlockParent !== blockParent) {
       if (

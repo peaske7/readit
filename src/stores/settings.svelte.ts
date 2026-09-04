@@ -1,3 +1,4 @@
+import { client } from "../lib/client";
 import {
   FontFamilies,
   type FontFamily,
@@ -8,6 +9,7 @@ import {
 } from "../schema";
 
 const THEME_STORAGE_KEY = "readit:theme";
+const FONT_STORAGE_KEY = "readit:fontFamily";
 const TABLE_MODE_STORAGE_KEY = "readit:tableMode";
 const DARK_MQ = "(prefers-color-scheme: dark)";
 
@@ -56,16 +58,16 @@ export const settings = $state({
 export async function updateFontFamily(font: FontFamily): Promise<void> {
   settings.fontFamily = font;
 
-  try {
-    const response = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fontFamily: font }),
-    });
+  // Hosted snapshots have no settings endpoint; remember the choice per browser.
+  if (!client.capabilities.putSettings) {
+    try {
+      localStorage.setItem(FONT_STORAGE_KEY, font);
+    } catch {}
+    return;
+  }
 
-    if (!response.ok) {
-      throw new Error("Failed to save settings");
-    }
+  try {
+    await client.putSettings({ fontFamily: font });
   } catch (err) {
     console.error("Failed to save font preference:", err);
   }
@@ -91,6 +93,15 @@ export function updateTableMode(mode: TableMode): void {
 export function initSettings(data?: { fontFamily?: string }): void {
   if (data?.fontFamily) {
     settings.fontFamily = data.fontFamily as FontFamily;
+  }
+
+  if (!client.capabilities.putSettings) {
+    try {
+      const stored = localStorage.getItem(FONT_STORAGE_KEY);
+      if (stored === FontFamilies.SERIF || stored === FontFamilies.SANS_SERIF) {
+        settings.fontFamily = stored;
+      }
+    } catch {}
   }
 
   applyTheme(settings.themeMode);

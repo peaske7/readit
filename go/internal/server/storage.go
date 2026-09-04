@@ -12,21 +12,90 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
+// The .comments.md format is shared with the TypeScript codec in
+// src/lib/comment-storage.ts. Both must parse the same files identically and
+// serialize the same comments byte-for-byte; fixtures/comments/ is the shared
+// conformance corpus, and src/lib/comment-storage.ts documents the invariants.
 var (
-	frontMatterRe      = regexp.MustCompile(`(?s)^---\n(.*?)\n---`)
-	frontMatterStripRe = regexp.MustCompile(`(?s)^---\n.*?\n---\n*`)
-	commentMetaRe      = regexp.MustCompile(`<!--\s*c:([^|]+)\|([^|>]+?)(?:\|([^>]*?))?\s*-->`)
-	anchorPrefixRe     = regexp.MustCompile(`<!--\s*anchor:([A-Za-z0-9+/=]+)\s*-->`)
+	frontMatterRe       = regexp.MustCompile(`(?s)^---\n(.*?)\n---`)
+	frontMatterStripRe  = regexp.MustCompile(`(?s)^---\n.*?\n---\n*`)
+	commentMetaRe       = regexp.MustCompile(`<!--\s*c:([^|]+)\|([^|>\s]+)(?:\|([^>]*))?\s*-->`)
+	anchorPrefixRe      = regexp.MustCompile(`<!--\s*anchor:(.*?)\s*-->`)
+	trailingSeparatorRe = regexp.MustCompile(`\n+---\s*$`)
+	base64AnchorRe      = regexp.MustCompile(`^[A-Za-z0-9+/]+={0,2}$`)
+
+	// The anchor prefix is stored as readable text on one line, so newlines,
+	// backslashes and a literal "-->" are backslash-escaped.
+	anchorEscaper   = strings.NewReplacer(`\`, `\\`, "\n", `\n`, "\r", `\r`, "-->", `--\>`)
+	anchorUnescaper = strings.NewReplacer(`\\`, `\`, `\n`, "\n", `\r`, "\r", `\>`, ">")
 )
 
-func CommentPath(filePath string) (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("cannot determine home directory: %w", err)
+// decodeAnchorPrefix reads a stored anchor prefix. readit <= 0.4 base64-encoded
+// it here; raw text is only ambiguous with base64 when it is pure base64
+// alphabet, correctly padded and decodes to printable UTF-8, so that
+// combination is read as legacy.
+func decodeAnchorPrefix(raw string) string {
+	if len(raw)%4 == 0 && base64AnchorRe.MatchString(raw) {
+		decoded, err := base64.StdEncoding.DecodeString(raw)
+		if err == nil && len(decoded) > 0 && utf8.Valid(decoded) && isPrintable(string(decoded)) {
+			return string(decoded)
+		}
 	}
+	return anchorUnescaper.Replace(raw)
+}
+
+func isPrintable(s string) bool {
+	for _, r := range s {
+		if unicode.IsControl(r) && r != '\n' && r != '\r' && r != '\t' {
+			return false
+		}
+	}
+	return true
+}
+
+// Home is the readit home directory that owns every readit-managed file.
+// READIT_HOME overrides it, matching readitHome() in src/lib/readit-home.ts.
+func Home() string {
+	if override := os.Getenv("READIT_HOME"); override != "" {
+		if abs, err := filepath.Abs(override); err == nil {
+			return abs
+		}
+		return override
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ".readit"
+	}
+	return filepath.Join(home, ".readit")
+}
+
+func CommentsDir() string {
+	return filepath.Join(Home(), "comments")
+}
+
+func SettingsPath() string {
+	return filepath.Join(Home(), "settings.json")
+}
+
+func ServerInfoPath() string {
+	return filepath.Join(Home(), "server.json")
+}
+
+// CanonicalPath is the canonical key for a document: absolute path with
+// symlinks resolved, matching canonicalizePath() in src/lib/readit-home.ts.
+func CanonicalPath(filePath string) (string, error) {
+	abs, err := filepath.Abs(filePath)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve absolute path for %s: %w", filePath, err)
+	}
+	return filepath.EvalSymlinks(abs)
+}
+
+func CommentPath(filePath string) (string, error) {
 	abs, err := filepath.Abs(filePath)
 	if err != nil {
 		return "", fmt.Errorf("cannot resolve absolute path for %s: %w", filePath, err)
@@ -45,7 +114,7 @@ func CommentPath(filePath string) (string, error) {
 		stripped = stripped[:len(stripped)-len(ext)]
 	}
 
-	return filepath.Join(home, ".readit", "comments", stripped+".comments.md"), nil
+	return filepath.Join(CommentsDir(), stripped+".comments.md"), nil
 }
 
 func ComputeHash(content []byte) string {
@@ -100,7 +169,9 @@ func ParseCommentFile(data []byte) (CommentFile, error) {
 	return cf, nil
 }
 
-func parseCommentBlock(block string) (Comment, bool) {
+func parseCommentBlock(rawBlock string) (Comment, bool) {
+	block := strings.TrimSpace(trailingSeparatorRe.ReplaceAllString(strings.TrimSpace(rawBlock), ""))
+
 	meta := commentMetaRe.FindStringSubmatch(block)
 	if meta == nil {
 		return Comment{}, false
@@ -111,96 +182,85 @@ func parseCommentBlock(block string) (Comment, bool) {
 		LineHint:  strings.TrimSpace(meta[2]),
 		CreatedAt: strings.TrimSpace(meta[3]),
 	}
+	if ap := anchorPrefixRe.FindStringSubmatch(block); ap != nil {
+		c.AnchorPrefix = decodeAnchorPrefix(ap[1])
+	}
 
-	if ap := anchorPrefixRe.FindStringSubmatch(block); len(ap) > 1 {
-		if decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(ap[1])); err == nil {
-			c.AnchorPrefix = string(decoded)
+	lines := strings.Split(block, "\n")
+	i := 0
+	for i < len(lines) && (commentMetaRe.MatchString(lines[i]) || anchorPrefixRe.MatchString(lines[i])) {
+		i++
+	}
+
+	var selected []string
+	for ; i < len(lines); i++ {
+		if lines[i] == ">" {
+			selected = append(selected, "")
+		} else if strings.HasPrefix(lines[i], "> ") {
+			selected = append(selected, lines[i][2:])
 		} else {
-			// Fallback: treat as raw text for backward compatibility
-			c.AnchorPrefix = strings.TrimSpace(ap[1])
+			break
 		}
 	}
-
-	bodyLines := strings.Split(block, "\n")
-	pastMeta := false
-	inLeadingBlockquote := false
-	pastBlockquote := false
-	var selectedLines []string
-	var commentLines []string
-
-	for _, line := range bodyLines {
-		if commentMetaRe.MatchString(line) || anchorPrefixRe.MatchString(line) {
-			pastMeta = true
-			continue
-		}
-		if !pastBlockquote && pastMeta && (strings.HasPrefix(line, "> ") || line == ">") {
-			inLeadingBlockquote = true
-			if strings.HasPrefix(line, "> ") {
-				selectedLines = append(selectedLines, line[2:])
-			} else {
-				selectedLines = append(selectedLines, "")
-			}
-			continue
-		}
-		if inLeadingBlockquote && !pastBlockquote {
-			pastBlockquote = true
-			if strings.TrimSpace(line) == "" {
-				continue
-			}
-		}
-		if pastBlockquote || (pastMeta && !inLeadingBlockquote) {
-			pastBlockquote = true
-			commentLines = append(commentLines, line)
-		}
+	if len(selected) == 0 {
+		return Comment{}, false
 	}
 
-	if len(selectedLines) > 0 {
-		c.SelectedText = strings.Join(selectedLines, "\n")
-	}
-
-	comment := strings.TrimSpace(strings.Join(commentLines, "\n"))
-	comment = strings.TrimRight(comment, "\n")
-	if strings.HasSuffix(comment, "\n---") {
-		comment = strings.TrimSpace(comment[:len(comment)-4])
-	} else if comment == "---" {
-		comment = ""
-	}
-	c.Comment = comment
+	c.SelectedText = strings.Join(selected, "\n")
+	c.Comment = strings.TrimSpace(strings.Join(lines[i:], "\n"))
 
 	return c, true
 }
 
+// frontMatterLine never leaves a trailing space behind an empty value.
+func frontMatterLine(key, value string) string {
+	if value == "" {
+		return key + ":"
+	}
+	return key + ": " + value
+}
+
 func SerializeComments(cf CommentFile) []byte {
-	var b strings.Builder
+	lines := []string{
+		"---",
+		frontMatterLine("source", cf.Source),
+		frontMatterLine("hash", cf.Hash),
+		fmt.Sprintf("version: %d", cf.Version),
+		"---",
+		"",
+	}
 
-	b.WriteString("---\n")
-	b.WriteString("source: " + cf.Source + "\n")
-	b.WriteString("hash: " + cf.Hash + "\n")
-	fmt.Fprintf(&b, "version: %d\n", cf.Version)
-	b.WriteString("---\n\n")
-
-	for i, c := range cf.Comments {
-		fmt.Fprintf(&b, "<!-- c:%s|%s|%s -->\n", c.ID, c.LineHint, c.CreatedAt)
+	for _, c := range cf.Comments {
+		lineHint := c.LineHint
+		if lineHint == "" {
+			lineHint = "L0"
+		}
+		if c.CreatedAt == "" {
+			lines = append(lines, fmt.Sprintf("<!-- c:%s|%s -->", c.ID, lineHint))
+		} else {
+			lines = append(lines, fmt.Sprintf("<!-- c:%s|%s|%s -->", c.ID, lineHint, c.CreatedAt))
+		}
 
 		if c.AnchorPrefix != "" {
-			encoded := base64.StdEncoding.EncodeToString([]byte(c.AnchorPrefix))
-			fmt.Fprintf(&b, "<!-- anchor:%s -->\n", encoded)
+			lines = append(lines, fmt.Sprintf("<!-- anchor:%s -->", anchorEscaper.Replace(c.AnchorPrefix)))
 		}
 
 		for line := range strings.SplitSeq(c.SelectedText, "\n") {
-			b.WriteString("> " + line + "\n")
+			if line == "" {
+				lines = append(lines, ">")
+			} else {
+				lines = append(lines, "> "+line)
+			}
 		}
 
-		b.WriteString("\n")
-		b.WriteString(c.Comment)
-		b.WriteString("\n")
-
-		if i < len(cf.Comments)-1 {
-			b.WriteString("\n---\n\n")
+		if body := strings.TrimSpace(c.Comment); body != "" {
+			lines = append(lines, "", body)
 		}
+
+		lines = append(lines, "", "---", "")
 	}
 
-	return []byte(b.String())
+	return []byte(strings.Join(lines, "\n"))
 }
 
 func WriteCommentFile(path string, cf CommentFile) error {
