@@ -68,7 +68,7 @@ $effect(() => {
   {#if open}
     <div
       class={cn(
-        "absolute top-full mt-1 z-50 min-w-[8rem] overflow-hidden rounded-xl py-1",
+        "absolute top-full mt-1 z-50 min-w-[8rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl py-1",
         "bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm shadow-lg border border-zinc-200/40 dark:border-zinc-700/40",
         align === "end" ? "right-0" : "left-0",
         contentClass,

@@ -6,6 +6,8 @@ export interface TemplateOptions {
   inlineData: object;
   isDev: boolean;
   fontFamily: string;
+  /** The stored theme; when absent the page falls back to localStorage. */
+  themeMode?: string;
 }
 
 function safeJsonStringify(data: object): string {
@@ -63,6 +65,7 @@ export function renderTemplate(options: TemplateOptions): string {
     inlineData,
     isDev,
     fontFamily,
+    themeMode,
   } = options;
 
   const viteClient = isDev
@@ -83,7 +86,7 @@ export function renderTemplate(options: TemplateOptions): string {
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
   <script>
     (() => {
-      var t = localStorage.getItem("readit:theme");
+      var t = ${JSON.stringify(themeMode ?? null)} || localStorage.getItem("readit:theme");
       var d = t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
       if (d) document.documentElement.classList.add("dark");
     })();

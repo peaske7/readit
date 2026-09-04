@@ -14,6 +14,7 @@ type TemplateData struct {
 	InlineJSON   template.JS
 	IsDev        bool
 	FontFamily   string
+	ThemeMode    string
 	ProseClass   string
 	ViteClient   template.HTML
 }
@@ -27,7 +28,7 @@ const pageTemplate = `<!DOCTYPE html>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
   <script>
     (() => {
-      var t = localStorage.getItem("readit:theme");
+      var t = {{.ThemeMode}} || localStorage.getItem("readit:theme");
       var d = t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
       if (d) document.documentElement.classList.add("dark");
     })();

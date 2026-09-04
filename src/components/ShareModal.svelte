@@ -61,6 +61,10 @@ function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : "Unknown error";
 }
 
+// Reopening or switching documents mid-request must not let the old
+// response land on the new state.
+let requestSeq = 0;
+
 $effect(() => {
   if (!open) return;
 
@@ -70,9 +74,11 @@ $effect(() => {
   confirmingUnshare = false;
   password = "";
 
+  const seq = ++requestSeq;
   client
     .getShare(activePath())
     .then((data) => {
+      if (seq !== requestSeq) return;
       if (!data.configured) {
         modalState = { status: "unconfigured" };
         return;
@@ -81,6 +87,7 @@ $effect(() => {
       modalState = { status: "ready", share: data.share };
     })
     .catch((err) => {
+      if (seq !== requestSeq) return;
       modalState = { status: "error", error: messageOf(err) };
     });
 });
@@ -133,7 +140,7 @@ async function copyLink(url: string) {
 }
 
 const inputClass = cn(
-  "w-full px-2.5 py-1.5 rounded-lg text-sm",
+  "w-full px-2.5 py-1.5 rounded-lg text-sm no-hover:text-base",
   "border border-zinc-200 dark:border-zinc-700",
   "bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300",
   "focus:outline-none focus:ring-2 focus:ring-blue-500/40",

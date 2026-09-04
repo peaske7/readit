@@ -72,7 +72,7 @@ function handleKeydown(e: KeyboardEvent) {
     bind:value={editText}
     class={cn(
       fontClass,
-      "w-full px-2 py-1.5 text-sm border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 resize-none overflow-y-auto max-h-[60vh] focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500",
+      "w-full px-2 py-1.5 text-sm no-hover:text-base border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 resize-none overflow-y-auto max-h-[60vh] focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500",
       className,
     )}
     {rows}
@@ -81,11 +81,11 @@ function handleKeydown(e: KeyboardEvent) {
   <div class="flex justify-end gap-3 text-sm">
     <Button variant="ghost" size="sm" onclick={oncancel}>
       {t("editor.cancel")}
-      <span class="text-zinc-400 dark:text-zinc-500">{cancelHint}</span>
+      <span class="text-zinc-400 dark:text-zinc-500 no-hover:hidden">{cancelHint}</span>
     </Button>
     <Button variant="link" size="sm" onclick={handleSave}>
       {t("editor.save")}
-      <span class="text-zinc-400 dark:text-zinc-500">{saveHint}</span>
+      <span class="text-zinc-400 dark:text-zinc-500 no-hover:hidden">{saveHint}</span>
     </Button>
   </div>
 </div>

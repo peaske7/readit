@@ -25,7 +25,7 @@ let label = $derived(
 {#if label}
   <span
     class={cn(
-      "text-zinc-400 dark:text-zinc-500 text-xs tabular-nums select-none",
+      "text-zinc-400 dark:text-zinc-500 text-xs tabular-nums select-none no-hover:hidden",
       className,
     )}
   >

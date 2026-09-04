@@ -4,6 +4,8 @@ import {
   type Comment,
   type DocumentSettings,
   FontFamilies,
+  TableModes,
+  ThemeModes,
 } from "../../src/schema";
 import { REANCHORED_TEXT, SELECTED_TEXT, selectionOf } from "./fixture";
 
@@ -340,6 +342,28 @@ export function runContractSuite(adapter: ContractAdapter): void {
         const invalid = await send(
           "/api/settings",
           put({ fontFamily: "comic-sans" }),
+        );
+        expect(invalid.status).toBe(400);
+      },
+    );
+
+    it.skipIf(!serves(ContractRoutes.UPDATE_SETTINGS))(
+      "PUT /api/settings persists the theme and table modes",
+      async () => {
+        const updated = await send(
+          "/api/settings",
+          put({ themeMode: ThemeModes.LIGHT, tableMode: TableModes.WIDE }),
+        );
+        expect(updated.status).toBe(200);
+        expect(expectSettings(updated.body).themeMode).toBe(ThemeModes.LIGHT);
+
+        const read = expectSettings((await send("/api/settings")).body);
+        expect(read.themeMode).toBe(ThemeModes.LIGHT);
+        expect(read.tableMode).toBe(TableModes.WIDE);
+
+        const invalid = await send(
+          "/api/settings",
+          put({ themeMode: "sepia" }),
         );
         expect(invalid.status).toBe(400);
       },

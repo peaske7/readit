@@ -400,6 +400,7 @@ func (s *Server) servePage(w http.ResponseWriter, r *http.Request) {
 		InlineJSON:   inlineJSON,
 		IsDev:        s.isDev,
 		FontFamily:   settings.FontFamily,
+		ThemeMode:    settings.ThemeMode,
 		ProseClass:   proseClass,
 		ViteClient:   viteClient,
 	}

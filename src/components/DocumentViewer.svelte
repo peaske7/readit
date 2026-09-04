@@ -63,11 +63,23 @@ let proseClass = $derived(
 
 let mermaidCounter = 0;
 
+/**
+ * Safari (every iOS browser) has no `requestIdleCallback`, and background
+ * tabs may never report idle, so diagrams get a deadline either way.
+ */
+function whenIdle(callback: () => void) {
+  if (typeof requestIdleCallback === "function") {
+    requestIdleCallback(callback, { timeout: 2000 });
+    return;
+  }
+  setTimeout(callback, 0);
+}
+
 async function hydrateMermaid(root: HTMLElement) {
   const mermaidBlocks = root.querySelectorAll("pre code.language-mermaid");
   if (mermaidBlocks.length === 0) return;
 
-  requestIdleCallback(async () => {
+  whenIdle(async () => {
     try {
       const { default: mermaid } = await import("mermaid");
       const { getMermaidInitConfig } = await import("../lib/mermaid-config");
@@ -88,11 +100,15 @@ async function hydrateMermaid(root: HTMLElement) {
           // eslint-disable-next-line -- trusted mermaid render output
           wrapper.innerHTML = svg;
           preEl.replaceWith(wrapper);
-        } catch {}
+        } catch (err) {
+          console.warn("Mermaid diagram left as code:", err);
+        }
       }
       contentVersion++;
       geometry.remeasure();
-    } catch {}
+    } catch (err) {
+      console.warn("Mermaid failed to load; diagrams left as code:", err);
+    }
   });
 }
 
@@ -186,14 +202,7 @@ onMount(() => {
   contentEl!.addEventListener("click", handleTaskClick);
   contentEl!.addEventListener("keydown", handleTaskKey);
 
-  if (!onTaskToggle) {
-    for (const box of contentEl!.querySelectorAll<HTMLElement>(
-      ".task-checkbox",
-    )) {
-      box.setAttribute("aria-disabled", "true");
-      box.removeAttribute("tabindex");
-    }
-  }
+  markReadOnlyCheckboxes(contentEl!);
 
   document.documentElement.dataset.readitReady = "true";
 
@@ -224,9 +233,19 @@ $effect(() => {
 
   if (geometry.setDocumentHtml(content)) {
     contentVersion++;
+    markReadOnlyCheckboxes(contentEl);
     void hydrateMermaid(contentEl);
   }
 });
+
+/** Without a toggle handler, checkboxes are display only. Re-run per render. */
+function markReadOnlyCheckboxes(root: HTMLElement) {
+  if (onTaskToggle) return;
+  for (const box of root.querySelectorAll<HTMLElement>(".task-checkbox")) {
+    box.setAttribute("aria-disabled", "true");
+    box.removeAttribute("tabindex");
+  }
+}
 </script>
 
 <div bind:this={containerEl} class="flex-1 min-w-0 relative">

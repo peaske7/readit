@@ -59,7 +59,7 @@ function handleCloseClick() {
 <dialog
   bind:this={dialogEl}
   onclick={handleBackdropClick}
-  class="backdrop:bg-black/20 dark:backdrop:bg-black/40 backdrop:backdrop-blur-sm bg-transparent p-0 m-auto max-w-none"
+  class="backdrop:bg-black/20 dark:backdrop:bg-black/40 backdrop:backdrop-blur-sm bg-transparent p-0 m-auto max-w-[calc(100%-2rem)]"
 >
   {#if open}
     <div

@@ -114,12 +114,32 @@ export async function saveShares(
   await fs.writeFile(sharesPath(), JSON.stringify(shares, null, 2));
 }
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** The publish token only travels over TLS, except to a loopback dev Worker. */
+export function assertTrustedRemoteUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Remote URL is not a valid URL: ${url}`);
+  }
+  if (parsed.protocol === "https:") return;
+  if (parsed.protocol === "http:" && LOOPBACK_HOSTS.has(parsed.hostname)) {
+    return;
+  }
+  throw new Error(
+    `Remote URL must use https (http is only allowed for localhost): ${url}`,
+  );
+}
+
 /** Authenticated request to the Worker; throws with the body on non-2xx. */
 export async function remoteFetch(
   remote: RemoteConfig,
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
+  assertTrustedRemoteUrl(remote.url);
   const headers = new Headers(init.headers);
   headers.set("authorization", `Bearer ${remote.token}`);
   const res = await fetch(`${remote.url}${path}`, { ...init, headers });

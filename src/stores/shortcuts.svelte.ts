@@ -23,7 +23,15 @@ function readStoredOverrides(): KeybindingOverride[] {
   try {
     const raw = localStorage.getItem(KEYBINDINGS_STORAGE_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed as KeybindingOverride[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    // Storage is user-writable; drop entries that are not shaped like overrides.
+    return parsed.filter(
+      (entry): entry is KeybindingOverride =>
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof (entry as { id?: unknown }).id === "string" &&
+        typeof (entry as { enabled?: unknown }).enabled === "boolean",
+    );
   } catch {
     return [];
   }

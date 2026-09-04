@@ -149,7 +149,7 @@ function dismissDraftNotice() {
       placeholder={t("comment.placeholder")}
       class={cn(
         fontClass,
-        "w-full px-2 py-1.5 text-sm border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 resize-none focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500",
+        "w-full px-2 py-1.5 text-sm no-hover:text-base border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 resize-none focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500",
         submitFailed && "border-red-400 dark:border-red-500",
       )}
       rows={2}
@@ -177,7 +177,7 @@ function dismissDraftNotice() {
         onclick={oncancel}
       >
         {t("comment.cancel")}
-        <span class="text-zinc-400 dark:text-zinc-500">{cancelHint}</span>
+        <span class="text-zinc-400 dark:text-zinc-500 no-hover:hidden">{cancelHint}</span>
       </Button>
       <Button
         variant="link"
@@ -186,7 +186,7 @@ function dismissDraftNotice() {
         onclick={handleSubmit}
       >
         {commentText.trim() ? t("comment.addNote") : t("comment.highlight")}
-        <span class="text-zinc-400 dark:text-zinc-500">{submitHint}</span>
+        <span class="text-zinc-400 dark:text-zinc-500 no-hover:hidden">{submitHint}</span>
       </Button>
     </div>
   </div>

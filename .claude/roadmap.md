@@ -120,7 +120,7 @@ Cross-cutting work not tied to a single milestone:
 
 ## Future Considerations
 
-- Better mobile support (reading shared documents on a phone works as of v0.8.0; commenting UX untested)
+- Mobile polish beyond the basics (reading and commenting on shared documents from a phone works: touch selection, bottom-sheet comment input, viewport-safe modals; a phone TOC and swipe navigation are still open)
 - Storage edge-case test suite (large documents, 100+ comments, unicode/emoji, concurrent tabs, corrupt files)
 - Sticky notes (ペタペタ) — add notes not tied to text selection
 - Collaborative mode (real-time WebSocket sync; link sharing + pull merge shipped in v0.8.0)

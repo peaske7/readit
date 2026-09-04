@@ -401,7 +401,7 @@ onDestroy(() => {
                 </aside>
               {/if}
 
-              <div class="flex-1 px-6 py-6">
+              <div class="flex-1 min-w-0 px-4 sm:px-6 py-6">
                 <DocumentViewer
                   content={docState.document.html}
                   {comments}
@@ -470,7 +470,7 @@ onDestroy(() => {
             {/if}
 
             {#if selection && pendingSelectionTop !== undefined}
-              <div class="fixed bottom-16 left-4 right-4 z-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg p-4 lg:hidden">
+              <div class="fixed bottom-16 left-4 right-4 z-50 max-h-[60dvh] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg p-4 lg:hidden">
                 {#if reanchorTarget !== null}
                   <ReanchorConfirm
                     selectionText={selection.text}

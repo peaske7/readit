@@ -88,6 +88,9 @@ export interface KeybindingOverride {
 export interface DocumentSettings {
   version: number;
   fontFamily: FontFamily;
+  /** Absent in settings files written before these were persisted. */
+  themeMode?: ThemeMode;
+  tableMode?: TableMode;
   onboarded?: boolean;
   keybindings?: KeybindingOverride[];
 }
@@ -108,6 +111,8 @@ export interface InlineData {
   settings: {
     version: number;
     fontFamily: string;
+    themeMode?: string;
+    tableMode?: string;
     keybindings?: KeybindingOverride[];
   };
   /** True when served as a published snapshot with no live server behind it. */

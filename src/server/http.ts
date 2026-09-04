@@ -10,6 +10,8 @@ import { type DocumentSession, TaskPatchResults } from "./session.js";
 import {
   isValidFontFamily,
   isValidKeybindings,
+  isValidTableMode,
+  isValidThemeMode,
   updateSettings,
 } from "./settings.js";
 import { proxyToVite, VITE_CLIENT_ENTRY } from "./vite-dev.js";
@@ -20,6 +22,12 @@ function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
 
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status });
+}
+
+/** Browsers attach Origin to cross-site writes; its absence means same-site. */
+function isSameOrigin(req: Request): boolean {
+  const origin = req.headers.get("origin");
+  return origin === null || origin === new URL(req.url).origin;
 }
 
 function errorResponse(message: string, status: number): Response {
@@ -88,12 +96,20 @@ async function serveStaticFile(
   const filePath = join(distPath, pathname);
   const file = Bun.file(filePath);
 
+  const isHashed = pathname.startsWith("/assets/");
   if (await file.exists()) {
-    const isHashed = pathname.startsWith("/assets/");
     const headers: Record<string, string> = isHashed
       ? { "Cache-Control": "public, max-age=31536000, immutable" }
       : {};
     return new Response(file, { headers });
+  }
+
+  // A missing hashed asset means the browser holds a bundle from a build
+  // that no longer exists on disk (dist was rebuilt under a running
+  // server). Serving index.html here would make the module import fail
+  // with a misleading MIME error instead of a plain 404.
+  if (isHashed) {
+    return new Response("Not Found", { status: 404 });
   }
 
   const indexFile = Bun.file(join(distPath, "index.html"));
@@ -247,6 +263,7 @@ export function createFetchHandler(
         inlineData,
         isDev,
         fontFamily: settings.fontFamily,
+        themeMode: settings.themeMode,
       });
 
       // Dev reloads on every edit, so only pay for gzip when it is used.
@@ -527,14 +544,23 @@ export function createFetchHandler(
 
   async function putSettings(req: Request): Promise<Response> {
     try {
-      const { fontFamily, keybindings } = await req.json();
+      const { fontFamily, themeMode, tableMode, keybindings } =
+        await req.json();
       if (fontFamily !== undefined && !isValidFontFamily(fontFamily)) {
         return errorResponse("Invalid font family", 400);
+      }
+      if (themeMode !== undefined && !isValidThemeMode(themeMode)) {
+        return errorResponse("Invalid theme mode", 400);
+      }
+      if (tableMode !== undefined && !isValidTableMode(tableMode)) {
+        return errorResponse("Invalid table mode", 400);
       }
       if (keybindings !== undefined && !isValidKeybindings(keybindings)) {
         return errorResponse("Invalid keybindings format", 400);
       }
-      return json(await updateSettings({ fontFamily, keybindings }));
+      return json(
+        await updateSettings({ fontFamily, themeMode, tableMode, keybindings }),
+      );
     } catch (err) {
       console.error("Failed to save settings:", err);
       return errorResponse("Failed to save settings", 500);
@@ -569,6 +595,11 @@ export function createFetchHandler(
     }
     if (pathname === "/api/share") {
       if (method === "GET") return getShare;
+      // Publishing has side effects beyond this machine, so a page from
+      // another origin (a cross-site form or fetch) must not trigger it.
+      if (!isSameOrigin(req)) {
+        return async () => errorResponse("Cross-origin request rejected", 403);
+      }
       if (method === "POST") return (filePath) => publishShare(filePath, req);
       if (method === "DELETE") return removeShare;
     }
