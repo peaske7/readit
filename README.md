@@ -211,7 +211,7 @@ bun run check     # Lint and format (Biome)
 bun run worker:dev    # Share Worker on :8787 with simulated R2
 ```
 
-CI runs lint, typecheck, unit, Go, Playwright, and a Worker dry-run deploy on every pull request. Pushes to `main` deploy the Worker; `v*` tags publish to npm (see `.github/workflows/`).
+CI runs lint, typecheck, unit, Go, Playwright, and a Worker dry-run deploy on every pull request. Pushes to `main` that touch the Worker or the frontend it serves (the `paths` filter in `deploy-worker.yml`) deploy the Worker; `v*` tags publish to npm (see `.github/workflows/`).
 
 ## License
 

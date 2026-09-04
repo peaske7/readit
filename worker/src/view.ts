@@ -67,14 +67,25 @@ export async function handleShare(
       headers: {
         "content-type":
           obj.httpMetadata?.contentType ?? "application/octet-stream",
-        // Content-addressed names never change meaning.
-        "cache-control": "private, max-age=31536000, immutable",
+        // Content-addressed names never change meaning, but a password
+        // share's assets must not outlive the unlock in a browser cache.
+        "cache-control":
+          meta.mode === ShareModes.PASSWORD
+            ? NO_STORE
+            : "private, max-age=31536000, immutable",
       },
     });
   }
 
   if (rest.startsWith("/api/")) {
-    return handleShareComments(request, env, meta, rest.slice("/api".length));
+    const res = await handleShareComments(
+      request,
+      env,
+      meta,
+      rest.slice("/api".length),
+    );
+    res.headers.set("cache-control", NO_STORE);
+    return res;
   }
 
   return new Response("Not found", { status: 404 });

@@ -190,8 +190,6 @@ attribution are not implemented.
 - Author attribution on comments (not implemented)
 - Conflict resolution for simultaneous edits (merge rule on pull: remote wins for published ids)
 
-**Status:** Not implemented (future consideration)
-
 ---
 
 ### US-012: Export Document as PDF with Comments

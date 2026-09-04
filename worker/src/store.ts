@@ -115,8 +115,19 @@ export async function deleteShare(bucket: R2Bucket, id: string): Promise<void> {
 }
 
 export async function listShares(bucket: R2Bucket): Promise<ShareMeta[]> {
-  const page = await bucket.list({ prefix: "shares/", delimiter: "/" });
-  const ids = page.delimitedPrefixes.map((p) => p.slice("shares/".length, -1));
+  const ids: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await bucket.list({
+      prefix: "shares/",
+      delimiter: "/",
+      cursor,
+    });
+    for (const p of page.delimitedPrefixes) {
+      ids.push(p.slice("shares/".length, -1));
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
   const metas = await Promise.all(ids.map((id) => readMeta(bucket, id)));
   return metas.filter((m): m is ShareMeta => m !== undefined);
 }

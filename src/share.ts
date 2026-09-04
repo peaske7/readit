@@ -1,5 +1,12 @@
 import * as fs from "node:fs/promises";
-import { basename, dirname, extname, resolve } from "node:path";
+import {
+  basename,
+  dirname,
+  extname,
+  isAbsolute,
+  relative,
+  resolve,
+} from "node:path";
 import {
   computeHash,
   getCommentPath,
@@ -244,6 +251,12 @@ async function readLocalComments(
  * Upload relative images as content-addressed assets and rewrite their src.
  * Absolute URLs and data URIs are left alone; missing files warn and stay.
  */
+/** True when `target` (already a real path) sits under `root`. */
+function isWithin(root: string, target: string): boolean {
+  const rel = relative(root, target);
+  return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+}
+
 async function uploadImages(
   remote: RemoteConfig,
   shareId: string,
@@ -251,6 +264,9 @@ async function uploadImages(
   html: string,
 ): Promise<string> {
   const replacements = new Map<string, string>();
+  // A document written by someone else must not be able to make `readit
+  // share` publish files from elsewhere on the machine via `../` or symlinks.
+  const roots = [baseDir, await fs.realpath(process.cwd())];
 
   for (const match of html.matchAll(IMG_SRC)) {
     const src = match[1];
@@ -259,7 +275,14 @@ async function uploadImages(
     const localPath = resolve(baseDir, decodeURIComponent(src.split("?")[0]));
     let bytes: Uint8Array;
     try {
-      bytes = await fs.readFile(localPath);
+      const real = await fs.realpath(localPath);
+      if (!roots.some((root) => isWithin(root, real))) {
+        console.warn(
+          `warning: image outside the document directory, left as-is: ${src}`,
+        );
+        continue;
+      }
+      bytes = await fs.readFile(real);
     } catch {
       console.warn(`warning: image not found, left as-is: ${src}`);
       continue;

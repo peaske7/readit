@@ -20,6 +20,38 @@ import { readSnapshot, writeComments } from "./store";
 
 const COMMENT_ROUTE = /^\/comments\/([A-Za-z0-9-]+)(\/reanchor)?$/;
 
+// A comment is a selection plus a note; anything near this is not one.
+const MAX_BODY_BYTES = 64 * 1024;
+
+/** Parse a JSON body, or return undefined when it exceeds MAX_BODY_BYTES. */
+async function readJsonBody(
+  request: Request,
+): Promise<Record<string, unknown> | undefined> {
+  const declared = Number(request.headers.get("content-length"));
+  if (declared > MAX_BODY_BYTES) return undefined;
+  const text = await request.text();
+  if (new TextEncoder().encode(text).byteLength > MAX_BODY_BYTES) {
+    return undefined;
+  }
+  return JSON.parse(text) as Record<string, unknown>;
+}
+
+/**
+ * Offsets index the rendered text, which is never longer than the HTML it
+ * came from, so that bounds them without knowing the exact text length.
+ */
+function parseOffsetRange(
+  start: unknown,
+  end: unknown,
+  max: number,
+): { start: number; end: number } | undefined {
+  if (!Number.isInteger(start) || !Number.isInteger(end)) return undefined;
+  const s = start as number;
+  const e = end as number;
+  if (s < 0 || s > e || e > max) return undefined;
+  return { start: s, end: e };
+}
+
 /**
  * Viewer-facing API under /s/{id}/api, mirroring the local server's
  * /api/document and /api/comments handlers so the Svelte app is unchanged.
@@ -69,22 +101,27 @@ export async function handleShareComments(
       });
     }
     if (route === "/comments" && method === "POST") {
-      const body = await request.json<Record<string, unknown>>();
+      const body = await readJsonBody(request);
+      if (!body) return errorResponse("Request body too large", 413);
       const { selectedText, comment, startOffset, endOffset } = body;
+      const range = parseOffsetRange(
+        startOffset,
+        endOffset,
+        snapshot.html.length,
+      );
       if (
         typeof selectedText !== "string" ||
         !selectedText ||
         typeof comment !== "string" ||
-        typeof startOffset !== "number" ||
-        typeof endOffset !== "number"
+        !range
       ) {
         return errorResponse("Missing required fields", 400);
       }
       const created = createComment(
         selectedText,
         comment,
-        startOffset,
-        endOffset,
+        range.start,
+        range.end,
         snapshot.source,
       );
       await save([...stored, created]);
@@ -102,22 +139,23 @@ export async function handleShareComments(
     if (index === -1) return errorResponse("Comment not found", 404);
 
     if (reanchor && method === "PUT") {
-      const body = await request.json<Record<string, unknown>>();
+      const body = await readJsonBody(request);
+      if (!body) return errorResponse("Request body too large", 413);
       const { selectedText, startOffset, endOffset } = body;
-      if (
-        typeof selectedText !== "string" ||
-        !selectedText ||
-        typeof startOffset !== "number" ||
-        typeof endOffset !== "number"
-      ) {
+      const range = parseOffsetRange(
+        startOffset,
+        endOffset,
+        snapshot.html.length,
+      );
+      if (typeof selectedText !== "string" || !selectedText || !range) {
         return errorResponse("Missing required fields", 400);
       }
       const updated: Comment = {
         ...stored[index],
         selectedText: truncateSelection(selectedText),
-        startOffset,
-        endOffset,
-        lineHint: getLineHint(snapshot.source, startOffset, endOffset),
+        startOffset: range.start,
+        endOffset: range.end,
+        lineHint: getLineHint(snapshot.source, range.start, range.end),
         anchorConfidence: AnchorConfidences.EXACT,
         anchorPrefix:
           selectedText.length > 1000 ? selectedText.slice(0, 200) : undefined,
@@ -126,7 +164,9 @@ export async function handleShareComments(
       return json({ comment: updated });
     }
     if (method === "PUT") {
-      const { comment } = await request.json<Record<string, unknown>>();
+      const body = await readJsonBody(request);
+      if (!body) return errorResponse("Request body too large", 413);
+      const { comment } = body;
       if (typeof comment !== "string") {
         return errorResponse("Missing comment text", 400);
       }
