@@ -1,0 +1,58 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "readit-share-design",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "docs/plans/2026-09-02-share-design.md",
+        "docs/plans/2026-09-02-share-plan.md",
+        "--no-open",
+        "--port",
+        "4321"
+      ],
+      "port": 4321
+    },
+    {
+      "name": "readit-share-worker",
+      "runtimeExecutable": "bunx",
+      "runtimeArgs": [
+        "wrangler",
+        "dev",
+        "-c",
+        "worker/wrangler.toml",
+        "--port",
+        "8787",
+        "--ip",
+        "127.0.0.1"
+      ],
+      "port": 8787
+    },
+    {
+      "name": "readit-e2e-installed",
+      "runtimeExecutable": "/Users/jay/Library/pnpm/bin/readit",
+      "runtimeArgs": [
+        "/private/tmp/claude-501/-Users-jay-Developer-github-com-peaske7-readit/7ec29841-7d64-4924-9ab0-e741088b2d37/scratchpad/e2e/e2e-share.md",
+        "--no-open",
+        "--port",
+        "4323"
+      ],
+      "port": 4323
+    },
+    {
+      "name": "readit-mobile-check",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "dist/index.js",
+        "e2e/fixtures/sample.md",
+        "docs/plans/2026-09-02-share-design.md",
+        "--no-open",
+        "--port",
+        "4325"
+      ],
+      "port": 4325
+    }
+  ]
+}

@@ -39,3 +39,6 @@ worker/public
 worker/src/manifest.json
 worker/.dev.vars
 .wrangler
+
+# Agent worktrees (git worktrees, each a full checkout)
+.claude/worktrees
