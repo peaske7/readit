@@ -179,7 +179,6 @@ describe("capabilities", () => {
       heartbeat: true,
       putSettings: true,
       patchTask: true,
-      addDocument: true,
       share: true,
     });
   });
@@ -195,7 +194,6 @@ describe("capabilities", () => {
         heartbeat: false,
         putSettings: false,
         patchTask: false,
-        addDocument: false,
         share: false,
       },
     );

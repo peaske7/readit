@@ -1,20 +1,14 @@
 import * as fs from "node:fs/promises";
 import * as readline from "node:readline";
-import { ensureHome, remoteConfigPath, sharesPath } from "./lib/readit-home.js";
+import {
+  ensureHome,
+  type RemoteConfig,
+  remoteConfigPath,
+  type ShareRecord,
+  sharesPath,
+} from "./lib/readit-home.js";
 
-export interface RemoteConfig {
-  url: string;
-  token: string;
-}
-
-/** One entry per shared local file, keyed by absolute path in shares.json. */
-export interface ShareRecord {
-  id: string;
-  url: string;
-  mode: string;
-  /** Comment ids present in the last snapshot we pushed; drives merge on pull. */
-  publishedIds: string[];
-}
+export type { RemoteConfig, ShareRecord };
 
 export async function loadRemote(): Promise<RemoteConfig> {
   const envUrl = process.env.READIT_REMOTE_URL;

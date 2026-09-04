@@ -48,6 +48,8 @@ import { setActiveCommentId, ui } from "./stores/ui.svelte";
 let activeClusters = $state<Cluster[]>([]);
 let activeIndexById = $state<Map<string, number>>(new Map());
 let currentIndex = $state(0);
+// Live DOM callbacks registered by each DocumentViewer, not document state:
+// they die with the component, so they stay here rather than in the store.
 const highlighterMap = new Map<
   string,
   {

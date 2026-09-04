@@ -59,7 +59,6 @@ export const app = $state({
   documentOrder: [] as string[],
   workingDirectory: null as string | null,
   hosted: false,
-  canShare: false,
   /** True once bootstrap (or hydration) has resolved, success or failure. */
   initialized: false,
   /** Set when the initial document list failed to load. */
@@ -265,7 +264,6 @@ export function setActiveDocument(filePath: string): void {
 export function hydrateFromInlineData(data: InlineData): void {
   app.workingDirectory = data.workingDirectory;
   app.hosted = data.hosted ?? false;
-  app.canShare = data.canShare ?? false;
 
   const newDocs = new Map<string, DocumentState>();
   const order: string[] = [];

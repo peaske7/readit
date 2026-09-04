@@ -48,6 +48,21 @@ export function welcomePath(): string {
 }
 
 /** `~/.readit/config.json`: share remote URL and publish token. */
+/** Publisher remote stored in config.json: the Worker URL and its bearer token. */
+export interface RemoteConfig {
+  url: string;
+  token: string;
+}
+
+/** One entry per shared local file, keyed by absolute path in shares.json. */
+export interface ShareRecord {
+  id: string;
+  url: string;
+  mode: string;
+  /** Comment ids present in the last snapshot we pushed; drives merge on pull. */
+  publishedIds: string[];
+}
+
 export function remoteConfigPath(): string {
   return path.join(readitHome(), "config.json");
 }

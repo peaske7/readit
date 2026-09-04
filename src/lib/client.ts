@@ -19,7 +19,6 @@ export interface ClientCapabilities {
   heartbeat: boolean;
   putSettings: boolean;
   patchTask: boolean;
-  addDocument: boolean;
   share: boolean;
 }
 
@@ -41,10 +40,6 @@ export interface DocumentList {
   files: DocumentSummary[];
   clean: boolean;
   workingDirectory?: string;
-}
-
-export interface AddedDocument extends DocumentSummary {
-  status: "added" | "present";
 }
 
 export interface DocumentPayload {
@@ -107,7 +102,6 @@ export interface Client {
   /** Prefix this client's routes carry; also the share's own page path. */
   readonly basePath: string;
   getDocuments(): Promise<DocumentList>;
-  addDocument(path: string): Promise<AddedDocument>;
   getDocument(path?: string): Promise<DocumentPayload>;
   listComments(path?: string): Promise<Comment[]>;
   createComment(path: string, input: CommentInput): Promise<Comment>;
@@ -163,7 +157,6 @@ export function createClient(config: ClientConfig = {}): Client {
       heartbeat: live,
       putSettings: live,
       patchTask: live,
-      addDocument: live,
       share: live && config.canShare === true,
     },
     basePath,
@@ -173,14 +166,6 @@ export function createClient(config: ClientConfig = {}): Client {
         url("documents"),
         {},
         "Failed to load documents",
-      );
-    },
-
-    addDocument(path) {
-      return request<AddedDocument>(
-        url("documents"),
-        jsonInit("POST", { path }),
-        "Failed to add document",
       );
     },
 

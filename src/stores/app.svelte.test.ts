@@ -42,7 +42,6 @@ function fakeCapabilities(
     heartbeat: true,
     putSettings: true,
     patchTask: true,
-    addDocument: true,
     share: false,
     ...overrides,
   };
@@ -53,11 +52,6 @@ function createFakeClient(overrides?: Partial<Client>): Client {
     capabilities: fakeCapabilities(),
     basePath: "",
     getDocuments: vi.fn(async () => ({ files: [], clean: false })),
-    addDocument: vi.fn(async (path: string) => ({
-      path,
-      fileName: path,
-      status: "added" as const,
-    })),
     getDocument: vi.fn(async (path?: string) => ({
       html: "<p>hi</p>",
       headings: [],
@@ -121,7 +115,6 @@ function resetStore(): void {
   app.documentOrder = [];
   app.workingDirectory = null;
   app.hosted = false;
-  app.canShare = false;
   app.initialized = false;
   app.loadError = null;
 }
